@@ -317,7 +317,93 @@ const Q_STRUCT = [
   { q: "H175, poste panneau de plancher carbone. Tu perces un revêtement composite dont la face de sortie est libre. Quelles prescriptions écris-tu dans la gamme ?", options: ["Foret carbure ou diamant, appui arrière (martyr), aspiration à la source", "Foret acier rapide affûté à 118°, avance forte, soufflage des poussières", "Foret carbure, perçage sans appui arrière, nettoyage final par chiffon humide", "Poinçonnage de l'avant-trou, puis alésage acier rapide sans aspiration"], answer: 0, why: "Sans appui arrière, les derniers plis s'écartent sous la poussée du foret : délaminage de sortie. L'outil carbure ou diamant coupe la fibre proprement, l'aspiration capte une poussière conductrice.", hint: "Le défaut apparaît en sortie de trou, côté où rien ne retient les plis." },
   { q: "H145, pose d'un support d'équipement sur cadre. Un jeu de 0,3 mm subsiste entre support et structure. Le compagnon propose de « serrer un peu plus pour que ça plaque ». Quelle est ta réponse ?", options: ["Refus : le jeu se traite par calage (pelable ou liquide), jamais au serrage", "Accord si le couple appliqué reste dans la plage du plan", "Accord en ajoutant une rondelle plus épaisse sous l'écrou", "Accord si la fixation est en titane, plus résistante"], answer: 0, why: "Tirer une pièce pour fermer un jeu crée des contraintes résiduelles. Sous les vibrations du rotor, elles deviennent des criques de fatigue. Le jeu se traite par une cale.", hint: "Pense à ce que deviennent les contraintes internes sous les vibrations du rotor." },
   { q: "H160, perçage de panneaux carbone en cabine équipée. En plus de la protection de l'opérateur, pourquoi l'aspiration des poussières est-elle obligatoire ?", options: ["Les poussières de carbone sont conductrices : risque de courts-circuits avionique", "Les poussières de carbone accélèrent la polymérisation des mastics PR voisins", "Les poussières de carbone rayent les vitrages et faussent les cotes d'alésage", "Les poussières de carbone dégradent l'adhérence de la peinture de finition"], answer: 0, why: "La fibre de carbone conduit l'électricité. Dispersée dans la cellule, sa poussière se dépose dans les connecteurs et équipements : courts-circuits et pannes intermittentes.", hint: "Le carbone a une propriété électrique particulière." },
+  { q: "H145, jonction revêtement alu sur cadre. La gamme prévoit des épingles Ø 3,2 mm. Quelle couleur de Cleco l'opérateur doit-il préparer ?", options: ["Cuivre, code usuel du diamètre 1/8 in soit 3,2 mm", "Argent, code usuel du diamètre 3/32 in soit 2,4 mm", "Noir, code usuel du diamètre 5/32 in soit 4,0 mm", "Laiton or, code usuel du diamètre 3/16 in soit 4,8 mm"], answer: 0, why: "Code usuel du marché : argent 3/32, cuivre 1/8 (3,2 mm), noir 5/32, laiton 3/16. La gamme cite toujours le diamètre, la couleur n'est qu'une aide visuelle.", hint: "1/8 de pouce fait environ 3,2 mm." },
+  { q: "H160, empilage titane + alu + CFRP sur ferrure de dérive. Comment fixes-tu les paramètres de perçage dans la gamme ?", options: ["Ceux du matériau le plus exigeant, ici le titane", "Ceux du matériau le plus épais de l'empilage", "Ceux de l'aluminium, matériau le plus courant", "Une moyenne des paramètres des trois matériaux"], answer: 0, why: "L'empilage se perce au rythme du plus exigeant : vitesse lente et avance régulière pour le titane, outil carbure pour ne pas délaminer le carbone.", hint: "Le titane s'échauffe et use l'outil très vite." },
+  { q: "H175, support sur plancher mécanique. Le jeu mesuré varie de 0,1 à 0,6 mm d'un bord à l'autre. Quelle solution prescris-tu ?", options: ["Une cale liquide, seule capable d'épouser un jeu en biais", "Une cale pelable pelée à l'épaisseur moyenne de 0,35 mm", "Deux rondelles d'épaisseurs différentes sous les fixations", "Un serrage progressif en croix pour refermer le biais"], answer: 0, why: "Un jeu variable ne se rattrape pas avec une épaisseur constante. La résine de calage, injectée avec démoulant, prend la forme exacte du vide.", hint: "Une cale pelable a une épaisseur constante." },
 ];
+
+/* Épingle Cleco réaliste : capuchon à code couleur, collerette d'appui, corps, mors fendus à épaulement */
+function ClecoIcon({ c, w = 26 }) {
+  return (
+    <svg width={w} height={w * 1.9} viewBox="0 0 26 50" aria-hidden="true">
+      <rect x="6" y="1" width="14" height="15" rx="2.5" fill={c} stroke="#5b7299" />
+      <line x1="9" y1="3" x2="9" y2="14" stroke="#ffffff" strokeOpacity="0.35" strokeWidth="1.5" />
+      <rect x="2" y="16" width="22" height="3.5" rx="1" fill="#9fb3d1" stroke="#5b7299" strokeWidth="0.8" />
+      <rect x="7.5" y="19.5" width="11" height="13" fill="#c8d6ea" stroke="#5b7299" strokeWidth="0.8" />
+      <path d="M9.5,32.5 L9.5,43 L8.4,44.5 L9.6,48 L12.6,48 L12.6,32.5 Z M16.5,32.5 L16.5,43 L17.6,44.5 L16.4,48 L13.4,48 L13.4,32.5 Z" fill="#9fb3d1" stroke="#5b7299" strokeWidth="0.7" />
+    </svg>
+  );
+}
+
+/* Frise en coupe des étapes clés de la séquence structure */
+const FR = { plate: "#1b2a47", cf: "#262b36", edge: "#5b7299", hatch: "#2e4168", metal: "#9fb3d1", metal2: "#c8d6ea", pr: "#ffb020", ko: "#ff5d6c", ok: "#3ddc97", sky: "#3b9eff", txt: "#8fa0bd" };
+function FrisePlates({ y1 = 60, y2 = 76, gap = 0, hole = 10, chamfer = false, film = false }) {
+  const a = 100 - hole / 2, b = 100 + hole / 2, c = chamfer ? 3 : 0;
+  return (
+    <g>
+      <path d={`M18,${y1} H${a - c} L${a},${y1 + c} V${y1 + 14} H18 Z M182,${y1} H${b + c} L${b},${y1 + c} V${y1 + 14} H182 Z`} fill={FR.plate} stroke={FR.edge} />
+      <path d={`M18,${y1} H${a - c} L${a},${y1 + c} V${y1 + 14} H18 Z M182,${y1} H${b + c} L${b},${y1 + c} V${y1 + 14} H182 Z`} fill="url(#fz-h)" />
+      {film && <rect x="18" y={y1 + 14} width={a - 18} height="3" fill={FR.pr} />}
+      {film && <rect x={b} y={y1 + 14} width={182 - b} height="3" fill={FR.pr} />}
+      <path d={`M18,${y2 + gap} H${a} V${y2 + gap + 14 - c} L${a - c},${y2 + gap + 14} H18 Z M182,${y2 + gap} H${b} V${y2 + gap + 14 - c} L${b + c},${y2 + gap + 14} H182 Z`} fill={FR.cf} stroke={FR.edge} />
+      {[30, 46, 62, 78, 118, 134, 150, 166].map((x) => <line key={x} x1={x} y1={y2 + gap + 3} x2={x + 8} y2={y2 + gap + 11} stroke="#454b57" />)}
+    </g>
+  );
+}
+function FriseStep({ n, title, children, note }) {
+  return (
+    <figure className="flex min-w-0 flex-col gap-1.5 rounded-lg border border-line bg-bg p-2">
+      <svg viewBox="0 0 200 130" className="h-auto w-full" role="img" aria-label={title}>
+        <defs><pattern id="fz-h" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="5" stroke={FR.hatch} strokeWidth="1" /></pattern></defs>
+        <rect width="200" height="130" fill="#0d1526" />
+        {children}
+      </svg>
+      <figcaption className="px-1 text-[12.5px] leading-snug text-ink/90"><span className="mr-1 rounded bg-sky px-1.5 py-0.5 font-mono text-[10px] font-bold text-bg">{n}</span><strong className="text-ink">{title}.</strong> {note}</figcaption>
+    </figure>
+  );
+}
+function FriseStructure() {
+  const T = ({ x, y, children, c = FR.txt, a = "start" }) => <text x={x} y={y} fontSize="8.5" fontFamily="JetBrains Mono, monospace" fill={c} textAnchor={a}>{children}</text>;
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <FriseStep n="1" title="Épinglage Cleco" note="Alu sur CFRP, épingle cuivre Ø 3,2 tous les 4 à 6 trous : l'empilage est plaqué pendant le perçage.">
+        <FrisePlates hole={10} />
+        <rect x="93" y="24" width="14" height="16" rx="2" fill="#c9773a" stroke={FR.edge} />
+        <rect x="88" y="40" width="24" height="4" fill={FR.metal} stroke={FR.edge} />
+        <rect x="95" y="44" width="10" height="16" fill={FR.metal2} stroke={FR.edge} />
+        <path d="M96,60 V92 L94,95 L97,98 H99.5 V60 Z M104,60 V92 L106,95 L103,98 H100.5 V60 Z" fill={FR.metal} stroke={FR.edge} strokeWidth="0.7" />
+        <T x={18} y={16}>alu 2024</T><T x={18} y={112}>CFRP</T><T x={118} y={34} c="#c9773a">Cleco cuivre</T>
+      </FriseStep>
+      <FriseStep n="2" title="Perçage avec martyr et aspiration" note="Foret carbure, appui arrière contre le délaminage, poussière conductrice captée à la source.">
+        <FrisePlates hole={8} />
+        <path d="M96,14 H104 V52 L100,60 L96,52 Z" fill={FR.metal} stroke={FR.edge} />
+        {[18, 26, 34, 42].map((y) => <path key={y} d={`M96,${y} L104,${y + 5}`} stroke="#5b7299" />)}
+        <rect x="70" y="91" width="60" height="14" fill="#3a2f22" stroke="#8a6a3a" />
+        <path d="M128,40 L150,30 L160,30 L160,44 L150,44 L132,52 Z" fill="#22304d" stroke={FR.edge} />
+        {[[116, 54], [122, 50], [112, 56], [126, 46]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r="1.2" fill={FR.txt} />)}
+        <T x={18} y={16}>foret carbure</T><T x={134} y={24}>aspiration</T><T x={136} y={104} c="#c79a5a">martyr</T>
+      </FriseStep>
+      <FriseStep n="3" title="Bavures et copeaux piégés" note="Démontage obligatoire : copeaux entre tôles et bavures de sortie empêchent le plaquage et piègent l'eau.">
+        <FrisePlates hole={10} gap={8} />
+        {[[40, 79], [62, 80], [140, 79], [160, 80], [84, 81]].map(([x, y], i) => <path key={i} d={`M${x},${y} q3,-3 6,0 q-2,3 -6,0`} fill={FR.ko} />)}
+        <path d="M95,74 l-3,3 h3 Z M105,74 l3,3 h-3 Z" fill={FR.ko} />
+        <path d="M95,98 l-3,3 h3 Z M105,98 l3,3 h-3 Z" fill={FR.ko} />
+        <T x={18} y={16} c={FR.ko}>copeaux entre tôles</T><T x={18} y={122} c={FR.ko}>bavures de sortie</T>
+        <line x1="62" y1="80" x2="50" y2="22" stroke="#3a4c70" />
+        <line x1="106" y1="100" x2="120" y2="114" stroke="#3a4c70" />
+      </FriseStep>
+      <FriseStep n="4" title="Ébavurage, film PR, Hi-Lok posé" note="Arêtes chanfreinées, film d'interposition continu, Hi-Lok posé humide : le bourrelet de PR prouve la continuité.">
+        <FrisePlates hole={10} chamfer film y2={77} />
+        <path d="M87,52 H113 L105,60 H95 Z" fill={FR.metal} stroke={FR.edge} />
+        <rect x="95" y="60" width="10" height="32" fill={FR.metal} stroke={FR.edge} />
+        <rect x="88" y="91" width="24" height="9" fill={FR.sky} opacity="0.85" stroke={FR.edge} />
+        <rect x="96" y="100" width="8" height="6" fill={FR.metal2} stroke={FR.edge} />
+        <path d="M84,75 q-4,2 0,4 M116,75 q4,2 0,4" stroke={FR.pr} strokeWidth="2" fill="none" />
+        <T x={18} y={16}>tête fraisée 100°</T><T x={18} y={122} c={FR.pr}>film PR + bourrelet</T><T x={120} y={100} c={FR.sky}>collier</T>
+      </FriseStep>
+    </div>
+  );
+}
 
 function TabStructure({ done, onComplete }) {
   return (
@@ -347,6 +433,11 @@ function TabStructure({ done, onComplete }) {
         ))}
       </div>
 
+      <Panel className="p-4">
+        <Eyebrow>La séquence en coupe · ce qui se passe dans l'empilage</Eyebrow>
+        <div className="mt-3"><FriseStructure /></div>
+      </Panel>
+
       <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
         <DangerBox title="Pourquoi on ne saute jamais le démontage après perçage">
           Un copeau piégé entre deux tôles ne se voit pas et ne s'aspire pas. Il empêche le plaquage, ce qui crée un point dur où les contraintes se concentrent. Il crée aussi une poche qui retient l'humidité et l'électrolyte : la corrosion démarre au cœur de l'assemblage, sous les fixations, là où aucune inspection visuelle ne la verra avant des années.
@@ -356,7 +447,7 @@ function TabStructure({ done, onComplete }) {
           <div className="mt-3 grid grid-cols-2 gap-2">
             {CLECOS.map((c) => (
               <div key={c.n} className="flex items-center gap-3 rounded-lg border border-line bg-bg px-3 py-2">
-                <svg width="22" height="30" viewBox="0 0 22 30" aria-hidden="true"><rect x="3" y="2" width="16" height="16" rx="3" fill={c.c} stroke="#5b7299" /><rect x="9" y="18" width="4" height="10" fill="#8fa0bd" /></svg>
+                <ClecoIcon c={c.c} w={32} />
                 <div className="min-w-0">
                   <div className="text-[13px] font-semibold text-ink">{c.n}</div>
                   <div className="font-mono text-[11px] text-muted">{c.inch} · {c.mm}</div>
@@ -506,16 +597,67 @@ function GalvanicStack() {
   );
 }
 
+/* Vocabulaire PR : coupes 220 × 110, PR en violet clair très contrasté */
+const PRC = { pr: "#c4a7ff", prEdge: "#8e6bff", alu: "#9fb0c8", st: "#5b7299", stEdge: "#8fa0bd", fx: "#d6dde8", fxEdge: "#5b7299", txt: "#8fa0bd", lead: "#3a4c70" };
+const PrT = ({ x, y, children, a = "start", c = PRC.txt }) => <text x={x} y={y} fontSize="8.6" fontFamily="JetBrains Mono, monospace" fill={c} textAnchor={a}>{children}</text>;
+const PrHatch = () => (
+  <defs>
+    <pattern id="prv-h" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="5" stroke="#2e4168" strokeWidth="1" /></pattern>
+  </defs>
+);
 const PR_VOCAB = [
-  { t: "Interposition", d: "Film continu de PR entre deux surfaces en contact, appliqué avant accostage. Le surplus qui flue au serrage prouve la continuité du film.", draw: (
-    <g><rect x="10" y="14" width="100" height="12" fill="#9fb0c8" /><rect x="10" y="26" width="100" height="4" fill="#4a4f57" /><rect x="10" y="30" width="100" height="12" fill="#5b7299" /></g>) },
-  { t: "Cordon / congé", d: "Joint déposé en périphérie de l'assemblage puis lissé en congé, pour fermer l'interface à l'eau et aux fluides.", draw: (
-    <g><rect x="10" y="30" width="100" height="12" fill="#5b7299" /><rect x="30" y="16" width="60" height="14" fill="#9fb0c8" /><path d="M22 30 Q30 30 30 22 L30 30 Z" fill="#4a4f57" /><path d="M98 30 Q90 30 90 22 L90 30 Z" fill="#4a4f57" /></g>) },
-  { t: "Capotage", d: "Enrobage des têtes de rivets ou des écrous, par exemple en zone carburant, pour l'étanchéité et contre la corrosion.", draw: (
-    <g><rect x="10" y="30" width="100" height="12" fill="#5b7299" /><rect x="52" y="22" width="16" height="8" fill="#c9ced6" /><path d="M46 30 Q46 14 60 14 Q74 14 74 30 Z" fill="#4a4f57" opacity="0.85" /></g>) },
-  { t: "Montage humide", d: "Le fût de la fixation est enduit de PR juste avant son insertion dans l'alésage : le trou est étanche et protégé.", draw: (
-    <g><rect x="10" y="22" width="100" height="20" fill="#5b7299" /><rect x="52" y="6" width="16" height="16" fill="#c9ced6" /><rect x="54" y="22" width="12" height="22" fill="#c9ced6" /><rect x="52" y="22" width="2" height="20" fill="#4a4f57" /><rect x="66" y="22" width="2" height="20" fill="#4a4f57" /></g>) },
+  { t: "Interposition", d: "Film continu de PR entre deux surfaces en contact, appliqué avant accostage. Le surplus qui flue au serrage (bourrelet) prouve la continuité du film.", draw: (
+    <g>
+      <rect x="12" y="56" width="196" height="20" fill={PRC.st} stroke={PRC.stEdge} /><rect x="12" y="56" width="196" height="20" fill="url(#prv-h)" />
+      <rect x="40" y="52" width="140" height="4" fill={PRC.pr} />
+      <rect x="40" y="32" width="140" height="20" fill={PRC.alu} stroke={PRC.stEdge} />
+      <path d="M40,51 C31,51 29,57 40,57 Z" fill={PRC.pr} stroke={PRC.prEdge} strokeWidth="0.8" />
+      <path d="M180,51 C189,51 191,57 180,57 Z" fill={PRC.pr} stroke={PRC.prEdge} strokeWidth="0.8" />
+      <path d="M104,28 H116 L112,32 H108 Z" fill={PRC.fx} stroke={PRC.fxEdge} /><rect x="107" y="32" width="6" height="50" fill={PRC.fx} stroke={PRC.fxEdge} />
+      <rect x="102" y="76" width="16" height="6" fill={PRC.fx} stroke={PRC.fxEdge} />
+      <line x1="33" y1="57" x2="40" y2="92" stroke={PRC.lead} /><PrT x={16} y={100}>bourrelet de fluage</PrT>
+      <line x1="150" y1="54" x2="164" y2="20" stroke={PRC.lead} /><PrT x={204} y={17} a="end" c={PRC.pr}>film continu</PrT>
+      <PrT x={16} y={17}>tôle alu</PrT><PrT x={204} y={100} a="end">structure</PrT>
+    </g>) },
+  { t: "Cordon / congé", d: "Joint déposé en périphérie de l'assemblage puis lissé en congé de rayon prescrit, pour fermer l'interface à l'eau et aux fluides.", draw: (
+    <g>
+      <rect x="12" y="66" width="196" height="18" fill={PRC.st} stroke={PRC.stEdge} /><rect x="12" y="66" width="196" height="18" fill="url(#prv-h)" />
+      <rect x="70" y="30" width="80" height="36" fill={PRC.alu} stroke={PRC.stEdge} />
+      <path d="M70,44 A22,22 0 0 1 48,66 L70,66 Z" fill={PRC.pr} stroke={PRC.prEdge} strokeWidth="0.8" />
+      <path d="M150,44 A22,22 0 0 0 172,66 L150,66 Z" fill={PRC.pr} stroke={PRC.prEdge} strokeWidth="0.8" />
+      <line x1="48" y1="44" x2="63.6" y2="59.6" stroke="#e6edf7" strokeWidth="0.9" /><circle cx="48" cy="44" r="1.4" fill="#e6edf7" />
+      <PrT x={36} y={40} c="#e6edf7">R</PrT>
+      <line x1="166" y1="62" x2="182" y2="96" stroke={PRC.lead} /><PrT x={204} y={102} a="end" c={PRC.pr}>congé lissé</PrT>
+      <PrT x={16} y={102}>rayon de congé R du plan</PrT>
+      <PrT x={110} y={22} a="middle">cornière</PrT>
+    </g>) },
+  { t: "Capotage", d: "Enrobage complet de la tête ou de l'écrou et de sa rondelle (cap seal), par exemple en zone carburant : étanchéité et protection contre la corrosion.", draw: (
+    <g>
+      <rect x="12" y="68" width="196" height="18" fill={PRC.st} stroke={PRC.stEdge} /><rect x="12" y="68" width="196" height="18" fill="url(#prv-h)" />
+      <rect x="106" y="40" width="8" height="46" fill={PRC.fx} stroke={PRC.fxEdge} />
+      <rect x="92" y="64" width="36" height="4" fill={PRC.fx} stroke={PRC.fxEdge} />
+      <rect x="96" y="50" width="28" height="14" fill="#b9c4d6" stroke={PRC.fxEdge} />
+      <line x1="105" y1="50" x2="105" y2="64" stroke={PRC.fxEdge} /><line x1="115" y1="50" x2="115" y2="64" stroke={PRC.fxEdge} />
+      <path d="M80,68 C80,22 140,22 140,68 Z" fill={PRC.pr} fillOpacity="0.55" stroke={PRC.prEdge} strokeWidth="1.2" />
+      <line x1="134" y1="40" x2="160" y2="24" stroke={PRC.lead} /><PrT x={204} y={20} a="end" c={PRC.pr}>dôme plein</PrT>
+      <PrT x={16} y={20}>écrou + rondelle</PrT><line x1="60" y1="23" x2="96" y2="54" stroke={PRC.lead} />
+      <PrT x={16} y={102}>aucune bulle, aucun métal visible</PrT>
+    </g>) },
+  { t: "Montage humide", d: "Le fût de la fixation est enduit de PR juste avant son insertion : le film remplit le jeu de l'alésage et flue sous la tête et sous la bague.", draw: (
+    <g>
+      <path d="M12,32 H96 L102,38 V54 H12 Z M208,32 H124 L118,38 V54 H208 Z" fill={PRC.alu} stroke={PRC.stEdge} />
+      <path d="M12,54 H102 V76 H12 Z M208,54 H118 V76 H208 Z" fill={PRC.st} stroke={PRC.stEdge} /><path d="M12,54 H102 V76 H12 Z M208,54 H118 V76 H208 Z" fill="url(#prv-h)" />
+      <path d="M96,32 L102,38 V76 H104.5 V38.5 L99,32 Z M124,32 L118,38 V76 H115.5 V38.5 L121,32 Z" fill={PRC.pr} />
+      <path d="M99,32 H121 L115.5,38 V84 H104.5 V38 Z" fill={PRC.fx} stroke={PRC.fxEdge} />
+      <rect x="98" y="76" width="24" height="9" fill="#3b9eff" stroke={PRC.fxEdge} />
+      <path d="M98,76 C93,76 93,80 98,80 Z M122,76 C127,76 127,80 122,80 Z" fill={PRC.pr} stroke={PRC.prEdge} strokeWidth="0.6" />
+      <path d="M99,32 C95,29 92,31 96,32 Z M121,32 C125,29 128,31 124,32 Z" fill={PRC.pr} stroke={PRC.prEdge} strokeWidth="0.6" />
+      <line x1="103" y1="60" x2="60" y2="94" stroke={PRC.lead} /><PrT x={16} y={102} c={PRC.pr}>film PR dans l'alésage</PrT>
+      <line x1="125" y1="79" x2="160" y2="94" stroke={PRC.lead} /><PrT x={204} y={102} a="end">bourrelet</PrT>
+      <PrT x={16} y={20}>Hi-Lok enduit avant pose</PrT>
+    </g>) },
 ];
+
 
 function PotLifePlanner() {
   const [n, setN] = useState(150);
@@ -567,7 +709,87 @@ const Q_FIX = [
   { q: "H160, poste jonction poutre. Après pose d'une série de Hi-Lok, que doit vérifier le contrôle qualité prescrit par la gamme ?", options: ["Rupture de collerette, dépassement de tige à la jauge, absence de jeu sous tête", "Rupture de collerette, couple résiduel au torquemètre, couleur de la bague", "Dépassement de tige à la jauge, couple résiduel, marquage de la tête de tige", "Rupture de collerette seule, la jauge n'étant utile qu'en cas de doute"], answer: 0, why: "La rupture prouve que le couple de pose a été atteint, la jauge que la longueur de serrage (grip) est la bonne, l'absence de jeu sous tête que l'assemblage est plaqué.", hint: "Il y a trois points à contrôler." },
   { q: "H175, poste étanchéité de caisson. La gamme appelle le mastic « PR 1422 B 2 ». Que signifie le code « B 2 » ?", options: ["Durée d'utilisation du mélange de 2 heures", "Application en 2 couches croisées", "Polymérisation complète en 2 jours", "Épaisseur de cordon de 2 mm"], answer: 0, why: "Le code B donne la durée d'utilisation (vie en pot) du mélange : B 1/2 = 30 min, B 2 = 2 heures. Le préparateur le choisit selon la quantité de travail du poste.", hint: "Le chiffre derrière la lettre B est une durée." },
   { q: "H160, revêtement carbone fixé sur un cadre en alliage d'aluminium. Quelle configuration prescris-tu à l'interface ?", options: ["Pli de verre isolant, primaire sur l'aluminium, PR d'interposition", "Contact direct alu / carbone, PR en cordon extérieur seulement", "Graisse anticorrosion entre pièces, rondelles inox sous écrous", "Primaire sur le carbone seulement, montage à sec au couple"], answer: 0, why: "Carbone et aluminium ont un fort écart de potentiel. Il faut couper le contact électrique (verre), protéger l'aluminium (primaire) et empêcher l'eau d'entrer (PR).", hint: "Il faut empêcher la pile galvanique de se former." },
+  { q: "H145, jonction de cadre. L'empilage mesuré à la jauge fait 6,2 mm. La graduation lue au ras de la face avant est le grip 4. Quel Hi-Lok prescris-tu ?", options: ["Le grip 4, première graduation au-dessus de l'épaisseur", "Le grip 3, pour que la tige dépasse moins du collier", "Le grip 5, pour garder une marge de longueur de tige", "Le grip 6, longueur standard de toutes les jonctions"], answer: 0, why: "Le grip est en 1/16 de pouce : 4/16 in = 6,35 mm couvre juste 6,2 mm. Plus court, le filet entre dans l'alésage ; plus long, le collier ne serre plus l'empilage.", hint: "On retient la graduation juste au-dessus de l'épaisseur." },
+  { q: "H160, réservoir structural en zone carburant. Les écrous côté carburant doivent être protégés individuellement. Quelle opération PR écris-tu ?", options: ["Capotage : dôme de PR plein sur écrou et rondelle", "Interposition : film de PR entre les deux tôles", "Montage humide : PR sur le fût avant insertion", "Cordon : congé de PR en périphérie du panneau"], answer: 0, why: "Le capotage (cap seal) enrobe entièrement l'écrou et sa rondelle, sans bulle ni métal visible : il étanche le chemin de fuite le long de la fixation.", hint: "On parle d'enrober une fixation, pas une interface." },
+  { q: "H175, rivetage NF L fraisé 100° sur revêtement. Quel outillage prescris-tu pour obtenir une tête affleurante dans la tolérance ?", options: ["Fraise 100° à pilote dans une cage micrométrique", "Foret étagé 90° monté directement sur la perceuse", "Fraise 120° à main, sans butée de profondeur", "Alésoir conique suivi d'un ébavurage au grattoir"], answer: 0, why: "La cage micrométrique règle la profondeur de fraisure au 1/100 de mm et le pilote centre la fraise dans l'alésage : la tête 100° affleure dans la tolérance.", hint: "Il faut un angle de 100° et une profondeur réglée." },
 ];
+
+/* Jauge de grip (lecture de l'épaisseur E) et jauge de dépassement Hi-Lok */
+const GRIP = 1.5875; /* 1/16 in en mm */
+function GripGaugeLab() {
+  const [E, setE] = useState(6.2);
+  const [delta, setDelta] = useState(0);
+  const nRead = Math.max(1, Math.ceil(E / GRIP - 1e-9));
+  const nUsed = Math.max(1, nRead + delta);
+  const P0 = 0.8, PMIN = 0.6, PMAX = 2.5; /* valeurs pédagogiques */
+  const P = P0 + (nUsed * GRIP - E);
+  const okP = P >= PMIN && P <= PMAX;
+  const k = 7, top = 72, yB = top + E * k;
+  const marks = Array.from({ length: 12 }).map((_, i) => i + 1);
+  const T = ({ x, y, children, c = "#8fa0bd", a = "start", w }) => <text x={x} y={y} fontSize="8.6" fontFamily="JetBrains Mono, monospace" fill={c} textAnchor={a} fontWeight={w}>{children}</text>;
+  const Stack = ({ x1, x2, hole, csk }) => (
+    <g>
+      <path d={`M${x1},${top} H${hole - 4 - (csk ? 8 : 0)} L${hole - 4},${top + (csk ? 8 : 0)} V${top + E * k * 0.45} H${x1} Z M${x2},${top} H${hole + 4 + (csk ? 8 : 0)} L${hole + 4},${top + (csk ? 8 : 0)} V${top + E * k * 0.45} H${x2} Z`} fill="#9fb0c8" stroke="#5b7299" />
+      <path d={`M${x1},${top + E * k * 0.45} H${hole - 4} V${yB} H${x1} Z M${x2},${top + E * k * 0.45} H${hole + 4} V${yB} H${x2} Z`} fill="#3a4a66" stroke="#5b7299" />
+    </g>
+  );
+  const hx = 270, stemEnd = yB + 9 + P * k;
+  return (
+    <Panel className="p-4">
+      <Eyebrow>Contrôles Hi-Lok · jauge de grip et jauge de dépassement</Eyebrow>
+      <div className="mt-3 grid gap-4 lg:grid-cols-[1.25fr_1fr]">
+        <svg viewBox="0 0 360 240" className="w-full rounded-lg border border-line bg-bg" role="img" aria-label="Jauge de grip et jauge de dépassement Hi-Lok">
+          <T x={16} y={24} c="#e6edf7" w="600">1 · Jauge de grip</T>
+          <T x={196} y={24} c="#e6edf7" w="600">2 · Jauge de dépassement</T>
+          <line x1="180" y1="14" x2="180" y2="226" stroke="#22304d" />
+          {/* gauche : lecture de l'épaisseur */}
+          <Stack x1={40} x2={160} hole={110} />
+          <line x1="30" y1={top} x2="30" y2={yB} stroke="#e6edf7" /><line x1="26" y1={top} x2="38" y2={top} stroke="#e6edf7" /><line x1="26" y1={yB} x2="38" y2={yB} stroke="#e6edf7" />
+          <T x={20} y={(top + yB) / 2 + 3} a="middle" c="#e6edf7">E</T>
+          <rect x="107" y="30" width="6" height={yB - 30 + 4} fill="#d6dde8" stroke="#5b7299" />
+          <path d={`M107,${yB} H124 V${yB + 4} H107 Z`} fill="#d6dde8" stroke="#5b7299" />
+          {marks.map((n) => {
+            const y = yB - n * GRIP * k;
+            if (y < 32) return null;
+            const hidden = y > top;
+            const sel = n === nRead;
+            return (
+              <g key={n} opacity={hidden ? 0.35 : 1}>
+                <line x1={sel ? 98 : 101} x2="107" y1={y} y2={y} stroke={sel ? "#ffb020" : "#e6edf7"} strokeWidth={sel ? 1.6 : 0.9} />
+                {!hidden && <T x={96} y={y + 3} a="end" c={sel ? "#ffb020" : "#8fa0bd"}>{n}</T>}
+              </g>
+            );
+          })}
+          <T x={120} y={top - 4} c="#ffb020">lu : grip {nRead}</T>
+          <T x={16} y={212}>crochet en appui face arrière</T>
+          <T x={16} y={226} c="#ffb020">{`E = ${mm(E, 1)} mm → grip ${nRead} (${nRead}/16 in)`}</T>
+          {/* droite : Hi-Lok posé, dépassement */}
+          <Stack x1={196} x2={344} hole={hx} csk />
+          <path d={`M${hx - 12},${top} H${hx + 12} L${hx + 4},${top + 8} V${stemEnd} H${hx - 4} V${top + 8} Z`} fill="#d6dde8" stroke="#5b7299" />
+          <rect x={hx - 9} y={yB} width="18" height="9" fill="#3b9eff" stroke="#8fd0ff" />
+          <rect x={hx - 4} y={stemEnd - 2} width="8" height="2" fill={okP ? "#3ddc97" : "#ff5d6c"} />
+          <rect x={hx + 14} y={yB + 9 + PMIN * k} width="22" height={(PMAX - PMIN) * k} fill="#3ddc97" opacity="0.18" stroke="#3ddc97" strokeWidth="0.8" />
+          <line x1={hx - 6} x2={hx + 36} y1={yB + 9} y2={yB + 9} stroke="#8fa0bd" strokeDasharray="2 2" />
+          <T x={hx + 40} y={yB + 12 + PMIN * k}>mini</T>
+          <T x={hx + 40} y={yB + 12 + PMAX * k}>maxi</T>
+          <T x={196} y={226} c={okP ? "#3ddc97" : "#ff5d6c"}>{`P = ${mm(P, 1)} mm · ${okP ? "conforme" : P < PMIN ? "trop court" : "trop long"}`}</T>
+          <T x={196} y={212}>{`grip posé : ${nUsed}`}</T>
+        </svg>
+        <div className="flex flex-col gap-3">
+          <Slider label="Épaisseur d'empilage E mesurée" value={E} min={2} max={12} step={0.1} onChange={setE} unit="mm" display={mm(E, 1)} />
+          <div className="grid grid-cols-3 gap-2">
+            <Chip active={delta === -1} onClick={() => setDelta(-1)}>Grip {Math.max(1, nRead - 1)}</Chip>
+            <Chip active={delta === 0} onClick={() => setDelta(0)}>Grip {nRead} lu</Chip>
+            <Chip active={delta === 1} onClick={() => setDelta(1)}>Grip {nRead + 1}</Chip>
+          </div>
+          <RuleCard n="1" title="Lire le grip avant de choisir">Le crochet de la jauge s'appuie sur la face arrière, la lecture se fait au ras de la face avant. On retient la graduation juste au-dessus : le numéro de grip est en 1/16 de pouce.</RuleCard>
+          <RuleCard n="2" title="Contrôler le dépassement après rupture">Collerette cassée, la jauge de dépassement vérifie que le bout de tige tombe entre ses repères mini et maxi. Hors plage : mauvaise longueur de grip, fixation déposée.</RuleCard>
+          <p className="text-[12px] leading-relaxed text-muted">Valeurs pédagogiques. La plage de dépassement réelle est celle de la norme de la fixation et de sa jauge.</p>
+        </div>
+      </div>
+    </Panel>
+  );
+}
 
 function TabFixations({ done, onComplete }) {
   return (
@@ -584,16 +806,10 @@ function TabFixations({ done, onComplete }) {
         ))}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Panel className="p-4">
-          <Eyebrow>Anatomie d'un Hi-Lok posé</Eyebrow>
-          <HiLokSVG />
-        </Panel>
-        <div className="flex flex-col gap-3">
-          <RuleCard n="1" title="Rupture de collerette">Elle casse exactement au couple prescrit : c'est la preuve de serrage. Une collerette non cassée, ou cassée trop tôt, rend la fixation non conforme.</RuleCard>
-          <RuleCard n="2" title="Dépassement de tige">Contrôlé à la jauge Hi-Lok. Trop court ou trop long : la longueur de serrage (grip length) ne correspond pas à l'épaisseur de l'empilage.</RuleCard>
-          <RuleCard n="3" title="Absence de jeu sous tête">La tête doit plaquer. Un jeu révèle une bavure, un copeau ou un défaut de fraisure.</RuleCard>
-        </div>
+      <GripGaugeLab />
+      <div className="grid gap-3 md:grid-cols-2">
+        <RuleCard n="3" title="Rupture de collerette">Elle casse exactement au couple prescrit : c'est la preuve de serrage. Une collerette non cassée, ou cassée trop tôt, rend la fixation non conforme.</RuleCard>
+        <RuleCard n="4" title="Absence de jeu sous tête">La tête doit plaquer. Un jeu révèle une bavure, un copeau ou un défaut de fraisure.</RuleCard>
       </div>
 
       <GalvanicStack />
@@ -602,10 +818,16 @@ function TabFixations({ done, onComplete }) {
         <SectionHead icon={Droplet} kicker="Mastics polysulfures (PR 1422, PR 1776)" title="Le vocabulaire PR que tu écris dans tes gammes">
           Un hélicoptère n'est pas pressurisé : ici, le mastic sert à l'étanchéité aux intempéries et aux fluides, et surtout à la protection anticorrosion des interfaces.
         </SectionHead>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="flex flex-wrap items-center gap-4 rounded-lg border border-line bg-bg px-3 py-2 font-mono text-[11px] text-muted">
+          <span className="text-ink">Légende des coupes</span>
+          {[["#c4a7ff", "Mastic PR"], ["#9fb0c8", "Tôle alu"], ["#5b7299", "Structure"], ["#d6dde8", "Fixation"], ["#3b9eff", "Bague Hi-Lok"]].map(([c, l]) => (
+            <span key={l} className="flex items-center gap-1.5"><span className="inline-block h-3 w-5 rounded-sm border border-line" style={{ background: c }} />{l}</span>
+          ))}
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {PR_VOCAB.map((v) => (
             <Panel key={v.t} className="p-4">
-              <svg viewBox="0 0 120 50" className="mb-2 h-14 w-full rounded border border-line bg-bg" aria-hidden="true">{v.draw}</svg>
+              <svg viewBox="0 0 220 110" className="mb-2 h-auto w-full rounded border border-line bg-bg" role="img" aria-label={"PR " + v.t}><PrHatch />{v.draw}</svg>
               <div className="font-display text-lg font-semibold text-ink">{v.t}</div>
               <p className="text-[13px] leading-relaxed text-ink/85">{v.d}</p>
             </Panel>
@@ -668,11 +890,19 @@ function arcArrow(c, r, cw, color, key) {
   );
 }
 
-/* bolts : [[x,y],[x,y]] · loosen : bool par vis · twists : torsades/pouce · pigtail : "ok" | "out" · single : méthode fil simple */
+/* bolts : [[x,y],[x,y]] · loosen : bool par vis · twists : torsades/pouce · pigtail : "ok" | "out" · single : méthode fil simple
+   Têtes hexagonales percées d'angle à angle : le trou de freinage (pointillés) traverse la matière d'un sommet à l'autre. */
 function LockwireSVG({ bolts = [[95, 100], [255, 100]], loosen = [false, false], twists = 7, pigtail = "ok", single = false, showForce = false, caption }) {
-  const R = 22, HEX = 30, INCH = 80;
+  const HEX = 30, R = HEX, INCH = 80;
   const [A, B] = bolts;
   const unit = (from, to) => { const dx = to[0] - from[0], dy = to[1] - from[1], L = Math.hypot(dx, dy); return [dx / L, dy / L]; };
+  const [ux, uy] = unit(A, B);
+  const rot = Math.atan2(uy, ux);
+  /* hexagone tourné pour qu'un sommet soit sur l'axe du trou (perpendiculaire à l'axe des vis) */
+  const hexR = (c, r) => Array.from({ length: 6 }).map((_, i) => {
+    const a = (Math.PI / 3) * i + Math.PI / 2 + rot;
+    return `${(c[0] + r * Math.cos(a)).toFixed(1)},${(c[1] + r * Math.sin(a)).toFixed(1)}`;
+  }).join(" ");
   const tangent = (c, other, bad) => {
     const [dx, dy] = unit(c, other);
     return bad ? [c[0] - R * dy, c[1] + R * dx] : [c[0] + R * dy, c[1] - R * dx];
@@ -684,62 +914,83 @@ function LockwireSVG({ bolts = [[95, 100], [255, 100]], loosen = [false, false],
   const seg = Math.hypot(pB[0] - pA[0], pB[1] - pA[1]);
   const periods = (twists * seg) / INCH;
   const [s1, s2] = twistedPaths(pA, pB, periods);
-  // arc extérieur autour de la tête (côté opposé à l'autre vis)
+  /* brin extérieur : contourne le pan opposé à l'autre vis, au plus près de la tête */
   const outerArc = (c, from, to, other) => {
     const [dx, dy] = unit(c, other);
-    const far = [c[0] - dx * (R + 6), c[1] - dy * (R + 6)];
-    return `M${from[0]} ${from[1]} Q${far[0] + (from[0] - c[0]) * 0.9} ${far[1] + (from[1] - c[1]) * 0.9} ${far[0]} ${far[1]} Q${far[0] + (to[0] - c[0]) * 0.9} ${far[1] + (to[1] - c[1]) * 0.9} ${to[0]} ${to[1]}`;
+    const far = [c[0] - dx * (HEX + 3), c[1] - dy * (HEX + 3)];
+    return `M${from[0]} ${from[1]} Q${far[0] + (from[0] - c[0]) * 0.95} ${far[1] + (from[1] - c[1]) * 0.95} ${far[0]} ${far[1]} Q${far[0] + (to[0] - c[0]) * 0.95} ${far[1] + (to[1] - c[1]) * 0.95} ${to[0]} ${to[1]}`;
   };
-  const [ux, uy] = unit(A, B);
-  const pigStart = pB2;
-  const wire = "#d9dde4";
+  const wire = "#d9dde4", wireDk = "#5d6675";
+  const Strand = ({ d, w = 1.8 }) => (<g><path d={d} stroke={wireDk} strokeWidth={w + 1.2} fill="none" strokeLinecap="round" /><path d={d} stroke={wire} strokeWidth={w} fill="none" strokeLinecap="round" /></g>);
+  /* queue de cochon : 5 torsades serrées puis repliée vers la tête (vers l'intérieur) */
   let pig;
+  const toCenter = unit(pB2, B);
   if (pigtail === "ok") {
-    const end = [pigStart[0] + ux * 26, pigStart[1] + uy * 26];
-    const [t1, t2] = twistedPaths(pigStart, end, 3.5, 2.6);
-    const back = `M${end[0]} ${end[1]} Q${end[0] + ux * 8} ${end[1] + uy * 8} ${end[0] + ux * 4 - uy * 9} ${end[1] + uy * 4 + ux * 9} L${end[0] - ux * 4 - uy * 12} ${end[1] - uy * 4 + ux * 12}`;
-    pig = <g><path d={t1} stroke={wire} strokeWidth="1.6" fill="none" /><path d={t2} stroke={wire} strokeWidth="1.6" fill="none" /><path d={back} stroke={wire} strokeWidth="2.4" fill="none" /></g>;
+    const mid = [pB2[0] + ux * 20, pB2[1] + uy * 20];
+    const end = [mid[0] + ux * 3 + toCenter[0] * 14, mid[1] + uy * 3 + toCenter[1] * 14];
+    const [t1, t2] = twistedPaths(pB2, mid, 3, 2.6);
+    const [t3, t4] = twistedPaths(mid, end, 2, 2.4);
+    pig = (
+      <g>
+        <Strand d={t1} w={1.4} /><Strand d={t2} w={1.4} /><Strand d={t3} w={1.4} /><Strand d={t4} w={1.4} />
+        <circle cx={end[0]} cy={end[1]} r="2" fill={wire} stroke={wireDk} />
+      </g>
+    );
   } else {
-    const end = [pigStart[0] + ux * 62, pigStart[1] + uy * 62];
-    const [t1, t2] = twistedPaths(pigStart, end, 2, 2.6);
-    pig = <g><path d={t1} stroke={wire} strokeWidth="1.6" fill="none" /><path d={t2} stroke={wire} strokeWidth="1.6" fill="none" /><polygon points={`${end[0]},${end[1] - 3} ${end[0] + ux * 6},${end[1]} ${end[0]},${end[1] + 3}`} fill="#ff5d6c" /></g>;
+    const end = [pB2[0] + ux * 62, pB2[1] + uy * 62];
+    const [t1, t2] = twistedPaths(pB2, end, 2, 2.6);
+    pig = <g><Strand d={t1} w={1.4} /><Strand d={t2} w={1.4} /><polygon points={`${end[0]},${end[1] - 3} ${end[0] + ux * 6},${end[1]} ${end[0]},${end[1] + 3}`} fill="#ff5d6c" /></g>;
   }
+  const Head = ({ c, p, p2, i }) => {
+    const [hx, hy] = unit(p2, p);
+    const nx = -hy, ny = hx;
+    const bore = (k) => `M${(p2[0] + nx * k).toFixed(1)} ${(p2[1] + ny * k).toFixed(1)} L${(p[0] + nx * k).toFixed(1)} ${(p[1] + ny * k).toFixed(1)}`;
+    return (
+      <g>
+        <circle cx={c[0]} cy={c[1]} r={HEX + 2} fill="#22304d" stroke="#3a4c70" />
+        <polygon points={hexR(c, HEX)} fill="#5b7299" stroke="#9fb3d1" strokeWidth="1.2" />
+        <circle cx={c[0]} cy={c[1]} r={HEX * 0.866 - 2} fill="none" stroke="#8fa0bd" strokeWidth="0.8" opacity="0.7" />
+        <polygon points={hexR(c, HEX * 0.6)} fill="#6b83a8" stroke="#3a4c70" strokeWidth="0.8" transform={`rotate(30 ${c[0]} ${c[1]})`} />
+        <path d={bore(2.2)} stroke="#0b1220" strokeWidth="1" strokeDasharray="3 2" />
+        <path d={bore(-2.2)} stroke="#0b1220" strokeWidth="1" strokeDasharray="3 2" />
+        <circle cx={p[0]} cy={p[1]} r="2.6" fill="#0b1220" stroke="#9fb3d1" strokeWidth="0.6" />
+        <circle cx={p2[0]} cy={p2[1]} r="2.6" fill="#0b1220" stroke="#9fb3d1" strokeWidth="0.6" />
+        <text x={c[0]} y={c[1] + HEX + 16} textAnchor="middle" fontSize="10" fill="#8fa0bd" fontFamily="JetBrains Mono">VIS {i + 1}</text>
+      </g>
+    );
+  };
   return (
     <svg viewBox="0 0 360 200" className="w-full rounded-lg border border-line bg-bg" role="img" aria-label={caption || "Montage de freinage au fil"}>
-      <rect x="10" y="40" width="340" height="120" rx="8" fill="#141f36" stroke="#22304d" />
-      {[A, B].map((c, i) => (
-        <g key={i}>
-          <polygon points={hexPts(c[0], c[1], HEX)} fill="#5b7299" stroke="#8fa0bd" strokeWidth="1.2" />
-          <circle cx={c[0]} cy={c[1]} r={R - 4} fill="#6b83a8" opacity="0.6" />
-          <line x1={(i ? pB : pA)[0]} y1={(i ? pB : pA)[1]} x2={(i ? pB2 : pA2)[0]} y2={(i ? pB2 : pA2)[1]} stroke="#0b1220" strokeWidth="4" strokeLinecap="round" />
-          <text x={c[0]} y={c[1] + HEX + 18} textAnchor="middle" fontSize="11" fill="#8fa0bd" fontFamily="JetBrains Mono">VIS {i + 1}</text>
-        </g>
-      ))}
+      <rect x="10" y="36" width="340" height="128" rx="8" fill="#141f36" stroke="#22304d" />
+      <Head c={A} p={pA} p2={pA2} i={0} />
+      <Head c={B} p={pB} p2={pB2} i={1} />
       {single ? (
         <g>
-          <path d={`M${pA2[0]} ${pA2[1]} L${pA[0]} ${pA[1]} L${pB[0]} ${pB[1]} L${pB2[0]} ${pB2[1]}`} stroke={wire} strokeWidth="2" fill="none" />
-          <path d={outerArc(A, pA2, [pA2[0] - ux * 14, pA2[1] + 10], B)} stroke={wire} strokeWidth="2" fill="none" />
-          <path d={`M${pB2[0]} ${pB2[1]} q${ux * 12} 0 ${ux * 14} 10`} stroke={wire} strokeWidth="2" fill="none" />
+          <Strand d={`M${pA2[0]} ${pA2[1]} L${pA[0]} ${pA[1]} L${pB[0]} ${pB[1]} L${pB2[0]} ${pB2[1]}`} w={2} />
+          <Strand d={outerArc(A, pA2, [pA2[0] - ux * 14, pA2[1] + 10], B)} w={2} />
+          <Strand d={`M${pB2[0]} ${pB2[1]} q${ux * 12} 0 ${ux * 14} 10`} w={2} />
         </g>
       ) : (
         <g>
-          <path d={s1} stroke={wire} strokeWidth="1.8" fill="none" />
-          <path d={s2} stroke={wire} strokeWidth="1.8" fill="none" />
-          <path d={outerArc(A, pA2, pA, B)} stroke={wire} strokeWidth="1.8" fill="none" />
-          <path d={outerArc(B, pB, pB2, A)} stroke={wire} strokeWidth="1.8" fill="none" />
+          <Strand d={outerArc(A, pA2, pA, B)} />
+          <Strand d={outerArc(B, pB, pB2, A)} />
+          <Strand d={s1} /><Strand d={s2} />
           {pig}
         </g>
       )}
-      {showForce && [A, B].map((c, i) => arcArrow(c, HEX + 10, !loosen[i], loosen[i] ? "#ff5d6c" : "#3ddc97", "f" + i))}
+      {showForce && [A, B].map((c, i) => arcArrow(c, HEX + 16, !loosen[i], loosen[i] ? "#ff5d6c" : "#3ddc97", "f" + i))}
       <g fontFamily="JetBrains Mono" fontSize="10" fill="#8fa0bd">
         <line x1="20" y1="182" x2={20 + INCH} y2="182" stroke="#8fa0bd" />
         <line x1="20" y1="178" x2="20" y2="186" stroke="#8fa0bd" /><line x1={20 + INCH} y1="178" x2={20 + INCH} y2="186" stroke="#8fa0bd" />
         <text x={24 + INCH} y="186">1 pouce (échelle ×2)</text>
-        <text x="20" y="26">Filet à droite · vu côté têtes · serrage ↻</text>
+        <line x1="218" y1="183" x2="234" y2="183" stroke="#8fa0bd" strokeDasharray="3 2" />
+        <text x="345" y="186" textAnchor="end">trou de freinage</text>
+        <text x="20" y="24">Filet à droite · vu côté têtes · serrage ↻</text>
       </g>
     </svg>
   );
 }
+
 
 /* ============================================================
    ONGLET 3 · COUPLE, FREINAGE & COMMANDES DE VOL
@@ -777,30 +1028,101 @@ function TorqueCalculator() {
   );
 }
 
-function BNutSVG({ noBackup = false }) {
+/* Vue en bout : clé plate sur six pans (pans parallèles aux mors) */
+function WrenchEndView({ c, color, dir = 1, len = 92, arrow, none = false }) {
+  const ang = dir > 0 ? -15 : 195;
+  const r = 17, half = r * 0.866;
+  const hex = Array.from({ length: 6 }).map((_, i) => `${(r * Math.cos((Math.PI / 3) * i)).toFixed(1)},${(r * Math.sin((Math.PI / 3) * i)).toFixed(1)}`).join(" ");
   return (
-    <svg viewBox="0 0 320 140" className="w-full rounded-lg border border-line bg-bg" role="img" aria-label="Serrage d'un raccord B-nut avec clé de contre-couple">
-      <rect x="20" y="62" width="110" height="14" fill="#9fb0c8" />
-      <rect x="200" y="62" width="100" height="14" fill="#9fb0c8" />
-      <rect x="128" y="52" width="40" height="34" fill="#5b7299" stroke="#8fa0bd" />
-      <rect x="168" y="56" width="34" height="26" fill="#3b9eff" stroke="#8fd0ff" />
-      <text x="148" y="104" textAnchor="middle" fontSize="10" fill="#8fa0bd" fontFamily="JetBrains Mono">RACCORD FIXE</text>
-      <text x="185" y="48" textAnchor="middle" fontSize="10" fill="#8fd0ff" fontFamily="JetBrains Mono">B-NUT</text>
-      {noBackup ? (
-        <g>
-          {[40, 60, 80, 100].map((x) => <line key={x} x1={x} y1="60" x2={x + 8} y2="78" stroke="#ff5d6c" strokeWidth="1.5" />)}
-          <text x="20" y="100" fontSize="11" fill="#ff5d6c" fontFamily="Barlow" fontWeight="600">Marques de vrillage du tube</text>
-          <text x="20" y="124" fontSize="11" fill="#8fa0bd" fontFamily="Barlow">Aucune clé sur le raccord fixe</text>
-        </g>
-      ) : (
-        <g>
-          <rect x="140" y="86" width="16" height="44" rx="3" fill="#ffb020" />
-          <text x="96" y="124" fontSize="11" fill="#ffb020" fontFamily="Barlow" fontWeight="600">Contre-couple</text>
-        </g>
-      )}
-      <rect x="178" y="10" width="14" height="46" rx="3" fill="#3ddc97" />
-      <text x="200" y="22" fontSize="11" fill="#3ddc97" fontFamily="Barlow" fontWeight="600">Clé dynamométrique</text>
-      <text x="20" y="40" fontSize="10" fill="#8fa0bd" fontFamily="JetBrains Mono">TUYAUTERIE HYDRAULIQUE</text>
+    <g>
+      <g transform={`translate(${c[0]} ${c[1]}) rotate(${ang})`}>
+        {!none && (
+          <g>
+            <path d={`M14,-9 L${len - 6},-6.5 Q${len},-6.5 ${len},0 Q${len},6.5 ${len - 6},6.5 L14,9 Z`} fill={color} stroke="#0b1220" strokeWidth="0.8" />
+            <line x1="30" y1="0" x2={len - 12} y2="0" stroke="#0b1220" strokeWidth="1" opacity="0.35" />
+            <path d="M-6,-26 A27,27 0 1 1 -6,26 L-36,24 L-36,-24 Z" fill={color} stroke="#0b1220" strokeWidth="0.8" />
+            <rect x="-44" y={-half - 0.6} width={44 + r + 1.5} height={2 * half + 1.2} fill="#0b1220" />
+          </g>
+        )}
+        <polygon points={hex} fill="#5b7299" stroke="#9fb3d1" strokeWidth="1" />
+        <circle r="7" fill="#9fb0c8" stroke="#3a4c70" /><circle r="4.5" fill="#0b1220" />
+      </g>
+      {arrow && <g transform={`rotate(180 ${c[0]} ${c[1]})`}>{arcArrow(c, 31, arrow === "cw", arrow === "ko" ? "#ff5d6c" : color, "a")}</g>}
+    </g>
+  );
+}
+
+function BNutSVG({ noBackup = false }) {
+  const T = ({ x, y, children, c = "#8fa0bd", a = "start", w }) => <text x={x} y={y} fontSize="8.6" fontFamily="JetBrains Mono, monospace" fill={c} textAnchor={a} fontWeight={w}>{children}</text>;
+  const Y = 84; /* axe */
+  const hexSide = (x1, x2, r, fill, stroke) => (
+    <g>
+      <rect x={x1} y={Y - r} width={x2 - x1} height={2 * r} fill={fill} stroke={stroke} />
+      <line x1={x1} x2={x2} y1={Y - r / 2} y2={Y - r / 2} stroke={stroke} strokeWidth="0.8" />
+      <line x1={x1} x2={x2} y1={Y + r / 2} y2={Y + r / 2} stroke={stroke} strokeWidth="0.8" />
+    </g>
+  );
+  const zig = (x1, x2, y, h, step = 3) => { let d = `M${x1},${y}`; for (let x = x1; x < x2; x += step) d += ` L${x + step / 2},${y + h} L${x + step},${y}`; return d; };
+  return (
+    <svg viewBox="0 0 360 260" className="w-full rounded-lg border border-line bg-bg" role="img" aria-label="Raccord B-nut en coupe et serrage avec clé de contre-couple">
+      <defs>
+        <pattern id="bn-h" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="4" stroke="#0b1220" strokeWidth="1.2" /></pattern>
+        <pattern id="bn-h2" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)"><line x1="0" y1="0" x2="0" y2="4" stroke="#0b1220" strokeWidth="1.2" /></pattern>
+      </defs>
+      <T x={16} y={25} c="#e6edf7" w="600">RACCORD HYDRAULIQUE HP · coupe ½ supérieure</T>
+      <clipPath id="bn-clip"><rect x="15" y="26" width="330" height="128" /></clipPath>
+      <g clipPath="url(#bn-clip)"><g transform="translate(-120 -38) scale(1.5)">
+      {/* cloison */}
+      <rect x="240" y="50" width="10" height="68" fill="#24365a" stroke="#5b7299" /><rect x="240" y="50" width="10" height="68" fill="url(#bn-h)" opacity="0.5" />
+      {/* tube gauche + évasement */}
+      <rect x="18" y={Y - 6} width="128" height="12" fill="#9fb0c8" stroke="#5b7299" />
+      <line x1="18" x2="146" y1={Y - 3.5} y2={Y - 3.5} stroke="#3a4c70" strokeDasharray="3 2" />
+      <line x1="18" x2="146" y1={Y + 3.5} y2={Y + 3.5} stroke="#3a4c70" strokeDasharray="3 2" />
+      {/* raccord fixe : filetage, six pans, col, contre-écrou, sortie */}
+      <rect x="150" y={Y - 13} width="26" height="26" fill="#7f95b8" stroke="#5b7299" />
+      <path d={zig(150, 176, Y + 13, -2.2)} stroke="#3a4c70" fill="none" strokeWidth="0.8" />
+      {hexSide(176, 214, 24, "#5b7299", "#9fb3d1")}
+      <rect x="214" y={Y - 13} width="58" height="26" fill="#7f95b8" stroke="#5b7299" />
+      <path d={zig(250, 272, Y - 13, 2.2)} stroke="#3a4c70" fill="none" strokeWidth="0.8" />
+      <path d={zig(250, 272, Y + 13, -2.2)} stroke="#3a4c70" fill="none" strokeWidth="0.8" />
+      {hexSide(252, 266, 21, "#4c6189", "#9fb3d1")}
+      <path d={`M272,${Y - 13} L300,${Y - 13} M272,${Y + 13} L300,${Y + 13}`} stroke="#5b7299" strokeDasharray="4 3" />
+      {/* écrou B-nut : moitié basse en vue, moitié haute en coupe */}
+      <rect x="128" y={Y} width="44" height="22" fill="#3b9eff" stroke="#8fd0ff" />
+      <line x1="128" x2="172" y1={Y + 11} y2={Y + 11} stroke="#8fd0ff" strokeWidth="0.8" />
+      {/* coupe haute : corps d'écrou hachuré avec épaulement d'appui sur le manchon */}
+      <path d={`M128,${Y - 22} H172 V${Y - 13} H150 L146,${Y - 9} H134 V${Y - 6} H128 Z`} fill="#3b9eff" stroke="#8fd0ff" />
+      <path d={`M128,${Y - 22} H172 V${Y - 13} H150 L146,${Y - 9} H134 V${Y - 6} H128 Z`} fill="url(#bn-h)" />
+      <path d={zig(150, 172, Y - 13, -2.2)} stroke="#8fd0ff" fill="none" strokeWidth="0.8" />
+      {/* manchon (sleeve) en coupe */}
+      <path d={`M134,${Y - 6} V${Y - 9} H146 L152,${Y - 12} V${Y - 8} L148,${Y - 6} Z`} fill="#c8d6ea" stroke="#5b7299" />
+      <path d={`M134,${Y - 6} V${Y - 9} H146 L152,${Y - 12} V${Y - 8} L148,${Y - 6} Z`} fill="url(#bn-h2)" />
+      {/* évasement 37° du tube pincé entre manchon et cône mâle */}
+      <path d={`M146,${Y - 6} L148,${Y - 6} L156,${Y - 12} L153,${Y - 12} Z`} fill="#9fb0c8" stroke="#5b7299" strokeWidth="0.8" />
+      <path d={`M150,${Y - 4} L156,${Y - 4} L156,${Y - 11} Z`} fill="#7f95b8" stroke="#5b7299" strokeWidth="0.8" />
+      {noBackup && [92, 104, 116].map((x) => <path key={x} d={`M${x},${Y - 6} q3,6 6,12`} stroke="#ff5d6c" strokeWidth="1.3" fill="none" />)}
+      <path d="M88,74 q2,4 0,8 q-2,4 0,8" stroke="#0b1220" strokeWidth="2.5" fill="none" />
+      </g></g>
+      {/* repères (coordonnées absolues) */}
+      <line x1="100" y1="44" x2="107" y2="71" stroke="#3a4c70" />
+      <T x={16} y={40}>manchon + évasement 37°</T>
+      <line x1="253" y1="50" x2="266" y2="44" stroke="#3a4c70" />
+      <T x={269} y={46}>cloison</T>
+      <T x={18} y={116}>tube HP</T>
+      <line x1="105" y1="122" x2="105" y2="131" stroke="#3a4c70" />
+      <T x={105} y={140} a="middle" c="#8fd0ff">A · B-nut mobile</T>
+      <line x1="172" y1="125" x2="172" y2="146" stroke="#3a4c70" />
+      <T x={178} y={150} c="#e6edf7">B · raccord fixe</T>
+      {/* vues en bout */}
+      <line x1="15" y1="160" x2="345" y2="160" stroke="#22304d" />
+      <WrenchEndView c={[62, 206]} color="#3ddc97" dir={1} arrow="cw" />
+      {noBackup
+        ? <WrenchEndView c={[292, 206]} color="#ff5d6c" dir={-1} none arrow="ko" />
+        : <WrenchEndView c={[292, 206]} color="#ffb020" dir={-1} arrow="ccw" />}
+      <T x={15} y={242} c="#3ddc97">A · clé dynamo sur B-nut</T>
+      {noBackup
+        ? <T x={345} y={242} a="end" c="#ff5d6c">B · aucune clé : le tube vrille</T>
+        : <T x={345} y={242} a="end" c="#ffb020">B · contre-couple raccord fixe</T>}
     </svg>
   );
 }
@@ -810,6 +1132,9 @@ const Q_TORQUE = [
   { q: "H160, plancher mécanique, serrage d'un raccord B-nut de tuyauterie hydraulique. Pourquoi la gamme impose-t-elle une clé de contre-couple ?", options: ["Pour ne pas transmettre de torsion au tube, qui se vrillerait", "Pour mesurer le couple appliqué sans torquemètre étalonné", "Pour remplacer le freinage au fil sur ce type de raccord", "Pour répartir l'effort et réduire la fatigue de l'opérateur"], answer: 0, why: "Sans maintien du raccord fixe, l'effort de serrage fait tourner l'ensemble et vrille le tube : contrainte permanente, fissure par fatigue vibratoire, fuite.", hint: "Que subit le tube si le raccord tourne avec l'écrou ?" },
   { q: "H125, compartiment BTP, freinage au fil d'un bouchon de vidange. Quelle est la règle de pose du fil à freiner ?", options: ["Le fil doit tirer la fixation dans le sens du serrage", "Le fil doit être tendu au maximum, quel que soit le sens", "Le fil doit compter au moins 20 torsades par pouce", "Le fil d'un démontage peut être réutilisé s'il est intact"], answer: 0, why: "Si la fixation tente de se desserrer sous les vibrations, le fil se tend et la retient. Posé à l'envers, il l'aide au contraire à se dévisser. Le fil n'est jamais réutilisé.", hint: "Le fil doit s'opposer au desserrage." },
   { q: "H160, bielle de commande ATA 67. L'écrou à créneaux atteint le couple mini et aucun créneau n'est en face du trou de goupille. Que fait l'opérateur ?", options: ["Il poursuit jusqu'au créneau suivant sans dépasser le couple maxi", "Il desserre jusqu'au créneau précédent pour aligner le trou", "Il pose la goupille en biais dans le créneau le plus proche", "Il remplace la goupille par un freinage au fil à freiner"], answer: 0, why: "On ne desserre jamais pour aligner, on ne force jamais au-delà du maxi. Si aucun créneau n'est accessible dans la plage, on change la rondelle ou l'écrou selon la norme.", hint: "Desserrer fait tomber sous le couple mini." },
+  { q: "H160, freinage au fil de deux vis de couvercle de BTP. Comment la queue de cochon (pigtail) doit-elle être finie ?", options: ["3 à 6 torsades, coupée puis repliée vers la pièce", "1 torsade, laissée droite pour faciliter le contrôle", "10 torsades ou plus, enroulées autour de la tête", "Coupée au ras de la tête, sans aucune torsade"], answer: 0, why: "Une queue courte de quelques torsades, repliée vers l'intérieur, ne blesse personne et ne se détache pas en FOD. Droite et longue, elle accroche et casse.", hint: "Elle ne doit ni blesser ni se détacher." },
+  { q: "H145, freinage au fil sur têtes percées. Par où le premier brin passe-t-il dans la tête de vis ?", options: ["Dans le trou percé d'angle à angle de la tête", "Dans une fente usinée sur le dessus de la tête", "Autour de la tige, sous la tête de la vis", "Dans un trou percé au centre de la tête"], answer: 0, why: "Le trou de freinage traverse la tête d'un angle à l'autre. Un brin y passe, l'autre contourne le pan extérieur, puis les deux sont torsadés vers la vis suivante.", hint: "Le perçage traverse la matière de la tête." },
+  { q: "H175, raccord B-nut. Quel élément du raccord est réellement écrasé pour assurer l'étanchéité ?", options: ["L'évasement 37° du tube, pincé entre manchon et cône", "Le filetage de l'écrou, déformé par le couple", "Un joint torique placé sous l'écrou B-nut", "Le six pans du raccord fixe, plaqué sur la cloison"], answer: 0, why: "Le manchon pousse l'évasement 37° du tube contre le cône mâle du raccord : c'est ce contact métal sur métal qui étanche. Un tube vrillé déforme cet évasement.", hint: "Regarde la coupe du raccord : métal contre métal." },
 ];
 
 function TabTorque({ done, onComplete }) {
@@ -869,6 +1194,125 @@ function TabTorque({ done, onComplete }) {
 /* ============================================================
    ONGLET 4 · MÉTALLISATION, EWIS & FOD
    ============================================================ */
+/* Coupe dynamique de la cosse de métallisation : évolue avec les 4 étapes du banc */
+function LugSection({ decap, couple, measured, protect, ok }) {
+  const T = ({ x, y, children, c = "#8fa0bd", a = "start", w }) => <text x={x} y={y} fontSize="8.6" fontFamily="JetBrains Mono, monospace" fill={c} textAnchor={a} fontWeight={w}>{children}</text>;
+  const top = 100; /* face métal de la structure */
+  const seated = couple;
+  const lift = seated ? 0 : -26;
+  const base = decap ? top : top - 5; /* la cosse repose sur le métal nu ou sur la peinture */
+  const step = protect ? 4 : measured !== null ? 3 : decap ? 2 : 1;
+  const caption = [
+    "",
+    "1 · Peinture isolante présente : aucun contact électrique",
+    "2 · Décapage circulaire jusqu'au métal nu et brillant",
+    "3 · Cosse + rondelle + vis serrées, pointes Kelvin 4 fils posées",
+    "4 · Cordon de vernis / PR sur toute la périphérie à nu",
+  ][step];
+  const asm = (
+    <g transform={`translate(0 ${lift})`}>
+      {/* cosse (languette + fût serti + tresse) */}
+      <rect x="150" y={base - 6} width="60" height="6" fill="#d9b44a" stroke="#8a6a1a" />
+      <path d={`M210,${base - 6} H232 L238,${base - 9} H262 V${base + 1} H238 L232,${base} H210 Z`} fill="#d9b44a" stroke="#8a6a1a" />
+      {[242, 248, 254].map((x) => <line key={x} x1={x} x2={x} y1={base - 9} y2={base + 1} stroke="#8a6a1a" strokeWidth="0.8" />)}
+      <path d={`M262,${base - 4} C290,${base - 6} 300,${base - 30} 334,${base - 40}`} stroke="#c8d6ea" strokeWidth="6" fill="none" strokeDasharray="2 1.5" />
+      {/* rondelle + vis */}
+      <rect x="160" y={base - 10} width="40" height="4" fill="#c8d6ea" stroke="#5b7299" />
+      <rect x="166" y={base - 22} width="28" height="12" fill="#9fb3d1" stroke="#5b7299" />
+      <line x1="175" x2="175" y1={base - 22} y2={base - 10} stroke="#5b7299" /><line x1="185" x2="185" y1={base - 22} y2={base - 10} stroke="#5b7299" />
+      <rect x="176" y={base - 10} width="8" height={top + 24 - base + 18} fill="#9fb3d1" stroke="#5b7299" />
+      {seated && <><rect x="162" y={top + 24} width="36" height="4" fill="#c8d6ea" stroke="#5b7299" /><rect x="166" y={top + 28} width="28" height="11" fill="#9fb3d1" stroke="#5b7299" /></>}
+    </g>
+  );
+  return (
+    <svg viewBox="0 0 360 180" className="w-full rounded-lg border border-line bg-bg" role="img" aria-label="Coupe de la liaison de métallisation">
+      <defs><pattern id="lg-h" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="5" stroke="#2e4168" strokeWidth="1" /></pattern></defs>
+      <T x={16} y={22} c="#e6edf7" w="600">{caption}</T>
+      {/* structure alu en coupe */}
+      <path d={`M16,${top} H176 V${top + 24} H16 Z M344,${top} H184 V${top + 24} H344 Z`} fill="#1b2a47" stroke="#5b7299" />
+      <path d={`M16,${top} H176 V${top + 24} H16 Z M344,${top} H184 V${top + 24} H344 Z`} fill="url(#lg-h)" />
+      {/* peinture verte (primaire + finition) */}
+      <path d={decap ? `M16,${top - 5} H130 V${top} H16 Z M344,${top - 5} H230 V${top} H344 Z` : `M16,${top - 5} H176 V${top} H16 Z M344,${top - 5} H184 V${top} H344 Z`} fill="#2f7a4f" stroke="#3ddc97" strokeWidth="0.5" />
+      <rect x="16" y={top + 24} width="160" height="3" fill="#2f7a4f" /><rect x="184" y={top + 24} width="160" height="3" fill="#2f7a4f" />
+      {decap && <><rect x="130" y={top - 1.5} width="46" height="1.5" fill="#f2f5fa" /><rect x="184" y={top - 1.5} width="46" height="1.5" fill="#f2f5fa" /></>}
+      {decap && !protect && <><line x1="130" y1={top - 14} x2="130" y2={top - 6} stroke="#e6edf7" strokeWidth="0.8" /><line x1="230" y1={top - 14} x2="230" y2={top - 6} stroke="#e6edf7" strokeWidth="0.8" /></>}
+      {asm}
+      {!seated && <T x={214} y={56}>cosse non serrée</T>}
+      {/* contact : peinture isolante */}
+      {couple && !decap && <><path d="M150,92 l6,-6 m-6,0 l6,6" stroke="#ff5d6c" strokeWidth="1.6" /><T x={16} y={86} c="#ff5d6c">peinture : contact isolé</T></>}
+      {/* re-protection */}
+      {protect && <path d={`M126,${top} C126,${top - 9} 146,${top - 11} 152,${top - 6} V${top} Z M228,${top - 6} C230,${top - 13} 238,${top - 13} 238,${top - 9} Z`} fill="#c4a7ff" stroke="#8e6bff" strokeWidth="0.8" />}
+      {/* pointes Kelvin */}
+      {measured !== null && (
+        <g>
+          <rect x="22" y="34" width="56" height="26" rx="3" fill="#0a0f1a" stroke={ok ? "#3ddc97" : "#ff5d6c"} />
+          <text x="50" y="51" fontSize="9" fontFamily="JetBrains Mono, monospace" fill={ok ? "#3ddc97" : "#ff5d6c"} textAnchor="middle">{mm(measured, 1)} mΩ</text>
+          {[[136, "#ff5d6c"], [144, "#ffb020"]].map(([x, c], i) => <g key={i}><path d={`M${60 + i * 8},60 C${60 + i * 8},76 ${x},76 ${x},${top - 12}`} stroke={c} strokeWidth="1.2" fill="none" /><path d={`M${x - 1.5},${top - 12} h3 l-1.5,${decap ? 10.5 : 5.5} Z`} fill="#e6edf7" /></g>)}
+          {[[178, "#ff5d6c"], [186, "#ffb020"]].map(([x, c], i) => <g key={i}><path d={`M78,${42 + i * 8} C150,${42 + i * 8} ${x},${40 + i * 8} ${x},${(seated ? base : base - 26) - 32}`} stroke={c} strokeWidth="1.2" fill="none" /><path d={`M${x - 1.5},${(seated ? base : base - 26) - 32} h3 l-1.5,9 Z`} fill="#e6edf7" /></g>)}
+          <T x={16} y={78} c="#ffb020">I+ / U+</T>
+          <T x={200} y={44} c="#ffb020">I− / U−</T>
+        </g>
+      )}
+      {/* légende */}
+      <g>
+        <rect x="16" y="148" width="10" height="7" fill="#2f7a4f" /><T x={30} y={155}>peinture</T>
+        <rect x="96" y="148" width="10" height="7" fill="#f2f5fa" /><T x={110} y={155}>métal nu</T>
+        <rect x="180" y="148" width="10" height="7" fill="#d9b44a" /><T x={194} y={155}>cosse</T>
+        <rect x="244" y="148" width="10" height="7" fill="#c4a7ff" /><T x={258} y={155}>vernis / PR</T>
+      </g>
+      <T x={16} y={170}>{decap ? "Ø décapé ≈ 1,5 × Ø de la cosse, pas plus" : "Le primaire et la peinture isolent la structure"}</T>
+    </svg>
+  );
+}
+
+/* Objets FOD dessinés à l'échelle du plancher */
+const FodDraw = {
+  rivet: (<g transform="rotate(-20)"><rect x="-7" y="-0.9" width="12" height="1.8" fill="#c9ced6" stroke="#5b7299" strokeWidth="0.4" /><circle cx="6.5" cy="0" r="2.3" fill="#c9ced6" stroke="#5b7299" strokeWidth="0.5" /><path d="M-7,-0.9 l-1.2,0.9 l1.2,0.9" fill="#8fa0bd" /></g>),
+  fil: (<g transform="rotate(15)"><path d="M-8,0 C-6,-2.4 -4,2.4 -2,0 C0,-2.4 2,2.4 4,0 C6,-2.4 7,1 8,0" stroke="#d9dde4" strokeWidth="1" fill="none" /><path d="M-8,0 C-6,2.4 -4,-2.4 -2,0 C0,2.4 2,-2.4 4,0 C6,2.4 7,-1 8,0" stroke="#aab3c2" strokeWidth="1" fill="none" /><path d="M8,0 l2.5,-2 M8,0 l2.2,2.2" stroke="#d9dde4" strokeWidth="0.9" /></g>),
+  rondelle: (<g><ellipse rx="5.2" ry="4.2" fill="#c9ced6" stroke="#5b7299" strokeWidth="0.6" /><ellipse rx="2.1" ry="1.7" fill="#101827" stroke="#5b7299" strokeWidth="0.5" /><path d="M-4.5,1.8 A5.2,4.2 0 0 0 4.5,1.8" stroke="#7f8ba0" strokeWidth="0.8" fill="none" /></g>),
+  cleco: (<g transform="rotate(-8)"><rect x="-9" y="-3" width="7" height="6" rx="1.2" fill="#c9773a" stroke="#7a4420" strokeWidth="0.5" /><rect x="-2" y="-3.8" width="1.6" height="7.6" fill="#9fb3d1" /><rect x="-0.4" y="-1.8" width="4" height="3.6" fill="#c8d6ea" /><path d="M3.6,-1.4 H9 L10,-2 V-0.2 H3.6 Z M3.6,1.4 H9 L10,2 V0.2 H3.6 Z" fill="#9fb3d1" stroke="#5b7299" strokeWidth="0.3" /><rect x="-12" y="-1" width="3" height="2" fill="#c8d6ea" /></g>),
+  foret: (<g transform="rotate(12)"><rect x="-9" y="-1.6" width="7" height="3.2" fill="#8fa0bd" stroke="#5b7299" strokeWidth="0.4" /><path d="M-2,-1.6 H6 L7,-0.4 L6.2,0.6 L7.4,1.6 H-2 Z" fill="#9fb0c8" stroke="#5b7299" strokeWidth="0.4" />{[-1, 1.5, 4].map((x) => <path key={x} d={`M${x},-1.6 l2,3.2`} stroke="#3a4c70" strokeWidth="0.8" />)}</g>),
+  embout: (<g transform="rotate(-30)"><polygon points="-8,-2.4 2,-2.4 2,2.4 -8,2.4" fill="#9fb0c8" stroke="#5b7299" strokeWidth="0.4" /><line x1="-8" x2="2" y1="0" y2="0" stroke="#5b7299" strokeWidth="0.5" /><rect x="-4" y="-2.4" width="1.4" height="4.8" fill="#3a4c70" /><path d="M2,-2.4 L7,-1 V1 L2,2.4 Z" fill="#c8d6ea" stroke="#5b7299" strokeWidth="0.4" /><line x1="2" x2="7" y1="0" y2="0" stroke="#5b7299" strokeWidth="0.5" /></g>),
+};
+
+/* Fond structuré : barque / plancher mécanique vu de dessus */
+function FodBackground() {
+  const rod = (x1, y1, x2, y2) => (
+    <g>
+      <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#7f95b8" strokeWidth="3.4" strokeLinecap="round" />
+      <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#c8d6ea" strokeWidth="1" opacity="0.5" />
+      {[[x1, y1], [x2, y2]].map(([x, y], i) => <g key={i}><circle cx={x} cy={y} r="4" fill="#5b7299" stroke="#9fb3d1" strokeWidth="0.8" /><circle cx={x} cy={y} r="1.4" fill="#0b1220" /></g>)}
+    </g>
+  );
+  const bellcrank = (x, y, a, b) => (
+    <g><path d={`M${x},${y} L${a[0]},${a[1]} L${b[0]},${b[1]} Z`} fill="#2b3f63" stroke="#7f95b8" strokeLinejoin="round" /><circle cx={x} cy={y} r="5" fill="#3b4f73" stroke="#9fb3d1" /><circle cx={x} cy={y} r="1.8" fill="#0b1220" /></g>
+  );
+  const clamp = (x, y) => <g key={`${x}-${y}`}><rect x={x - 3} y={y - 7} width="6" height="14" rx="2" fill="none" stroke="#3ddc97" strokeWidth="1.2" /><circle cx={x} cy={y - 10} r="1.6" fill="#9fb3d1" /></g>;
+  return (
+    <g>
+      {[22, 96, 172].map((y) => <g key={y}><rect x="8" y={y - 2} width="344" height="4" fill="#1d2a44" /><line x1="8" x2="352" y1={y} y2={y} stroke="#2e4168" strokeWidth="0.8" /></g>)}
+      {[40, 120, 200, 280].map((x) => (
+        <g key={x}>
+          <rect x={x - 5} y="6" width="10" height="188" fill="#1a2742" stroke="#2e4168" />
+          <line x1={x - 5} x2={x - 5} y1="6" y2="194" stroke="#3a4c70" strokeWidth="1.6" /><line x1={x + 5} x2={x + 5} y1="6" y2="194" stroke="#3a4c70" strokeWidth="1.6" />
+          {[52, 134].map((y) => <ellipse key={y} cx={x} cy={y} rx="2.6" ry="9" fill="#0d1526" stroke="#2e4168" />)}
+          {[22, 96, 172].map((y) => <path key={y} d={`M${x - 5},${y - 3} a3,3 0 0 1 0,6`} fill="#101827" />)}
+        </g>
+      ))}
+      {rod(18, 44, 160, 56)}{bellcrank(176, 46, [160, 56], [192, 32])}{rod(192, 32, 342, 40)}
+      {rod(18, 150, 146, 140)}{bellcrank(160, 128, [146, 140], [178, 118])}{rod(178, 118, 342, 124)}
+      <path d="M10,184 C80,176 140,190 220,180 S320,170 352,176" stroke="#ffb020" strokeWidth="4.5" fill="none" opacity="0.65" />
+      <path d="M10,180 C80,172 140,186 220,176 S320,166 352,172" stroke="#e6edf7" strokeWidth="1.6" fill="none" opacity="0.6" />
+      <path d="M10,188 C80,180 140,194 220,184 S320,174 352,180" stroke="#3b9eff" strokeWidth="1.6" fill="none" opacity="0.6" />
+      {[[52, 181], [130, 184], [212, 180], [292, 173]].map(([x, y]) => clamp(x, y))}
+      <g fontFamily="JetBrains Mono, monospace" fontSize="7.5" fill="#8fa0bd">
+        <text x="210" y="16">BIELLE ATA 67</text><text x="150" y="82">GUIGNOL</text><line x1="166" y1="75" x2="174" y2="52" stroke="#3a4c70" />
+        <text x="300" y="168">HARNAIS</text><text x="47" y="104">LISSE</text><text x="122.5" y="88" transform="rotate(-90 122.5 88)">COUPLE</text>
+      </g>
+    </g>
+  );
+}
+
 function BondingMeter() {
   const [decap, setDecap] = useState(false);
   const [couple, setCouple] = useState(false);
@@ -921,17 +1365,18 @@ function BondingMeter() {
           </div>
         </div>
       </div>
+      <div className="mt-4"><LugSection decap={decap} couple={couple} measured={measured} protect={protect} ok={ok} /></div>
     </Panel>
   );
 }
 
 const FOD_ITEMS = [
-  { id: "rivet", x: 64, y: 150, n: "Queue de rivet", draw: <rect x="-4" y="-1.5" width="8" height="3" rx="1" fill="#c9ced6" /> },
-  { id: "fil", x: 212, y: 58, n: "Bout de fil à freiner", draw: <path d="M-7 0 q2 -3 4 0 t4 0 t4 0" stroke="#d9dde4" strokeWidth="1.2" fill="none" /> },
-  { id: "rondelle", x: 300, y: 172, n: "Rondelle", draw: <circle r="3.5" fill="none" stroke="#c9ced6" strokeWidth="1.6" /> },
-  { id: "cleco", x: 150, y: 120, n: "Épingle Cleco oubliée", draw: <g><rect x="-3" y="-4" width="6" height="5" fill="#c9773a" /><rect x="-1" y="1" width="2" height="4" fill="#8fa0bd" /></g> },
-  { id: "foret", x: 268, y: 104, n: "Foret cassé", draw: <path d="M-6 1 L5 -1" stroke="#8fa0bd" strokeWidth="1.8" /> },
-  { id: "embout", x: 104, y: 70, n: "Embout de visseuse", draw: <polygon points="-3,-3 3,-3 4,0 3,3 -3,3 -4,0" fill="#9fb0c8" /> },
+  { id: "rivet", x: 64, y: 150, n: "Tige de rivet aveugle", draw: FodDraw.rivet },
+  { id: "fil", x: 212, y: 58, n: "Bout de fil à freiner", draw: FodDraw.fil },
+  { id: "rondelle", x: 300, y: 172, n: "Rondelle", draw: FodDraw.rondelle },
+  { id: "cleco", x: 150, y: 120, n: "Épingle Cleco oubliée", draw: FodDraw.cleco },
+  { id: "foret", x: 268, y: 104, n: "Foret cassé", draw: FodDraw.foret },
+  { id: "embout", x: 104, y: 70, n: "Embout de visseuse", draw: FodDraw.embout },
 ];
 
 const FOD_MAX_MISS = 2; /* 2 clics dans le vide tolérés, au 3e la zone est déclarée fermée */
@@ -966,16 +1411,7 @@ function FodHunt() {
       </div>
       <p className="mb-3 text-[13px] text-muted">Zone sous la BTP, au-dessus de la timonerie de commandes de vol. Clique sur chaque corps étranger avant de signer le point d'arrêt. Au 3e clic dans le vide, la zone est déclarée fermée et les objets restants sont comptés oubliés. Les objets changent de place à chaque tirage.</p>
       <svg ref={svgRef} viewBox="0 0 360 200" onClick={click} className="w-full cursor-crosshair rounded-lg border border-line bg-[#101827]" role="img" aria-label="Vue de dessus du plancher mécanique, corps étrangers à trouver">
-        {[40, 120, 200, 280].map((x) => <rect key={x} x={x} y="10" width="6" height="180" fill="#22304d" />)}
-        <rect x="10" y="94" width="340" height="6" fill="#22304d" />
-        <line x1="20" y1="40" x2="340" y2="40" stroke="#3b9eff" strokeWidth="3" opacity="0.7" />
-        <line x1="20" y1="160" x2="340" y2="160" stroke="#3b9eff" strokeWidth="3" opacity="0.7" />
-        {[[90, 40], [250, 40], [170, 160]].map(([x, y], i) => (
-          <g key={i}><circle cx={x} cy={y} r="9" fill="#2b5c99" stroke="#3b9eff" /><circle cx={x} cy={y} r="3" fill="#0b1220" /></g>
-        ))}
-        <path d="M20 130 C 90 120, 150 140, 340 128" stroke="#ffb020" strokeWidth="4" fill="none" opacity="0.55" />
-        <text x="24" y="30" fontSize="9" fill="#8fa0bd" fontFamily="JetBrains Mono">BIELLES ATA 67</text>
-        <text x="24" y="124" fontSize="9" fill="#8fa0bd" fontFamily="JetBrains Mono">HARNAIS</text>
+        <FodBackground />
         {FOD_ITEMS.map((f) => (
           <g key={f.id} transform={`translate(${pos[f.id][0]} ${pos[f.id][1]})`}>
             {f.draw}
@@ -1007,6 +1443,9 @@ const Q_BOND = [
   { q: "H145, cellule en cours d'équipement. Pourquoi la continuité électrique (métallisation) est-elle particulièrement critique sur un hélicoptère ?", options: ["Les pales chargent la cellule en électricité statique, en plus du retour de masse et de la foudre", "La cellule non pressurisée laisse entrer l'humidité qui isole les jonctions entre panneaux", "Les moteurs à turbine produisent un courant parasite qui doit s'écouler par la structure", "La métallisation remplace le harnais de masse et réduit ainsi la masse de l'appareil"], answer: 0, why: "La rotation des pales génère d'importantes charges électrostatiques. Sans continuité électrique de la cellule, elles se déchargent de façon incontrôlée et perturbent l'avionique.", hint: "Pense à ce que provoque le frottement des pales dans l'air." },
   { q: "H160, plancher mécanique. Un harnais électrique frotte sur une tuyauterie hydraulique sous l'effet des vibrations. Comment s'appelle ce défaut et comment le prévient-on ?", options: ["Chafing ; jeux minimums et colliers à garniture élastomère", "Fretting ; graissage du harnais au point de contact", "Crazing ; gaine thermorétractable sur le tube", "Pitting ; cordon de PR entre harnais et tube"], answer: 0, why: "Le chafing est l'usure par frottement vibratoire. Il perce l'isolant puis le tube : court-circuit et fuite. Ségrégation, jeux minimums et colliers garnis l'évitent.", hint: "C'est un terme EWIS courant, lié au frottement." },
   { q: "H175, gamme d'un caisson de plancher. Où le préparateur place-t-il le point d'arrêt « Contrôle FOD & aspiration » ?", options: ["Juste avant toute fermeture de zone ou de caisson", "En fin de poste, une fois tous les caissons fermés", "Au contrôle final, avant la livraison au client", "Après le premier vol, lors de la visite de réception"], answer: 0, why: "Une fois la zone fermée, un objet oublié est invisible et inaccessible. Le contrôle a lieu juste avant la fermeture et il est signé dans la gamme.", hint: "Après la fermeture, il est trop tard pour voir." },
+  { q: "H160, métallisation d'une tresse. Le décapage a été fait au disque sur un diamètre trois fois plus grand que la cosse. Quel est le problème ?", options: ["Le métal nu hors cosse augmente la zone à re-protéger", "La résistance mesurée sera forcément trop élevée", "La cosse ne pourra plus être serrée au couple", "Le milliohmmètre 4 fils ne pourra plus mesurer"], answer: 0, why: "Le décapage doit rester juste à la taille de l'appui de la cosse. Tout métal nu en plus est une surface d'amorce de corrosion qu'il faudra re-protéger parfaitement.", hint: "Pense à ce qui reste à nu autour de la cosse." },
+  { q: "H145, mesure de métallisation. Pourquoi la gamme impose-t-elle un milliohmmètre à 4 fils (Kelvin) plutôt qu'un ohmmètre classique ?", options: ["Les 4 fils éliminent la résistance des cordons et contacts", "Les 4 fils permettent de mesurer sans décaper la peinture", "Les 4 fils injectent un courant plus faible et plus sûr", "Les 4 fils mesurent deux liaisons en même temps"], answer: 0, why: "Deux fils injectent le courant, deux autres mesurent la tension au plus près du contact : la résistance des cordons et des pointes n'entre pas dans la mesure de quelques mΩ.", hint: "À quelques milliohms, les cordons faussent tout." },
+  { q: "H175, fermeture du plancher mécanique. Lors de la chasse au FOD, l'opérateur retrouve une queue de rivet aveugle. Que prescrit la gamme ?", options: ["Récupérer, compter les tiges cassées et aspirer la zone", "Pousser l'objet sous un couple où il ne gêne rien", "Fermer la zone, l'objet étant plus léger qu'une vis", "Noter l'objet sur la fiche et le laisser en place"], answer: 0, why: "Chaque tige cassée doit être récupérée : le compte des tiges et l'aspiration garantissent que rien ne reste près des bielles et guignols ATA 67.", hint: "Rien ne doit rester dans une zone fermée." },
 ];
 
 function TabBonding({ done, onComplete }) {

@@ -8,35 +8,68 @@ import React, { useState } from "react";
 import { CheckCircle2, XCircle, Wrench, Info } from "lucide-react";
 
 const cx = (...c) => c.filter(Boolean).join(" ");
-const K = { plate: "#1b2a47", edge: "#5b7299", hatch: "#2e4168", metal: "#9fb3d1", metal2: "#c8d6ea", dark: "#0b1220", sky: "#3b9eff", amber: "#ffb020", ok: "#3ddc97", ko: "#ff5d6c", txt: "#8fa0bd", pr: "#7c5cff" };
+const K = { plate: "#1b2a47", plate2: "#24304a", edge: "#5b7299", hatch: "#2e4168", metal: "#9fb3d1", metal2: "#c8d6ea", steel: "#7f95b8", dark: "#0b1220", sky: "#3b9eff", amber: "#ffb020", ok: "#3ddc97", ko: "#ff5d6c", txt: "#8fa0bd", pr: "#c4a7ff", lead: "#3a4c70", tool: "#3a4c70" };
 const MONO = "JetBrains Mono, monospace";
+const TAN50 = 0.839; /* demi-angle de fraisure 100° : profondeur = (Øtête - Øfût) / 2 / tan 50° */
 
 /* ---------- briques de dessin ---------- */
 function Defs() {
   return (
     <defs>
       <pattern id="qh" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke={K.hatch} strokeWidth="1.2" /></pattern>
+      <pattern id="qh2" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)"><line x1="0" y1="0" x2="0" y2="6" stroke={K.hatch} strokeWidth="1.2" /></pattern>
+      <pattern id="qs" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="4" stroke="#00000055" strokeWidth="1" /></pattern>
       <marker id="qa" markerWidth="7" markerHeight="7" refX="3.5" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 z" fill={K.amber} /></marker>
     </defs>
   );
 }
-/* Empilage de deux tôles percées : trou centré en x=120, largeur w */
-function Stack({ y = 80, t1 = 22, t2 = 22, w = 20, gap = 0 }) {
-  const L = 30, R = 210, a = 120 - w / 2, b = 120 + w / 2;
-  const plate = (yy, t) => (
+/* Empilage de deux tôles percées (trou centré en cx, largeur w), fraisure 100° optionnelle (csk = Ø en surface) */
+function Stack({ y = 80, t1 = 20, t2 = 20, w = 20, cx: c = 120, gap = 0, csk = 0, pr = false, L = 30, R = 210 }) {
+  const a = c - w / 2, b = c + w / 2;
+  const d = csk > w ? ((csk - w) / 2) * TAN50 : 0;
+  const ca = csk > w ? c - csk / 2 : a, cb = csk > w ? c + csk / 2 : b;
+  const top = `M${L},${y} H${ca} L${a},${y + d} V${y + t1} H${L} Z M${R},${y} H${cb} L${b},${y + d} V${y + t1} H${R} Z`;
+  const y2 = y + t1 + gap;
+  const bot = `M${L},${y2} H${a} V${y2 + t2} H${L} Z M${R},${y2} H${b} V${y2 + t2} H${R} Z`;
+  return (
     <g>
-      <rect x={L} y={yy} width={a - L} height={t} fill={K.plate} stroke={K.edge} /><rect x={L} y={yy} width={a - L} height={t} fill="url(#qh)" />
-      <rect x={b} y={yy} width={R - b} height={t} fill={K.plate} stroke={K.edge} /><rect x={b} y={yy} width={R - b} height={t} fill="url(#qh)" />
+      <path d={top} fill={K.plate} stroke={K.edge} /><path d={top} fill="url(#qh)" />
+      <path d={bot} fill={K.plate2} stroke={K.edge} /><path d={bot} fill="url(#qh2)" />
+      {pr && <path d={`M${L},${y + t1 - 1} H${a} V${y + t1 + 2} H${L} Z M${R},${y + t1 - 1} H${b} V${y + t1 + 2} H${R} Z`} fill={K.pr} />}
     </g>
   );
-  return <g>{plate(y, t1)}{plate(y + t1 + gap, t2)}</g>;
 }
-const Label = ({ x, y, children, c = K.txt, a = "start" }) => <text x={x} y={y} fontSize="8.6" fontFamily={MONO} fill={c} textAnchor={a}>{children}</text>;
-const Arrow = ({ x1, y1, x2, y2 }) => <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={K.amber} strokeWidth="1.6" markerEnd="url(#qa)" />;
-const Thread = ({ x, y, w, h, step = 4 }) => <g>{Array.from({ length: Math.floor(h / step) }, (_, i) => <line key={i} x1={x} y1={y + i * step} x2={x + w} y2={y + i * step + 2} stroke={K.dark} strokeWidth="0.9" />)}</g>;
+const Label = ({ x, y, children, c = K.txt, a = "start", w }) => <text x={x} y={y} fontSize="8.6" fontFamily={MONO} fill={c} textAnchor={a} fontWeight={w}>{children}</text>;
+const Lead = ({ x1, y1, x2, y2 }) => <g><line x1={x1} y1={y1} x2={x2} y2={y2} stroke={K.lead} strokeWidth="0.9" /><circle cx={x2} cy={y2} r="1.4" fill={K.txt} /></g>;
+const Arrow = ({ x1, y1, x2, y2, c = K.amber }) => <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={c} strokeWidth="1.6" markerEnd="url(#qa)" />;
+const Dim = ({ x, y1, y2, c = K.amber }) => <g stroke={c} strokeWidth="0.9"><line x1={x} y1={y1} x2={x} y2={y2} /><line x1={x - 4} y1={y1} x2={x + 4} y2={y1} /><line x1={x - 4} y1={y2} x2={x + 4} y2={y2} /></g>;
+const HDim = ({ y, x1, x2, c = K.amber }) => <g stroke={c} strokeWidth="0.9"><line x1={x1} y1={y} x2={x2} y2={y} /><line x1={x1} y1={y - 4} x2={x1} y2={y + 4} /><line x1={x2} y1={y - 4} x2={x2} y2={y + 4} /></g>;
+/* Filetage net : profil en dents de scie sur les deux génératrices + crêtes inclinées */
+function ThreadZ({ x, y, w, h, p = 3.2, fill = K.metal2 }) {
+  const n = Math.floor(h / (p / 2));
+  const R = [], Lp = [];
+  for (let i = 0; i <= n; i++) {
+    const yy = y + i * (p / 2), off = i % 2 ? 1.6 : 0;
+    R.push(`${(x + w - off).toFixed(1)},${yy.toFixed(1)}`);
+    Lp.unshift(`${(x + off).toFixed(1)},${(yy + p / 4).toFixed(1)}`);
+  }
+  const yEnd = y + n * (p / 2);
+  return (
+    <g>
+      <path d={`M${x},${y} L${R.join(" L")} L${x + w},${yEnd} L${x},${yEnd} L${Lp.join(" L")} Z`} fill={fill} stroke={K.edge} strokeWidth="0.8" />
+      {Array.from({ length: Math.floor(h / p) }, (_, i) => <line key={i} x1={x + 1.6} y1={y + i * p + 0.8} x2={x + w - 1.6} y2={y + i * p + 2.4} stroke={K.edge} strokeWidth="0.6" />)}
+    </g>
+  );
+}
+/* Tête fraisée 100° */
+const CskHead = ({ c = 120, y, top = 36, w = 20, fill = K.metal }) => {
+  const d = ((top - w) / 2) * TAN50;
+  return <polygon points={`${c - top / 2},${y} ${c + top / 2},${y} ${c + w / 2},${y + d} ${c - w / 2},${y + d}`} fill={fill} stroke={K.edge} />;
+};
+const cskDepth = (top, w) => ((top - w) / 2) * TAN50;
 function Frame({ children, title }) {
   return (
-    <svg viewBox="0 0 320 200" className="h-auto w-full" role="img" aria-label={title}>
+    <svg viewBox="0 0 320 200" className="h-auto w-full" role="img" aria-label={title} data-quinc="1">
       <Defs />
       <rect x="0.5" y="0.5" width="319" height="199" rx="6" fill="#0d1526" stroke="#22304d" />
       {children}
@@ -45,113 +78,436 @@ function Frame({ children, title }) {
 }
 
 /* ---------- 1. Hi-Lok / Hi-Lite ---------- */
-const hlPin = (y0 = 40, wet = false) => (
-  <g>
-    <path d={`M100,${y0 + 30} L140,${y0 + 30} L131,${y0 + 40} L109,${y0 + 40} Z`} fill={K.metal} stroke={K.edge} />
-    <rect x="110" y={y0 + 40} width="20" height="62" fill={K.metal} stroke={K.edge} />
-    <rect x="111" y={y0 + 102} width="18" height="30" fill={K.metal2} stroke={K.edge} /><Thread x={111} y={y0 + 103} w={18} h={28} />
-    <polygon points={`116,${y0 + 127} 124,${y0 + 127} 126,${y0 + 131} 114,${y0 + 131}`} fill={K.dark} />
-    {wet && <rect x="107" y={y0 + 40} width="26" height="10" fill={K.pr} opacity="0.55" />}
-  </g>
-);
+/* tige : tête fraisée 100°, fût lisse, filetage, empreinte six pans en bout */
+function HlPin({ y0, shank = 40, thread = 30, wet = false }) {
+  const d = cskDepth(36, 20);
+  return (
+    <g>
+      <CskHead y={y0} />
+      <rect x="110" y={y0 + d} width="20" height={shank - d} fill={K.metal} stroke={K.edge} />
+      <rect x="110" y={y0 + d} width="20" height={shank - d} fill="url(#qs)" opacity="0.4" />
+      {wet && <><rect x="107.5" y={y0 + d + 2} width="3" height={shank - d - 6} fill={K.pr} /><rect x="129.5" y={y0 + d + 2} width="3" height={shank - d - 6} fill={K.pr} /></>}
+      <ThreadZ x={111} y={y0 + shank} w={18} h={thread} />
+      <path d={`M116,${y0 + shank + thread} V${y0 + shank + thread - 9} H124 V${y0 + shank + thread}`} fill={K.dark} stroke={K.edge} strokeDasharray="2 1.5" strokeWidth="0.8" />
+    </g>
+  );
+}
+/* collier Hi-Lok : base à collerette (reste en place) + gorge de rupture + six pans de manœuvre */
+function HlCollar({ c = 120, y, broken = false, ghost = false }) {
+  return (
+    <g opacity={ghost ? 0.9 : 1}>
+      <path d={`M${c - 18},${y} H${c + 18} V${y + 4} H${c + 15} V${y + 12} H${c - 15} V${y + 4} H${c - 18} Z`} fill={K.sky} stroke="#8fd0ff" strokeWidth="0.8" />
+      {!broken && <>
+        <rect x={c - 9} y={y + 12} width="18" height="2.5" fill={K.ko} />
+        <rect x={c - 14} y={y + 14.5} width="28" height="14" fill={K.sky} opacity="0.8" stroke="#8fd0ff" strokeWidth="0.8" />
+        <line x1={c - 5} x2={c - 5} y1={y + 14.5} y2={y + 28.5} stroke="#8fd0ff" strokeWidth="0.6" /><line x1={c + 5} x2={c + 5} y1={y + 14.5} y2={y + 28.5} stroke="#8fd0ff" strokeWidth="0.6" />
+      </>}
+      {broken && <path d={`M${c - 9},${y + 12} l3,1.5 l3,-1.5 l3,1.5 l3,-1.5 l3,1.5`} fill="none" stroke={K.ok} strokeWidth="1" />}
+    </g>
+  );
+}
 const HL = {
-  avant: () => (<Frame title="Hi-Lok avant pose"><Stack y={80} /><g transform="translate(0,-20)">{hlPin(30, true)}</g><Arrow x1={60} y1={20} x2={60} y2={60} /><Label x={14} y={16}>tige enduite PR (pose humide)</Label><Label x={150} y={196}>jauge de grip : choix de longueur</Label><line x1="214" y1="80" x2="214" y2="124" stroke={K.amber} /><Label x={190} y={76} c={K.amber}>E</Label></Frame>),
+  avant: () => (<Frame title="Hi-Lok avant pose">
+    <Stack y={86} csk={36} />
+    <HlPin y0={52} wet />
+    <HlCollar c={262} y={40} />
+    <Dim x={224} y1={86} y2={126} /><Label x={230} y={110} c={K.amber}>E</Label>
+    <Lead x1={95} y1={28} x2={108} y2={70} /><Label x={16} y={26} c={K.pr}>fût enduit de PR</Label>
+    <Label x={226} y={84} c={K.sky}>collier</Label>
+    <Lead x1={78} y1={150} x2={104} y2={90} /><Label x={16} y={160}>fraisure 100°</Label>
+    <Label x={16} y={178} c={K.amber}>grip lu à la jauge selon E</Label>
+  </Frame>),
   pendant: () => (<Frame title="Hi-Lok pendant le serrage">
-    <Stack y={70} />
-    <path d="M100,60 L140,60 L131,70 L109,70 Z" fill={K.metal} stroke={K.edge} /><rect x="110" y="70" width="20" height="44" fill={K.metal} stroke={K.edge} /><rect x="111" y="114" width="18" height="40" fill={K.metal2} stroke={K.edge} /><Thread x={111} y={115} w={18} h={38} />
-    <rect x="102" y="114" width="36" height="16" fill={K.sky} opacity="0.85" stroke={K.edge} /><rect x="104" y="132" width="32" height="16" fill={K.sky} opacity="0.55" stroke={K.edge} /><line x1="102" y1="131" x2="138" y2="131" stroke={K.ko} strokeDasharray="2 2" />
-    <rect x="117" y="148" width="6" height="40" fill={K.amber} /><Label x={128} y={186} c={K.amber}>clé Allen : tient la tige</Label>
-    <path d="M150,138 a26,10 0 1,1 -60,0" fill="none" stroke={K.amber} strokeWidth="1.6" markerEnd="url(#qa)" /><Label x={142} y={124} c={K.sky}>collier + écrou de manœuvre</Label><Label x={142} y={160} c={K.ko}>gorge calibrée</Label>
+    <Stack y={70} csk={36} />
+    <HlPin y0={70} shank={40} thread={34} />
+    <HlCollar y={110} />
+    <rect x="117" y="143" width="6" height="36" fill={K.amber} stroke={K.dark} strokeWidth="0.6" />
+    <path d="M152,140 a32,9 0 1,1 -64,0" fill="none" stroke={K.amber} strokeWidth="1.6" markerEnd="url(#qa)" />
+    <Lead x1={160} y1={104} x2={136} y2={112} /><Label x={164} y={107} c={K.sky}>collier (reste)</Label>
+    <Lead x1={160} y1={121} x2={128} y2={123} /><Label x={164} y={124} c={K.ko}>gorge de rupture</Label>
+    <Lead x1={160} y1={137} x2={142} y2={132} /><Label x={164} y={140}>six pans de manœuvre</Label>
+    <Label x={130} y={176} c={K.amber}>clé six pans : tient la tige</Label>
+    <Label x={16} y={40}>clé de pose : entraîne le six pans</Label>
   </Frame>),
   apres: () => (<Frame title="Hi-Lok après pose">
-    <Stack y={70} />
-    <path d="M100,60 L140,60 L131,70 L109,70 Z" fill={K.metal} stroke={K.edge} /><rect x="110" y="70" width="20" height="44" fill={K.metal} stroke={K.edge} /><rect x="111" y="114" width="18" height="22" fill={K.metal2} stroke={K.edge} />
-    <rect x="102" y="114" width="36" height="16" fill={K.sky} opacity="0.85" stroke={K.edge} />
-    <g transform="translate(170,150) rotate(18)"><rect x="-16" y="-8" width="32" height="16" fill={K.sky} opacity="0.45" stroke={K.edge} /></g><Label x={150} y={180}>écrou cassé (évacué)</Label>
-    <line x1="146" y1="130" x2="146" y2="136" stroke={K.ok} strokeWidth="2" /><Label x={150} y={136} c={K.ok}>dépassement OK</Label><Label x={20} y={56} c={K.ok}>0 jeu sous tête</Label>
+    <Stack y={70} csk={36} />
+    <HlPin y0={70} shank={40} thread={24} />
+    <HlCollar y={110} broken />
+    <Dim x={140} y1={122} y2={134} c={K.ok} /><Label x={148} y={132} c={K.ok}>dépassement P dans la jauge</Label>
+    <g transform="translate(226,150) rotate(22)"><rect x="-14" y="-7" width="28" height="14" fill={K.sky} opacity="0.5" stroke="#8fd0ff" strokeWidth="0.8" /><path d="M-9,-7 l3,-1.5 l3,1.5 l3,-1.5 l3,1.5 l3,-1.5" fill="none" stroke={K.ko} /></g>
+    <Label x={186} y={178}>six pans cassé, évacué</Label>
+    <Label x={16} y={52} c={K.ok}>tête affleurante, 0 jeu sous tête</Label>
+    <Lead x1={84} y1={160} x2={110} y2={126} /><Label x={16} y={170} c={K.ok}>cassure nette à la gorge</Label>
   </Frame>),
 };
 
 /* ---------- 2. Lockbolt ---------- */
-const lbPin = (y = 60, pintail = true) => (
-  <g>
-    <path d={`M100,${y} L140,${y} L131,${y + 10} L109,${y + 10} Z`} fill={K.metal} stroke={K.edge} />
-    <rect x="110" y={y + 10} width="20" height="44" fill={K.metal} stroke={K.edge} />
-    <rect x="111" y={y + 54} width="18" height="26" fill={K.metal2} stroke={K.edge} />{[0, 6, 12, 18].map((d) => <line key={d} x1="111" y1={y + 58 + d} x2="129" y2={y + 58 + d} stroke={K.dark} strokeWidth="2" />)}
-    {pintail && <><rect x="114" y={y + 80} width="12" height="4" fill={K.ko} /><rect x="113" y={y + 84} width="14" height="34" fill={K.metal2} stroke={K.edge} />{[0, 5, 10, 15, 20, 25].map((d) => <line key={d} x1="113" y1={y + 88 + d} x2="127" y2={y + 88 + d} stroke={K.dark} />)}</>}
-  </g>
-);
+/* fût à gorges annulaires arrondies, gorge de rupture en V, pintail à dents de traction */
+const grooves = (x, y, w, n, pitch = 6) => {
+  let L = `M${x},${y}`, R = `M${x + w},${y}`;
+  for (let i = 0; i < n; i++) { const yy = y + i * pitch; L += ` V${yy + 1} q2.6,${pitch / 2 - 1} 0,${pitch - 2}`; R += ` V${yy + 1} q-2.6,${pitch / 2 - 1} 0,${pitch - 2}`; }
+  return { L, R, end: y + n * pitch };
+};
+function LbPin({ y = 70, pintail = true, csk = true }) {
+  const d = cskDepth(36, 20);
+  const g = grooves(110, y + 40, 20, 4);
+  return (
+    <g>
+      {csk ? <CskHead y={y} /> : <path d={`M100,${y} q20,-14 40,0 Z`} fill={K.metal} stroke={K.edge} />}
+      <rect x="110" y={y + (csk ? d : 0)} width="20" height={40 - (csk ? d : 0)} fill={K.metal} stroke={K.edge} />
+      <path d={`${g.L} V${g.end} H${130} V${y + 40} H110 Z`} fill={K.metal} />
+      <path d={g.L} fill="none" stroke={K.edge} /><path d={g.R} fill="none" stroke={K.edge} />
+      <path d={`M110,${g.end} L116,${g.end + 4} H124 L130,${g.end} Z`} fill={K.metal} stroke={K.edge} />
+      {pintail && <>
+        <rect x="116" y={g.end + 4} width="8" height="2" fill={K.ko} />
+        <path d={`M116,${g.end + 6} L111,${g.end + 10} V${g.end + 44} H129 V${g.end + 10} L124,${g.end + 6} Z`} fill={K.metal2} stroke={K.edge} />
+        {[0, 1, 2, 3, 4, 5].map((i) => <path key={i} d={`M111,${g.end + 14 + i * 5} l3,3 M129,${g.end + 14 + i * 5} l-3,3`} stroke={K.edge} />)}
+      </>}
+    </g>
+  );
+}
 const LB = {
-  avant: () => (<Frame title="Lockbolt avant pose"><Stack y={70} />{lbPin(60)}<rect x="230" y="120" width="30" height="20" fill={K.sky} opacity="0.7" stroke={K.edge} /><Label x={226} y={154} c={K.sky}>collier lisse</Label><Label x={136} y={128}>gorges de blocage</Label><Label x={136} y={144} c={K.ko}>gorge de rupture</Label><Label x={136} y={168}>pintail (traction)</Label></Frame>),
-  pendant: () => (<Frame title="Lockbolt pendant le sertissage">{<Stack y={70} />}{lbPin(60)}<rect x="104" y="114" width="32" height="22" fill={K.sky} opacity="0.75" stroke={K.edge} /><path d="M92,112 h12 v40 h-12 z M136,112 h12 v40 h-12 z" fill="#3a4c70" stroke={K.edge} /><Label x={152} y={128}>enclume de l'outil</Label><Arrow x1={120} y1={160} x2={120} y2={192} /><Label x={126} y={190} c={K.amber}>traction du pintail</Label><Arrow x1={96} y1={150} x2={96} y2={124} /></Frame>),
-  apres: () => (<Frame title="Lockbolt après pose"><Stack y={70} />{lbPin(60, false)}<path d="M106,114 h28 l-2,22 h-24 z" fill={K.sky} opacity="0.85" stroke={K.edge} />{[0, 6, 12].map((d) => <line key={d} x1="108" y1={120 + d} x2="132" y2={120 + d} stroke={K.dark} strokeWidth="1.5" />)}<Label x={140} y={128} c={K.ok}>collier serti dans les gorges</Label><Label x={140} y={142} c={K.ok}>rupture du pintail affleurante</Label><Label x={20} y={56} c={K.ok}>0 jeu sous tête</Label></Frame>),
+  avant: () => (<Frame title="Lockbolt avant pose">
+    <Stack y={70} csk={36} />
+    <LbPin y={70} />
+    <path d="M244,128 H272 V132 H276 V156 H240 V132 H244 Z" fill={K.sky} opacity="0.8" stroke="#8fd0ff" strokeWidth="0.8" />
+    <Label x={234} y={172} c={K.sky}>collier lisse</Label>
+    <Lead x1={150} y1={118} x2={130} y2={120} /><Label x={152} y={121}>gorges de blocage</Label>
+    <Lead x1={150} y1={136} x2={126} y2={136} /><Label x={152} y={139} c={K.ko}>gorge de rupture</Label>
+    <Lead x1={150} y1={160} x2={129} y2={160} /><Label x={152} y={163}>pintail (traction)</Label>
+    <Label x={16} y={40}>fraisure 100° · fût lisse calibré</Label>
+  </Frame>),
+  pendant: () => (<Frame title="Lockbolt pendant le sertissage">
+    <Stack y={70} csk={36} />
+    <LbPin y={70} />
+    <path d="M104,110 H136 V118 L134,134 H106 L104,118 Z" fill={K.sky} opacity="0.85" stroke="#8fd0ff" strokeWidth="0.8" />
+    <path d="M88,124 H103 L106,134 V150 H88 Z M152,124 H137 L134,134 V150 H152 Z" fill={K.tool} stroke={K.edge} />
+    <Arrow x1={120} y1={160} x2={120} y2={182} /><Arrow x1={80} y1={160} x2={80} y2={136} />
+    <Lead x1={158} y1={118} x2={136} y2={116} /><Label x={160} y={121} c={K.sky}>collier en cours de filage</Label>
+    <Lead x1={158} y1={140} x2={150} y2={140} /><Label x={160} y={143}>enclume de l'outil</Label>
+    <Label x={128} y={180} c={K.amber}>traction du pintail</Label>
+    <Label x={16} y={40}>l'enclume file le collier dans les gorges</Label>
+  </Frame>),
+  apres: () => (<Frame title="Lockbolt après pose">
+    <Stack y={70} csk={36} />
+    <LbPin y={70} pintail={false} />
+    <path d="M104,110 H136 V114 L133,134 H107 L104,114 Z" fill={K.sky} opacity="0.85" stroke="#8fd0ff" strokeWidth="0.8" />
+    {[0, 1, 2].map((i) => <path key={i} d={`M110,${117 + i * 6} q2,2 0,4 M130,${117 + i * 6} q-2,2 0,4`} stroke={K.dark} />)}
+    <path d="M116,134 l2,2 l2,-2 l2,2 l2,-2" fill="none" stroke={K.ok} />
+    <Lead x1={150} y1={120} x2={133} y2={122} /><Label x={152} y={123} c={K.ok}>collier serti intégralement</Label>
+    <Lead x1={150} y1={146} x2={124} y2={136} /><Label x={152} y={149} c={K.ok}>pintail rompu affleurant</Label>
+    <Label x={16} y={52} c={K.ok}>0 jeu sous tête</Label>
+    <Label x={16} y={178}>jauge : Ø et longueur du collier serti</Label>
+  </Frame>),
 };
 
 /* ---------- 3. Rivet plein ---------- */
 const RV = {
-  avant: () => (<Frame title="Rivet plein avant pose"><Stack y={70} w={14} /><path d="M100,70 a20,10 0 0,1 40,0 z" fill={K.metal} stroke={K.edge} /><rect x="113" y="70" width="14" height="78" fill={K.metal} stroke={K.edge} /><line x1="200" y1="70" x2="200" y2="114" stroke={K.amber} /><Label x={204} y={96} c={K.amber}>E</Label><line x1="150" y1="114" x2="150" y2="148" stroke={K.amber} /><Label x={154} y={136} c={K.amber}>1,5 D</Label><Label x={14} y={184}>L = E + 1,5 D (dépassement avant écrasement)</Label><Label x={18} y={60}>tête universelle MS20470</Label></Frame>),
-  pendant: () => (<Frame title="Rivet plein pendant le rivetage"><Stack y={70} w={14} /><path d="M100,70 a20,10 0 0,1 40,0 z" fill={K.metal} stroke={K.edge} /><rect x="113" y="70" width="14" height="44" fill={K.metal} stroke={K.edge} /><path d="M108,114 h24 l4,18 h-32 z" fill={K.metal} stroke={K.edge} /><rect x="96" y="40" width="48" height="20" rx="4" fill="#3a4c70" stroke={K.edge} /><Label x={150} y={52}>bouterolle (pistolet)</Label><rect x="80" y="134" width="80" height="22" fill="#3a4c70" stroke={K.edge} /><Label x={164} y={150}>tas</Label><Arrow x1={120} y1={18} x2={120} y2={38} /></Frame>),
-  apres: () => (<Frame title="Rivet plein après pose : contrôle de la tête formée"><Stack y={70} w={14} /><path d="M100,70 a20,10 0 0,1 40,0 z" fill={K.metal} stroke={K.edge} /><rect x="113" y="70" width="14" height="44" fill={K.metal} stroke={K.edge} /><path d="M109,114 h22 a3,3 0 0,1 3,3 v5 h-28 v-5 a3,3 0 0,1 3,-3 z" fill={K.metal} stroke={K.edge} /><line x1="106" y1="132" x2="134" y2="132" stroke={K.ok} /><Label x={86} y={146} c={K.ok}>Ø ≈ 1,5 D</Label><line x1="142" y1="114" x2="142" y2="122" stroke={K.ok} strokeWidth="2" /><Label x={146} y={122} c={K.ok}>h ≈ 0,5 D</Label>
-    <g transform="translate(0,6)"><Label x={14} y={170} c={K.txt}>Fraisé 100° (NF L) : tête affleurante,</Label><Label x={14} y={182} c={K.txt}>logement fraisé à la bonne profondeur</Label></g></Frame>),
+  avant: () => (<Frame title="Rivet plein avant pose : fraisage à la cage micrométrique">
+    <Stack y={104} cx={90} w={12} csk={26} L={24} R={170} t1={16} t2={16} />
+    {/* cage micrométrique en coupe */}
+    <rect x="86" y="18" width="8" height="24" fill={K.metal2} stroke={K.edge} />
+    <rect x="54" y="42" width="72" height="10" rx="2" fill={K.steel} stroke={K.edge} />
+    {Array.from({ length: 13 }, (_, i) => <line key={i} x1={57 + i * 5.5} y1="42" x2={57 + i * 5.5} y2={i % 5 === 0 ? 47 : 45} stroke={K.dark} strokeWidth="0.8" />)}
+    <path d="M58,52 H122 V62 H114 V104 H106 V62 H74 V104 H66 V62 H58 Z" fill={K.tool} stroke={K.edge} />
+    <path d="M58,52 H122 V62 H114 V104 H106 V62 H74 V104 H66 V62 H58 Z" fill="url(#qh)" opacity="0.6" />
+    <rect x="77" y="62" width="26" height="42" fill={K.metal} stroke={K.edge} />
+    <polygon points={`77,104 103,104 96,${104 + cskDepth(26, 12) * 0.98} 84,${104 + cskDepth(26, 12) * 0.98}`} fill={K.metal} stroke={K.edge} />
+    <rect x="86" y="110" width="8" height="18" fill={K.metal2} stroke={K.edge} />
+    {/* rivet NF L 100° prêt */}
+    <CskHead c={250} y={92} top={26} w={12} />
+    <rect x="244" y={92 + cskDepth(26, 12)} width="12" height="58" fill={K.metal} stroke={K.edge} />
+    <Dim x={270} y1={98} y2={150} /><Label x={276} y={128} c={K.amber}>L</Label>
+    <Lead x1={136} y1={30} x2={124} y2={45} /><Label x={138} y={33}>bague micrométrique (1/100)</Label>
+    <Lead x1={136} y1={64} x2={122} y2={60} /><Label x={138} y={67}>cage à jupe en appui</Label>
+    <Lead x1={136} y1={84} x2={103} y2={100} /><Label x={138} y={87}>fraise 100° + pilote</Label>
+    <Label x={216} y={170}>rivet NF L 100°</Label>
+    <Label x={16} y={182} c={K.amber}>L = E + 1,5 D</Label>
+  </Frame>),
+  pendant: () => (<Frame title="Rivet plein pendant le rivetage">
+    <Stack y={70} w={12} csk={26} />
+    <CskHead top={26} w={12} y={70} />
+    <rect x="114" y={70 + cskDepth(26, 12)} width="12" height={40 - cskDepth(26, 12)} fill={K.metal} stroke={K.edge} />
+    <path d="M114,110 H126 L130,126 H110 Z" fill={K.metal} stroke={K.edge} />
+    <rect x="98" y="46" width="44" height="24" rx="3" fill={K.tool} stroke={K.edge} /><rect x="110" y="26" width="20" height="20" fill={K.tool} stroke={K.edge} />
+    <rect x="76" y="126" width="88" height="24" fill={K.tool} stroke={K.edge} /><rect x="76" y="126" width="88" height="24" fill="url(#qh)" opacity="0.6" />
+    <Arrow x1={152} y1={30} x2={152} y2={54} />
+    <Lead x1={176} y1={58} x2={142} y2={58} /><Label x={178} y={61}>bouterolle plate</Label><Label x={178} y={73}>côté tête fraisée</Label>
+    <Lead x1={176} y1={140} x2={164} y2={140} /><Label x={178} y={143}>tas (forme la tête)</Label>
+    <Label x={16} y={178}>la queue s'écrase et gonfle dans l'alésage</Label>
+  </Frame>),
+  apres: () => (<Frame title="Rivet plein après pose : contrôle de la tête formée">
+    <Stack y={70} w={12} csk={26} />
+    <CskHead top={26} w={12} y={70} />
+    <rect x="114" y={70 + cskDepth(26, 12)} width="12" height={40 - cskDepth(26, 12)} fill={K.metal} stroke={K.edge} />
+    <path d="M111,110 H129 Q132,110 132,113 V118 H108 V113 Q108,110 111,110 Z" fill={K.metal} stroke={K.edge} />
+    <HDim y={130} x1={108} x2={132} c={K.ok} /><Label x={86} y={146} c={K.ok}>Ø ≈ 1,5 D</Label>
+    <Dim x={142} y1={110} y2={118} c={K.ok} /><Label x={150} y={118} c={K.ok}>h ≈ 0,5 D</Label>
+    <Lead x1={160} y1={52} x2={133} y2={70} /><Label x={162} y={55} c={K.ok}>tête affleurante (± tol.)</Label>
+    <Label x={16} y={170}>fût gonflé : il remplit l'alésage</Label>
+    <Label x={16} y={182}>MS20470 en structure interne</Label>
+  </Frame>),
 };
 
-/* ---------- 4. Rivet aveugle CherryMax / Opti-Blind ---------- */
+/* ---------- 4. Rivet aveugle CherryMax ---------- */
+/* douille à tête fraisée, tige à cannelures + gorge de rupture, bague de verrouillage, rondelle d'entraînement */
+function BlRivet({ stage }) {
+  const d = cskDepth(28, 14);
+  const lift = stage === 0 ? 0 : stage === 1 ? 10 : 0;
+  return (
+    <g>
+      <CskHead y={70} top={28} w={14} />
+      <path d={`M120,${70 + d} m-4,0 h8 v-4 h-8 Z`} fill={K.dark} />
+      {stage === 0 && <rect x="113" y={70 + d} width="14" height={58 - d} fill={K.metal} stroke={K.edge} />}
+      {stage >= 1 && <>
+        <rect x="113" y={70 + d} width="14" height={40 - d} fill={K.metal} stroke={K.edge} />
+        <path d={stage === 1 ? "M113,110 C104,112 104,124 113,126 H127 C136,124 136,112 127,110 Z" : "M113,110 C100,110 100,122 110,122 H130 C140,122 140,110 127,110 Z"} fill={K.metal} stroke={K.edge} />
+        {stage === 2 && <path d="M106,116 H134" stroke={K.edge} strokeDasharray="2 2" />}
+      </>}
+      {/* tige */}
+      <rect x="117" y={stage === 2 ? 70 : 28 - lift} width="6" height={stage === 2 ? 48 : 104} fill={K.metal2} stroke={K.edge} />
+      {stage !== 2 && [0, 1, 2, 3, 4].map((i) => <line key={i} x1="117" x2="123" y1={36 - lift + i * 4} y2={38 - lift + i * 4} stroke={K.edge} />)}
+      {stage !== 2 && <path d={`M117,${70 - lift} l3,2 l3,-2`} fill="none" stroke={K.ko} />}
+      {stage === 0 && <path d="M113,128 L111,136 H129 L127,128 Z" fill={K.metal2} stroke={K.edge} />}
+      {/* bague de verrouillage et rondelle d'entraînement */}
+      {stage < 2 && <rect x="112" y={64 - lift * 0.4} width="16" height="6" fill={K.amber} stroke={K.dark} strokeWidth="0.6" />}
+      {stage < 2 && <rect x="106" y={58 - lift * 0.4} width="28" height="6" fill={K.steel} stroke={K.edge} />}
+      {stage === 2 && <path d={`M114,70 L116,${70 + d - 1} H124 L126,70 Z`} fill={K.ok} stroke={K.dark} strokeWidth="0.6" />}
+    </g>
+  );
+}
 const BL = {
-  avant: () => (<Frame title="Rivet aveugle avant pose"><Stack y={70} w={16} /><path d="M100,70 l8,-10 h24 l8,10 z" fill={K.metal} stroke={K.edge} /><rect x="112" y="70" width="16" height="64" fill={K.metal} stroke={K.edge} /><rect x="117" y="30" width="6" height="112" fill={K.metal2} stroke={K.edge} /><rect x="114" y="134" width="12" height="10" fill={K.metal2} stroke={K.edge} /><Label x={130} y={40}>tige (mandrin)</Label><Label x={132} y={140}>douille</Label><Label x={14} y={186}>accès d'un seul côté : face arrière fermée</Label></Frame>),
-  pendant: () => (<Frame title="Rivet aveugle pendant la pose"><Stack y={70} w={16} /><path d="M100,70 l8,-10 h24 l8,10 z" fill={K.metal} stroke={K.edge} /><rect x="112" y="70" width="16" height="44" fill={K.metal} stroke={K.edge} /><ellipse cx="120" cy="122" rx="15" ry="9" fill={K.metal} stroke={K.edge} /><rect x="117" y="20" width="6" height="104" fill={K.metal2} stroke={K.edge} /><rect x="96" y="30" width="48" height="26" rx="4" fill="#3a4c70" stroke={K.edge} /><Label x={148} y={44}>riveteuse (nez)</Label><Arrow x1={120} y1={24} x2={120} y2={4} /><Label x={140} y={126} c={K.amber}>bulbe formé côté aveugle</Label></Frame>),
-  apres: () => (<Frame title="Rivet aveugle après pose"><Stack y={70} w={16} /><path d="M100,70 l8,-10 h24 l8,10 z" fill={K.metal} stroke={K.edge} /><path d="M112,62 l3,-3 h10 l3,3" fill="none" stroke={K.ok} strokeWidth="2" /><rect x="112" y="70" width="16" height="44" fill={K.metal} stroke={K.edge} /><ellipse cx="120" cy="120" rx="15" ry="8" fill={K.metal} stroke={K.edge} /><rect x="117" y="58" width="6" height="66" fill={K.metal2} stroke={K.edge} /><Label x={140} y={58} c={K.ok}>bague de verrouillage en place</Label><Label x={140} y={70} c={K.ok}>tige cassée affleurante</Label><Label x={140} y={130} c={K.txt}>bulbe plaqué (non visible)</Label></Frame>),
+  avant: () => (<Frame title="Rivet aveugle CherryMax avant pose">
+    <Stack y={70} w={14} csk={28} />
+    <BlRivet stage={0} />
+    <Lead x1={150} y1={36} x2={123} y2={40} /><Label x={152} y={39}>tige à cannelures</Label>
+    <Lead x1={150} y1={56} x2={134} y2={61} /><Label x={152} y={59}>rondelle d'entraînement</Label>
+    <Lead x1={150} y1={72} x2={128} y2={67} /><Label x={152} y={75} c={K.amber}>bague de verrouillage</Label>
+    <Lead x1={150} y1={132} x2={129} y2={132} /><Label x={152} y={135}>tête de tige</Label>
+    <Label x={16} y={178}>un seul côté accessible : face arrière fermée</Label>
+  </Frame>),
+  pendant: () => (<Frame title="Rivet aveugle CherryMax pendant la pose">
+    <Stack y={70} w={14} csk={28} />
+    <BlRivet stage={1} />
+    <path d="M96,26 H113 V52 H96 Z M144,26 H127 V52 H144 Z" fill={K.tool} stroke={K.edge} />
+    <Arrow x1={120} y1={22} x2={120} y2={4} />
+    <Lead x1={156} y1={40} x2={144} y2={40} /><Label x={158} y={43}>nez de riveteuse</Label>
+    <Lead x1={156} y1={118} x2={134} y2={118} /><Label x={158} y={121} c={K.amber}>bulbe formé côté aveugle</Label>
+    <Label x={16} y={170}>la tige tire, la douille se plisse</Label>
+    <Label x={16} y={182}>et plaque les tôles l'une contre l'autre</Label>
+  </Frame>),
+  apres: () => (<Frame title="Rivet aveugle CherryMax après pose">
+    <Stack y={70} w={14} csk={28} />
+    <BlRivet stage={2} />
+    <Lead x1={150} y1={52} x2={126} y2={72} /><Label x={152} y={55} c={K.ok}>bague logée dans la tête</Label>
+    <Label x={152} y={67} c={K.ok}>tige cassée affleurante</Label>
+    <Lead x1={150} y1={128} x2={136} y2={118} /><Label x={152} y={131} c={K.ok}>bulbe plaqué, non visible</Label>
+    <Label x={16} y={178}>contrôle visuel côté tête uniquement</Label>
+  </Frame>),
 };
 
 /* ---------- 5. Boulon ATA 67 + écrou à créneaux + goupille ---------- */
-const castle = (y = 116, pin = 0) => (
-  <g>
-    <rect x="98" y={y} width="44" height="18" fill={K.sky} opacity="0.85" stroke={K.edge} />
-    <rect x="98" y={y + 18} width="44" height="12" fill={K.sky} opacity="0.85" stroke={K.edge} />
-    {[104, 118, 132].map((x) => <rect key={x} x={x} y={y + 18} width="6" height="12" fill="#0d1526" />)}
-    {pin === 1 && <rect x="96" y={y + 22} width="48" height="4" rx="2" fill={K.amber} />}
-    {pin === 2 && <><circle cx="94" cy={y + 24} r="4" fill="none" stroke={K.amber} strokeWidth="3" /><rect x="97" y={y + 22} width="32" height="4" rx="2" fill={K.amber} /><path d={`M129,${y + 24} H146 V${y + 2}`} fill="none" stroke={K.amber} strokeWidth="3.5" /><path d={`M126,${y + 26} V${y + 42} Q126,${y + 50} 116,${y + 50}`} fill="none" stroke={K.amber} strokeWidth="3.5" /></>}
-  </g>
-);
+/* écrou à créneaux en coupe : filetage intérieur, créneaux, trou de goupille du boulon visible dans le créneau */
+function Castle({ y, pin = 0 }) {
+  return (
+    <g>
+      <rect x="99" y={y} width="42" height="5" fill={K.metal2} stroke={K.edge} />
+      <path d={`M98,${y + 5} H142 V${y + 20} H98 Z`} fill={K.sky} opacity="0.9" stroke="#8fd0ff" strokeWidth="0.8" />
+      <path d={`M98,${y + 5} H142 V${y + 20} H98 Z`} fill="url(#qs)" />
+      <path d={`M100,${y + 20} H140 V${y + 32} H134 V${y + 22} H126 V${y + 32} H114 V${y + 22} H106 V${y + 32} H100 Z`} fill={K.sky} opacity="0.9" stroke="#8fd0ff" strokeWidth="0.8" />
+      {pin === 1 && <circle cx="120" cy={y + 27} r="2.6" fill={K.dark} stroke={K.amber} strokeWidth="0.8" />}
+      {pin === 2 && <>
+        <circle cx="93" cy={y + 27} r="4.2" fill="none" stroke={K.amber} strokeWidth="2.6" />
+        <rect x="97" y={y + 25} width="40" height="4" rx="1.5" fill={K.amber} stroke={K.dark} strokeWidth="0.5" />
+        <path d={`M137,${y + 27} Q146,${y + 27} 146,${y + 18} V${y + 8}`} fill="none" stroke={K.amber} strokeWidth="3" />
+        <path d={`M135,${y + 29} Q140,${y + 40} 128,${y + 44} H118`} fill="none" stroke={K.amber} strokeWidth="3" />
+      </>}
+    </g>
+  );
+}
+function Bolt({ top, len, drilled = true }) {
+  return (
+    <g>
+      <rect x="96" y={top} width="48" height="12" rx="1.5" fill={K.metal} stroke={K.edge} /><line x1="108" x2="108" y1={top} y2={top + 12} stroke={K.edge} /><line x1="132" x2="132" y1={top} y2={top + 12} stroke={K.edge} />
+      <rect x="110" y={top + 12} width="20" height={len - 34} fill={K.metal} stroke={K.edge} />
+      <ThreadZ x={110} y={top + len - 22} w={20} h={22} />
+      {drilled && <><line x1="110" x2="130" y1={top + len - 9} y2={top + len - 9} stroke={K.dark} strokeDasharray="2 1.5" /><line x1="110" x2="130" y1={top + len - 5} y2={top + len - 5} stroke={K.dark} strokeDasharray="2 1.5" /></>}
+    </g>
+  );
+}
 const BO = {
-  avant: () => (<Frame title="Boulon de commande avant serrage"><Stack y={60} w={22} t1={20} t2={20} /><rect x="98" y="40" width="44" height="14" fill={K.metal} stroke={K.edge} /><rect x="100" y="54" width="40" height="5" fill={K.metal2} stroke={K.edge} /><rect x="109" y="59" width="22" height="80" fill={K.metal} stroke={K.edge} /><rect x="100" y="101" width="40" height="5" fill={K.metal2} stroke={K.edge} /><Label x={146} y={50}>tête (sens défini au plan)</Label><Label x={146} y={106}>rondelle sous écrou</Label><g transform="translate(0,26)">{castle(110, 0)}</g><Label x={14} y={190}>écrou à créneaux neuf + goupille neuve</Label></Frame>),
-  pendant: () => (<Frame title="Serrage au couple et alignement du créneau"><Stack y={40} w={22} t1={20} t2={20} /><rect x="98" y="20" width="44" height="14" fill={K.metal} stroke={K.edge} /><rect x="109" y="34" width="22" height="104" fill={K.metal} stroke={K.edge} /><rect x="100" y="81" width="40" height="5" fill={K.metal2} stroke={K.edge} /><rect x="117" y="104" width="6" height="6" rx="3" fill={K.dark} />{castle(86, 0)}<path d="M160,96 a30,12 0 1,1 -80,0" fill="none" stroke={K.amber} strokeWidth="1.6" markerEnd="url(#qa)" /><Label x={14} y={150}>couple mini atteint → poursuivre jusqu'au</Label><Label x={14} y={162}>créneau suivant, SANS dépasser le maxi</Label><Label x={14} y={180} c={K.ko}>jamais desserrer pour aligner</Label></Frame>),
-  apres: () => (<Frame title="Goupille posée et rabattue"><Stack y={40} w={22} t1={20} t2={20} /><rect x="98" y="20" width="44" height="14" fill={K.metal} stroke={K.edge} /><rect x="109" y="34" width="22" height="98" fill={K.metal} stroke={K.edge} /><rect x="100" y="81" width="40" height="5" fill={K.metal2} stroke={K.edge} />{castle(86, 2)}<Label x={152} y={96} c={K.ok}>jambe rabattue sur le pan</Label><Label x={136} y={150} c={K.ok}>jambe rabattue sur le bout</Label><Label x={14} y={176}>double contrôle croisé ATA 67 signé</Label></Frame>),
+  avant: () => (<Frame title="Boulon de commande avant serrage">
+    <Stack y={50} w={22} t1={20} t2={20} />
+    <rect x="98" y="44" width="44" height="6" fill={K.metal2} stroke={K.edge} />
+    <Bolt top={32} len={100} />
+    <g transform="translate(0,32)"><Castle y={110} /></g>
+    <path d="M244,92 a5,5 0 1,1 0,10 M244,92 H292 M244,102 H284" fill="none" stroke={K.amber} strokeWidth="2.4" />
+    <Label x={226} y={118} c={K.amber}>goupille neuve</Label>
+    <Lead x1={162} y1={30} x2={142} y2={36} /><Label x={164} y={33}>tête (sens défini au plan)</Label>
+    <Lead x1={156} y1={124} x2={130} y2={124} /><Label x={158} y={127}>bout fileté percé</Label>
+    <Label x={158} y={164}>écrou à créneaux</Label><Label x={158} y={176}>et rondelle neufs</Label>
+  </Frame>),
+  pendant: () => (<Frame title="Serrage au couple et alignement du créneau">
+    <Stack y={40} w={22} t1={20} t2={20} />
+    <Bolt top={22} len={104} />
+    <Castle y={94} pin={1} />
+    <path d="M160,112 a40,11 0 1,1 -80,0" fill="none" stroke={K.amber} strokeWidth="1.6" markerEnd="url(#qa)" />
+    <Lead x1={170} y1={130} x2={123} y2={121} /><Label x={172} y={133} c={K.amber}>trou aligné au créneau</Label>
+    <Label x={16} y={158}>couple mini atteint → créneau suivant,</Label>
+    <Label x={16} y={170}>SANS dépasser le couple maxi</Label>
+    <Label x={16} y={182} c={K.ko}>jamais desserrer pour aligner</Label>
+  </Frame>),
+  apres: () => (<Frame title="Goupille posée et rabattue">
+    <Stack y={40} w={22} t1={20} t2={20} />
+    <Bolt top={22} len={104} />
+    <Castle y={94} pin={2} />
+    <Lead x1={168} y1={104} x2={147} y2={110} /><Label x={170} y={107} c={K.ok}>jambe rabattue sur le pan</Label>
+    <Lead x1={168} y1={146} x2={128} y2={138} /><Label x={170} y={149} c={K.ok}>jambe sur bout du boulon</Label>
+    <Label x={16} y={170}>tête de goupille dans le créneau</Label>
+    <Label x={16} y={182}>double contrôle croisé ATA 67 signé</Label>
+  </Frame>),
 };
 
 /* ---------- 6. Écrous autofreinés ---------- */
-const nut = (x, y, nylon) => (
-  <g>
-    <rect x={x} y={y} width="44" height="26" fill={K.sky} opacity="0.85" stroke={K.edge} />
-    {nylon ? <rect x={x + 2} y={y + 18} width="40" height="8" fill="#e6edf7" opacity="0.9" stroke={K.edge} /> : <path d={`M${x},${y + 26} q22,-6 44,0`} fill="none" stroke={K.ko} strokeWidth="2" />}
-  </g>
-);
+function NutSection({ x, y, nylon }) {
+  return (
+    <g>
+      <path d={`M${x},${y} H${x + 14} V${y + 30} H${x} Z M${x + 50},${y} H${x + 36} V${y + 30} H${x + 50} Z`} fill={K.sky} opacity="0.9" stroke="#8fd0ff" strokeWidth="0.8" />
+      <path d={`M${x},${y} H${x + 14} V${y + 30} H${x} Z M${x + 50},${y} H${x + 36} V${y + 30} H${x + 50} Z`} fill="url(#qs)" />
+      {Array.from({ length: 7 }, (_, i) => <path key={i} d={`M${x + 14},${y + 2 + i * 3.6} l-2,1.8 l2,1.8 M${x + 36},${y + 2 + i * 3.6} l2,1.8 l-2,1.8`} stroke="#8fd0ff" strokeWidth="0.7" fill="none" />)}
+      {nylon
+        ? <><rect x={x + 3} y={y + 30} width="44" height="9" fill={K.sky} opacity="0.9" stroke="#8fd0ff" strokeWidth="0.8" /><rect x={x + 11} y={y + 31} width="7" height="7" fill="#f2f5fa" stroke={K.edge} strokeWidth="0.6" /><rect x={x + 32} y={y + 31} width="7" height="7" fill="#f2f5fa" stroke={K.edge} strokeWidth="0.6" /></>
+        : <><path d={`M${x + 3},${y + 30} H${x + 47} L${x + 44},${y + 39} H${x + 6} Z`} fill={K.sky} opacity="0.9" stroke="#8fd0ff" strokeWidth="0.8" /><path d={`M${x + 14},${y + 30} L${x + 17},${y + 39} M${x + 36},${y + 30} L${x + 33},${y + 39}`} stroke={K.amber} strokeWidth="1.6" /></>}
+    </g>
+  );
+}
 const NU = {
-  avant: () => (<Frame title="Deux technologies d'écrou autofreiné">{nut(30, 60, true)}<Label x={20} y={104}>insert nylon</Label><Label x={20} y={116} c={K.ko}>≤ 120 °C</Label>{nut(150, 60, false)}<Label x={140} y={104}>tout métal</Label><Label x={140} y={116} c={K.ok}>zone chaude</Label><Label x={14} y={160}>tout métal : filet ovalisé / fendu</Label><Label x={14} y={172}>qui frotte sur la vis</Label></Frame>),
-  pendant: () => (<Frame title="Mesure du couple de freinage"><Stack y={50} w={20} /><rect x="110" y="30" width="20" height="120" fill={K.metal2} stroke={K.edge} /><Thread x={110} y={100} w={20} h={50} />{nut(98, 96, true)}<path d="M156,110 a36,12 0 1,1 -72,0" fill="none" stroke={K.amber} strokeWidth="1.6" markerEnd="url(#qa)" /><Label x={14} y={170}>couple de freinage mesuré AVANT</Label><Label x={14} y={182}>contact : doit être dans [mini ; maxi]</Label></Frame>),
-  apres: () => (<Frame title="Dépassement de filets après serrage"><Stack y={50} w={20} /><rect x="110" y="30" width="20" height="100" fill={K.metal2} stroke={K.edge} /><Thread x={110} y={96} w={20} h={34} />{nut(98, 94, true)}<line x1="140" y1="120" x2="140" y2="130" stroke={K.ok} strokeWidth="2" /><Label x={146} y={128} c={K.ok}>≥ 2 filets complets</Label><Label x={14} y={160}>chanfrein de la vis non compté</Label><Label x={14} y={172} c={K.ko}>couple de freinage &lt; mini : écrou rebuté</Label></Frame>),
+  avant: () => (<Frame title="Deux technologies d'écrou autofreiné">
+    <NutSection x={40} y={50} nylon />
+    <NutSection x={190} y={50} />
+    <Lead x1={70} y1={110} x2={70} y2={88} /><Label x={20} y={120}>bague nylon</Label><Label x={20} y={132} c={K.ko}>≤ 120 °C</Label>
+    <Lead x1={222} y1={110} x2={222} y2={88} /><Label x={170} y={120}>filet déformé</Label><Label x={170} y={132} c={K.ok}>zone chaude</Label>
+    <Label x={16} y={30}>coupes : la vis frotte sur l'élément freineur</Label>
+    <Label x={16} y={170}>tout métal : sommet ovalisé ou fendu,</Label>
+    <Label x={16} y={182}>serré sur la vis</Label>
+  </Frame>),
+  pendant: () => (<Frame title="Mesure du couple de freinage">
+    <Stack y={50} w={20} />
+    <rect x="108" y="40" width="24" height="10" fill={K.metal} stroke={K.edge} />
+    <ThreadZ x={111} y={50} w={18} h={110} />
+    <NutSection x={95} y={104} nylon />
+    <path d="M168,126 a48,12 0 1,1 -96,0" fill="none" stroke={K.amber} strokeWidth="1.6" markerEnd="url(#qa)" />
+    <circle cx="252" cy="70" r="20" fill="#0d1526" stroke={K.amber} /><line x1="252" y1="70" x2="263" y2="60" stroke={K.amber} strokeWidth="1.6" /><Label x={252} y={84} a="middle" c={K.amber}>N·m</Label>
+    <Label x={16} y={170}>couple mesuré AVANT contact de l'écrou :</Label>
+    <Label x={16} y={182}>il doit tomber entre mini et maxi</Label>
+  </Frame>),
+  apres: () => (<Frame title="Dépassement de filets après serrage">
+    <Stack y={50} w={20} />
+    <rect x="108" y="40" width="24" height="10" fill={K.metal} stroke={K.edge} />
+    <ThreadZ x={111} y={50} w={18} h={102} />
+    <path d="M111,151 L114,155 H126 L129,151 Z" fill={K.metal2} stroke={K.edge} />
+    <NutSection x={95} y={90} nylon />
+    <Dim x={140} y1={130} y2={151} c={K.ok} /><Label x={148} y={142} c={K.ok}>≥ 2 filets complets</Label>
+    <Lead x1={164} y1={158} x2={128} y2={154} /><Label x={166} y={161}>chanfrein non compté</Label>
+    <Label x={16} y={182} c={K.ko}>freinage &lt; mini : écrou rebuté</Label>
+  </Frame>),
 };
 
 /* ---------- 7. Clecos ---------- */
 const CLECO = [["argent", "#c8d6ea", "2,4 mm (3/32 po)"], ["cuivre", "#c8743a", "3,2 mm (1/8 po)"], ["noir", "#2b2f36", "4,0 mm (5/32 po)"], ["or", "#d9b44a", "4,8 mm (3/16 po)"]];
-const cleco = (x, y, color, open) => (
-  <g>
-    <rect x={x - 12} y={y} width="24" height="34" rx="4" fill={color} stroke={K.edge} />
-    <rect x={x - 4} y={y - 14} width="8" height="14" fill={K.metal2} stroke={K.edge} />
-    <path d={open ? `M${x - 3},${y + 34} l-5,40 h4 l4,-34 M${x + 3},${y + 34} l5,40 h-4 l-4,-34` : `M${x - 3},${y + 34} v40 h3 v-40 M${x + 3},${y + 34} v40 h-3 v-40`} fill={K.metal} stroke={K.edge} />
-    {!open && <path d={`M${x - 6},${y + 74} l3,-4 M${x + 6},${y + 74} l-3,-4`} stroke={K.metal} strokeWidth="3" />}
-  </g>
-);
+/* corps à code couleur, collerette d'appui, fût, mors fendus à épaulement ; open = poussoir enfoncé */
+function Cleco({ x, y, color, open = false, s = 1, jaw }) {
+  const jl = jaw || (open ? 34 : 28);
+  return (
+    <g transform={`translate(${x} ${y}) scale(${s})`}>
+      <rect x="-5" y={open ? -8 : -18} width="10" height={open ? 8 : 18} fill={K.metal2} stroke={K.edge} />
+      <rect x="-12" y="0" width="24" height="30" rx="4" fill={color} stroke={K.edge} />
+      <line x1="-7" y1="3" x2="-7" y2="27" stroke="#ffffff" strokeOpacity="0.3" strokeWidth="2" />
+      <rect x="-15" y="30" width="30" height="5" rx="1" fill={K.metal} stroke={K.edge} />
+      <rect x="-7" y="35" width="14" height="12" fill={K.metal2} stroke={K.edge} />
+      {open
+        ? <path d={`M-4,47 V${47 + jl} L-5.5,${49 + jl} L-3,${53 + jl} H-0.6 V47 Z M4,47 V${47 + jl} L5.5,${49 + jl} L3,${53 + jl} H0.6 V47 Z`} fill={K.metal} stroke={K.edge} strokeWidth="0.8" />
+        : <path d={`M-4,47 V${47 + jl} L-7,${50 + jl} L-4,${54 + jl} H-0.6 V47 Z M4,47 V${47 + jl} L7,${50 + jl} L4,${54 + jl} H0.6 V47 Z`} fill={K.metal} stroke={K.edge} strokeWidth="0.8" />}
+      <line x1="0" y1="47" x2="0" y2={47 + jl + (open ? 8 : 2)} stroke={K.dark} strokeWidth="1.2" />
+    </g>
+  );
+}
 const CL = {
-  avant: () => (<Frame title="Code couleur des clecos">{CLECO.map(([n, c, d], i) => <g key={n}>{cleco(40 + i * 54, 30, c, false)}<Label x={40 + i * 54} y={160} a="middle">{n}</Label><Label x={40 + i * 54} y={174} a="middle" c={K.amber}>{d.split(" ")[0]}</Label></g>)}<Label x={14} y={194}>diamètre de perçage correspondant</Label></Frame>),
-  pendant: () => (<Frame title="Pose du cleco à la pince"><Stack y={110} w={14} t1={16} t2={16} />{cleco(120, 30, "#c8743a", true)}<Arrow x1={160} y1={20} x2={136} y2={34} /><Label x={150} y={16} c={K.amber}>pince : poussoir enfoncé</Label><Label x={146} y={96}>doigts écartés, insérés</Label></Frame>),
-  apres: () => (<Frame title="Cleco relâché : tôles plaquées"><Stack y={80} w={14} t1={16} t2={16} /><rect x="108" y="46" width="24" height="34" rx="4" fill="#c8743a" stroke={K.edge} /><path d="M117,80 v34 l-6,6 h4 l5,-5 M123,80 v34 l6,6 h-4 l-5,-5" fill={K.metal} stroke={K.edge} /><Label x={140} y={130} c={K.ok}>doigts en butée sous la tôle</Label><Label x={140} y={60} c={K.ok}>ressort : plaquage</Label><Label x={14} y={176}>1 cleco tous les 4 à 6 trous,</Label><Label x={14} y={188}>dépose avant pose définitive</Label></Frame>),
+  avant: () => (<Frame title="Code couleur des clecos">
+    {CLECO.map(([n, c, d], i) => <g key={n}><Cleco x={58 + i * 68} y={40} color={c} /><Label x={58 + i * 68} y={150} a="middle">{n}</Label><Label x={58 + i * 68} y={164} a="middle" c={K.amber}>{d.split(" ")[0]} mm</Label></g>)}
+    <Label x={16} y={182}>couleur = diamètre de perçage</Label>
+  </Frame>),
+  pendant: () => (<Frame title="Pose du cleco à la pince">
+    <Stack y={108} w={10} t1={14} t2={14} />
+    <Cleco x={120} y={36} color="#c8743a" open />
+    <path d="M100,30 H140 V24 H100 Z M104,64 H136 V70 H104 Z" fill={K.tool} stroke={K.edge} />
+    <path d="M140,27 L196,14 M136,67 L196,80" stroke={K.tool} strokeWidth="5" strokeLinecap="round" />
+    <Arrow x1={120} y1={16} x2={120} y2={26} />
+    <Lead x1={204} y1={44} x2={142} y2={28} /><Label x={206} y={47}>pince : poussoir</Label>
+    <Label x={206} y={59}>enfoncé</Label>
+    <Lead x1={166} y1={150} x2={124} y2={120} /><Label x={168} y={153}>mors allongés, serrés</Label>
+    <Label x={16} y={182}>les mors entrent dans le trou</Label>
+  </Frame>),
+  apres: () => (<Frame title="Cleco relâché : tôles plaquées">
+    <Stack y={100} w={10} t1={14} t2={14} />
+    <Cleco x={120} y={65} color="#c8743a" jaw={18} />
+    <Lead x1={160} y1={84} x2={135} y2={97} /><Label x={162} y={87} c={K.ok}>collerette en appui</Label>
+    <Lead x1={160} y1={146} x2={126} y2={132} /><Label x={162} y={149} c={K.ok}>épaulement des mors</Label>
+    <Label x={162} y={161} c={K.ok}>accroché sous la tôle</Label>
+    <Lead x1={160} y1={48} x2={133} y2={60} /><Label x={162} y={51}>ressort : tire les mors</Label>
+    <Label x={16} y={170}>1 cleco tous les 4 à 6 trous,</Label>
+    <Label x={16} y={182}>tous déposés et comptés (FOD)</Label>
+  </Frame>),
 };
 
 /* ---------- 8. B-nut, colliers et métallisation ---------- */
 const BN = {
-  avant: () => (<Frame title="Raccord B-nut serré à deux clés"><rect x="20" y="90" width="80" height="14" fill={K.metal2} stroke={K.edge} /><rect x="100" y="80" width="40" height="34" fill={K.sky} opacity="0.85" stroke={K.edge} /><rect x="140" y="84" width="34" height="26" fill={K.metal} stroke={K.edge} /><rect x="174" y="90" width="50" height="14" fill={K.metal2} stroke={K.edge} /><rect x="108" y="40" width="10" height="40" fill="#3a4c70" stroke={K.edge} /><Label x={74} y={36}>clé dynamométrique</Label><rect x="150" y="114" width="10" height="44" fill={K.amber} /><Label x={150} y={174} c={K.amber}>clé de maintien</Label><Label x={14} y={194}>le tube ne doit JAMAIS tourner</Label></Frame>),
-  pendant: () => (<Frame title="Collier à garniture élastomère"><circle cx="120" cy="96" r="22" fill="none" stroke={K.edge} strokeWidth="3" /><circle cx="120" cy="96" r="16" fill={K.metal2} stroke={K.edge} /><path d="M120,70 a26,26 0 1,1 -1,0" fill="none" stroke={K.ok} strokeWidth="5" /><path d="M120,70 a26,26 0 1,1 -1,0" fill="none" stroke={K.metal} strokeWidth="2" /><rect x="114" y="54" width="40" height="10" fill={K.metal} stroke={K.edge} /><rect x="20" y="40" width="200" height="14" fill={K.plate} stroke={K.edge} /><rect x="20" y="40" width="200" height="14" fill="url(#qh)" /><Label x={160} y={110} c={K.ok}>garniture</Label><Label x={14} y={150}>colliers NSA / ECS : bon Ø, garniture intacte</Label><Label x={14} y={162}>jeu mini harnais / tube respecté (anti-chafing)</Label></Frame>),
-  apres: () => (<Frame title="Métallisation : décaper, serrer, mesurer, protéger"><rect x="20" y="110" width="200" height="16" fill={K.plate} stroke={K.edge} /><rect x="20" y="110" width="200" height="16" fill="url(#qh)" /><rect x="96" y="104" width="48" height="6" fill={K.metal2} /><Label x={86} y={140} c={K.amber}>zone décapée</Label><rect x="104" y="88" width="32" height="16" fill={K.amber} opacity="0.8" stroke={K.edge} /><path d="M136,96 q30,-30 70,-40" fill="none" stroke={K.metal} strokeWidth="4" strokeDasharray="3 2" /><Label x={160} y={52}>tresse</Label><circle cx="60" cy="60" r="16" fill="#0d1526" stroke={K.sky} /><Label x={60} y={64} a="middle" c={K.sky}>mΩ</Label><path d="M70,72 L104,92 M50,74 L40,110" stroke={K.sky} strokeWidth="1.4" /><Label x={14} y={164} c={K.ok}>4 fils : R &lt; 2,5 mΩ</Label><Label x={14} y={176}>puis re-protection (vernis / PR)</Label></Frame>),
+  avant: () => (<Frame title="Raccord B-nut serré à deux clés">
+    <rect x="16" y="88" width="100" height="12" fill={K.metal2} stroke={K.edge} />
+    <path d="M116,88 L124,82 V106 L116,100 Z" fill={K.metal2} stroke={K.edge} />
+    <rect x="100" y="76" width="34" height="36" fill={K.sky} opacity="0.9" stroke="#8fd0ff" strokeWidth="0.8" />
+    <line x1="100" x2="134" y1="85" y2="85" stroke="#8fd0ff" strokeWidth="0.6" /><line x1="100" x2="134" y1="103" y2="103" stroke="#8fd0ff" strokeWidth="0.6" />
+    <ThreadZ x={134} y={84} w={14} h={20} />
+    <rect x="148" y="74" width="34" height="40" fill={K.steel} stroke={K.edge} />
+    <line x1="148" x2="182" y1="84" y2="84" stroke={K.edge} /><line x1="148" x2="182" y1="104" y2="104" stroke={K.edge} />
+    <rect x="182" y="86" width="50" height="16" fill={K.metal} stroke={K.edge} />
+    <path d="M103,76 V36 a6,6 0 0 1 12,0 V76" fill={K.ok} opacity="0.85" stroke={K.dark} strokeWidth="0.6" />
+    <path d="M159,114 V160 a6,6 0 0 0 12,0 V114" fill={K.amber} opacity="0.9" stroke={K.dark} strokeWidth="0.6" />
+    <Lead x1={130} y1={42} x2={115} y2={50} /><Label x={132} y={45} c={K.ok}>clé dynamométrique sur B-nut</Label>
+    <Lead x1={190} y1={146} x2={171} y2={146} /><Label x={192} y={149} c={K.amber}>clé de maintien</Label>
+    <Label x={192} y={161} c={K.amber}>sur raccord fixe</Label>
+    <Label x={16} y={182}>le tube ne doit JAMAIS tourner</Label>
+  </Frame>),
+  pendant: () => (<Frame title="Collier à garniture élastomère">
+    <rect x="20" y="30" width="200" height="14" fill={K.plate} stroke={K.edge} /><rect x="20" y="30" width="200" height="14" fill="url(#qh)" />
+    <circle cx="120" cy="96" r="18" fill={K.metal2} stroke={K.edge} /><circle cx="120" cy="96" r="13" fill="#0d1526" stroke={K.edge} />
+    <circle cx="120" cy="96" r="22" fill="none" stroke={K.ok} strokeWidth="6" />
+    {Array.from({ length: 12 }, (_, i) => { const a = (i * Math.PI) / 6; return <line key={i} x1={120 + 19.5 * Math.cos(a)} y1={96 + 19.5 * Math.sin(a)} x2={120 + 24.5 * Math.cos(a)} y2={96 + 24.5 * Math.sin(a)} stroke="#1f7a55" strokeWidth="0.8" />; })}
+    <path d="M96,96 A24,24 0 1 0 144,96 V58 H130 V70 M96,96 V58 H110 V70" fill="none" stroke={K.metal} strokeWidth="2.4" />
+    <rect x="94" y="44" width="52" height="8" fill={K.steel} stroke={K.edge} />
+    <rect x="114" y="34" width="12" height="34" fill={K.metal2} stroke={K.edge} />
+    <Lead x1={166} y1={104} x2={143} y2={100} /><Label x={168} y={107} c={K.ok}>garniture élastomère</Label>
+    <Lead x1={166} y1={80} x2={144} y2={76} /><Label x={168} y={83}>bande inox</Label>
+    <Label x={16} y={170}>collier NSA / ECS : bon Ø, garniture intacte</Label>
+    <Label x={16} y={182}>jeu mini harnais / tube respecté</Label>
+  </Frame>),
+  apres: () => (<Frame title="Métallisation : décaper, serrer, mesurer, protéger">
+    <rect x="20" y="108" width="200" height="18" fill={K.plate} stroke={K.edge} /><rect x="20" y="108" width="200" height="18" fill="url(#qh)" />
+    <rect x="20" y="104" width="200" height="4" fill="#2f7a4f" />
+    <rect x="86" y="104" width="68" height="4" fill="#e6edf7" />
+    <rect x="96" y="96" width="48" height="8" fill={K.amber} opacity="0.85" stroke={K.dark} strokeWidth="0.6" />
+    <rect x="94" y="90" width="52" height="6" fill={K.metal2} stroke={K.edge} />
+    <rect x="104" y="76" width="32" height="14" fill={K.steel} stroke={K.edge} />
+    <path d="M144,98 q30,-24 70,-30" fill="none" stroke={K.metal} strokeWidth="4" strokeDasharray="3 2" />
+    <path d="M80,104 q-6,-8 6,-8 M160,104 q6,-8 -6,-8" fill="none" stroke={K.pr} strokeWidth="3" />
+    <circle cx="52" cy="54" r="16" fill="#0d1526" stroke={K.sky} /><Label x={52} y={58} a="middle" c={K.sky}>mΩ</Label>
+    <path d="M62,66 L100,90 M66,62 L106,84 M44,68 L60,104 M40,66 L52,104" stroke={K.sky} strokeWidth="1" />
+    <Lead x1={176} y1={146} x2={150} y2={106} /><Label x={178} y={149} c="#e6edf7">métal nu décapé</Label>
+    <Label x={178} y={44}>tresse</Label>
+    <Label x={16} y={158} c={K.ok}>Kelvin 4 fils : R &lt; 2,5 mΩ</Label>
+    <Label x={16} y={170} c={K.pr}>puis cordon de re-protection</Label>
+    <Label x={16} y={182}>(vernis ou PR) sur le métal nu</Label>
+  </Frame>),
 };
 
 export const HARDWARE = [
@@ -227,7 +583,7 @@ export default function Quincaillerie() {
       </div>
       <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Fiches de quincaillerie">
         {HARDWARE.map((x, i) => (
-          <button key={x.id} type="button" role="tab" aria-selected={sel === x.id} onClick={() => setSel(x.id)}
+          <button key={x.id} type="button" role="tab" data-quinc-tab="1" aria-selected={sel === x.id} onClick={() => setSel(x.id)}
             className={cx("rounded-lg border px-2.5 py-1.5 text-[12px] font-semibold transition", sel === x.id ? "border-sky bg-sky/15 text-ink" : "border-line bg-panel2 text-muted hover:text-ink")}>
             <span className="font-mono text-sky">{i + 1}</span> {x.titre.split(" (")[0]}
           </button>
@@ -239,7 +595,7 @@ export default function Quincaillerie() {
           <span className="rounded border border-line px-1.5 py-0.5 font-mono text-[10px] uppercase text-muted">{h.fam}</span>
         </div>
         <div className="flex gap-2 rounded-lg border border-sky/40 bg-sky/10 p-3 text-[14px] leading-relaxed text-ink"><Info size={16} className="mt-0.5 shrink-0 text-sky" /><span><strong className="text-sky">Emploi : </strong>{h.emploi}</span></div>
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-3" data-quinc-frames="1">
           {frames.map(([t, F], i) => (
             <figure key={t} className="flex flex-col gap-2">
               <div className="overflow-hidden rounded-lg border border-line"><F /></div>
