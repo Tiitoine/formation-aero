@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useMemo } from "react";
 import BackToPortal from "../lms/BackToPortal.jsx";
+import Cutaway from "./m1/Cutaway.jsx";
+import NormesTables from "./m1/NormesTables.jsx";
 import { scopedKey } from "../lms/session.js";
+import { shuffle, shuffleSpread, permutation, useAtelier, AtelierCounter, AtelierResult, LockRule, LockChip, OptionButton, optState, LETTERS, LockedQuickCheck, SprintQCM, useModuleSession } from "../lib/pedago.jsx";
 import {
   Plane, Wind, Gauge, Compass, Layers, Map as MapIcon, Wrench, ShieldCheck, ShieldAlert,
   CheckCircle2, XCircle, Flame, Trophy, RotateCcw, ChevronRight, ChevronDown, Crosshair,
@@ -26,14 +29,6 @@ const saveProgress = (p) => {
   } catch (e) {
     /* stockage indisponible : la progression reste en mémoire */
   }
-};
-const shuffle = (arr) => {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
 };
 const cx = (...c) => c.filter(Boolean).join(" ");
 const fmt = (n) => (n > 0 ? "+" : "") + n.toLocaleString("fr-FR");
@@ -127,54 +122,9 @@ function ValidatedBanner({ done, label }) {
 }
 
 /* QCM court réutilisable pour valider un onglet */
-function QuickCheck({ title, questions, onComplete }) {
-  const [picked, setPicked] = useState({});
-  const allGood = questions.every((q, i) => picked[i] === q.answer);
-  useEffect(() => {
-    if (allGood) onComplete();
-  }, [allGood]);
-  return (
-    <Panel className="p-5">
-      <div className="mb-4 flex items-center gap-2">
-        <ClipboardList size={18} className="text-sky" />
-        <h3 className="font-display text-xl font-semibold text-ink">{title}</h3>
-        <span className="ml-auto font-mono text-xs text-muted">
-          {questions.filter((q, i) => picked[i] === q.answer).length}/{questions.length} validées
-        </span>
-      </div>
-      <div className="flex flex-col gap-5">
-        {questions.map((q, i) => {
-          const p = picked[i];
-          const answered = p !== undefined;
-          const good = p === q.answer;
-          return (
-            <div key={i} className="flex flex-col gap-2">
-              <div className="text-[15px] font-medium text-ink">{i + 1}. {q.q}</div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {q.options.map((o, k) => (
-                  <Chip
-                    key={k}
-                    active={p === k}
-                    tone={p === k ? (good ? "green" : "red") : "blue"}
-                    disabled={good}
-                    onClick={() => !good && setPicked({ ...picked, [i]: k })}
-                  >
-                    {o}
-                  </Chip>
-                ))}
-              </div>
-              {answered && (
-                <div className={cx("rounded-lg border px-3 py-2 text-[13px] leading-relaxed", good ? "border-ok/40 bg-ok/10 text-ink" : "border-ko/40 bg-ko/10 text-ink")}>
-                  {good ? <strong className="text-ok">Exact. </strong> : <strong className="text-ko">Non, recommence. </strong>}
-                  {good ? q.why : q.hint}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </Panel>
-  );
+/* Contrôle de fin d'onglet : 1er clic verrouillé, questions et propositions mélangées, validation ≥ 85 % */
+function QuickCheck(props) {
+  return <LockedQuickCheck {...props} />;
 }
 
 function RotorSim() {
@@ -481,24 +431,24 @@ function TabFlight({ done, onComplete }) {
         onComplete={onComplete}
         questions={[
           {
-            q: "Sur un H145, quelle commande incline le disque rotor pour translater ?",
-            options: ["Le levier de pas collectif", "Le manche cyclique", "Les palonniers", "La manette de puissance"],
-            answer: 1,
-            why: "Le manche cyclique agit sur le plateau cyclique, qui fait varier le pas de chaque pale selon sa position : le disque s'incline.",
-            hint: "Le collectif agit sur toutes les pales en même temps : il ne fait que monter ou descendre.",
+            q: "H145 en stationnaire, essai au point fixe. Le pilote veut translater vers l'avant. Quelle commande incline le disque rotor ?",
+            options: ["Le manche cyclique, via le plateau cyclique", "Le levier de pas collectif, via les servos", "Les palonniers, via la commande du Fenestron", "La manette de régulation moteur du poste"],
+            answer: 0,
+            why: "Le cyclique incline le plateau cyclique : le pas de chaque pale varie selon sa position sur le tour et le disque s'incline dans la direction voulue.",
+            hint: "Le collectif agit sur toutes les pales en même temps : il fait monter ou descendre.",
           },
           {
-            q: "Une cellule de H160 n'est pas pressurisée. Pourquoi la gamme impose-t-elle quand même de l'interposition PR entre un cadre alu et un panneau carbone ?",
-            options: ["Pour tenir la pressurisation", "Pour la protection anticorrosion galvanique entre alu et carbone", "Pour réduire la masse", "Pour remplacer les fixations"],
-            answer: 1,
-            why: "L'aluminium au contact du carbone se corrode par effet galvanique. Le PR interposé isole les deux matériaux.",
-            hint: "Il n'y a pas de pressurisation sur hélicoptère. Pense aux matériaux en contact.",
+            q: "H160 (non pressurisé), jonction cadre aluminium / panneau carbone. Pourquoi la gamme impose-t-elle une interposition de PR à cette jonction ?",
+            options: ["Pour isoler les deux matériaux contre la corrosion galvanique", "Pour assurer l'étanchéité de pressurisation de la cabine", "Pour remplacer une partie des fixations par du collage", "Pour amortir les vibrations transmises par le rotor"],
+            answer: 0,
+            why: "L'aluminium au contact du carbone se corrode par effet galvanique. Le mastic interposé isole électriquement les deux matériaux.",
+            hint: "Il n'y a pas de pressurisation sur cet appareil. Pense aux matériaux en contact.",
           },
           {
-            q: "Pourquoi les pales du Fenestron sont-elles à espacement irrégulier ?",
-            options: ["Pour faciliter le montage", "Pour réduire le bruit en répartissant ses fréquences", "Pour économiser une pale", "Pour l'équilibrage statique"],
-            answer: 1,
-            why: "Des pales régulièrement espacées concentrent le bruit sur une fréquence. L'espacement irrégulier l'étale et le rend moins gênant.",
+            q: "H160, montage du Fenestron. Pourquoi les pales sont-elles réparties avec un espacement angulaire irrégulier ?",
+            options: ["Pour étaler le bruit sur plusieurs fréquences", "Pour compenser le balourd de la pale de calage", "Pour laisser passer la commande de pas", "Pour réduire le nombre de pales nécessaires"],
+            answer: 0,
+            why: "Un espacement régulier concentre le bruit sur une fréquence. L'espacement irrégulier l'étale et le rend moins gênant.",
             hint: "C'est une question d'acoustique.",
           },
         ]}
@@ -586,38 +536,46 @@ const STRUCT_CATS = [
 ];
 
 function StructureSort({ onAllCorrect }) {
-  const [ans, setAns] = useState({});
-  const correct = STRUCT_ITEMS.filter((it, i) => ans[i] === it.cat).length;
-  useEffect(() => {
-    if (correct === STRUCT_ITEMS.length) onAllCorrect();
-  }, [correct]);
+  const at = useAtelier({ id: "m1-tri-structure", label: "Atelier de tri : primaire / secondaire / pièce critique", total: STRUCT_ITEMS.length, onComplete: onAllCorrect });
+  /* Fisher-Yates à chaque tirage, en évitant deux catégories identiques à la suite */
+  const items = useMemo(() => shuffleSpread(STRUCT_ITEMS.map((it, i) => ({ ...it, _i: i })), (x) => x.cat), [at.draw]);
+  const cats = useMemo(() => shuffle(STRUCT_CATS), [at.draw]);
   return (
     <Panel className="p-5">
-      <div className="mb-1 flex flex-wrap items-center gap-2">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
         <ShieldAlert size={18} className="text-sky" />
         <h3 className="font-display text-xl font-semibold text-ink">Atelier de tri : classe chaque pièce</h3>
-        <span className="ml-auto font-mono text-xs text-muted">{correct}/{STRUCT_ITEMS.length} correctes</span>
+        <AtelierCounter at={at} />
       </div>
-      <p className="mb-4 text-[13px] text-muted">Une mauvaise réponse s'affiche en rouge : change-la jusqu'à tout valider.</p>
+      <p className="mb-3 text-[13px] text-muted">Pour chaque pièce, un seul clic : la catégorie choisie est verrouillée. Une erreur reste affichée en rouge avec la correction et compte dans ton score. Validation à 85 % (10/11 minimum).</p>
+      <LockRule className="mb-4" />
       <div className="flex flex-col gap-2">
-        {STRUCT_ITEMS.map((it, i) => {
-          const a = ans[i];
-          const ok = a === it.cat;
+        {items.map((it) => {
+          const a = at.get(it._i);
           return (
-            <div key={it.name} className={cx("flex flex-col gap-2 rounded-lg border p-3 md:flex-row md:items-center", a === undefined ? "border-line bg-bg" : ok ? "border-ok/50 bg-ok/5" : "border-ko/50 bg-ko/5")}>
+            <div key={`${at.draw}-${it._i}`} className={cx("flex flex-col gap-2 rounded-lg border p-3 md:flex-row md:items-center", !a ? "border-line bg-bg" : a.ok ? "border-ok/50 bg-ok/5" : "border-ko/50 bg-ko/5")}>
               <div className="min-w-0 flex-1">
                 <div className="text-[14px] font-semibold text-ink">{it.name}</div>
-                {a !== undefined && <div className={cx("text-[12px]", ok ? "text-ok" : "text-ko")}>{ok ? it.why : "Pas tout à fait : sa défaillance seule serait-elle catastrophique ? Reprend-elle des efforts majeurs ?"}</div>}
+                {a && (
+                  <div className={cx("text-[12px] leading-snug", a.ok ? "text-ok" : "text-ko")}>
+                    {a.ok ? "Exact. " : `Faux : c'est « ${STRUCT_CATS.find((c) => c.id === it.cat).label} ». `}
+                    <span className="text-ink/85">{it.why}</span>
+                  </div>
+                )}
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {STRUCT_CATS.map((c) => (
-                  <Chip key={c.id} active={a === c.id} tone={a === c.id ? (ok ? "green" : "red") : "blue"} onClick={() => setAns({ ...ans, [i]: c.id })}>{c.label}</Chip>
+                {cats.map((c) => (
+                  <LockChip key={c.id} state={optState(c.id, a?.k, it.cat)}
+                    onClick={() => at.lock(it._i, { k: c.id, ok: c.id === it.cat, q: it.name, choix: c.label, bonne: STRUCT_CATS.find((x) => x.id === it.cat).label })}>
+                    {c.label}
+                  </LockChip>
                 ))}
               </div>
             </div>
           );
         })}
       </div>
+      <div className="mt-4"><AtelierResult at={at} /></div>
     </Panel>
   );
 }
@@ -740,6 +698,8 @@ function TabLocate({ done, onComplete }) {
         ))}
       </div>
 
+      <Cutaway />
+
       <CelluleExplorer />
 
       <div className="grid gap-3 md:grid-cols-3">
@@ -844,38 +804,48 @@ const TYPE_OPTS = [
 ];
 
 function OFDecoder({ onComplete }) {
+  const fields = ["side", "part", "ata", "type"];
+  const at = useAtelier({ id: "m1-decodeur-of", label: "Décodeur d'Ordre de Fabrication (7 OF × 4 champs)", total: OF_CARDS.length * fields.length, onComplete });
+  /* Nouveau tirage : ordre des OF et ordre des propositions de chaque champ */
+  const cards = useMemo(() => shuffle(OF_CARDS).map((c) => ({
+    ...c,
+    opts: {
+      side: shuffle(SIDE_OPTS),
+      part: shuffle(PART_OPTS),
+      ata: shuffle(c.ataOptions.map((x) => ({ id: x, label: "ATA " + x }))),
+      type: shuffle(TYPE_OPTS),
+    },
+  })), [at.draw]);
   const [idx, setIdx] = useState(0);
   const [sel, setSel] = useState({});
-  const [checked, setChecked] = useState(false);
-  const [results, setResults] = useState({});
-  const card = OF_CARDS[idx];
-  const fields = ["side", "part", "ata", "type"];
+  useEffect(() => { setIdx(0); setSel({}); }, [at.draw]);
+  const card = cards[idx];
+  const checked = at.isLocked(`${card.id}:side`);
+  const goodFields = fields.filter((f) => at.get(`${card.id}:${f}`)?.ok).length;
   const complete = fields.every((f) => sel[f] !== undefined);
-  const score = Object.values(results).reduce((s, r) => s + r, 0);
-  const finished = Object.keys(results).length === OF_CARDS.length;
-
-  useEffect(() => {
-    if (finished) onComplete();
-  }, [finished]);
+  const labels = { side: "Côté", part: "Partie de l'hélicoptère", ata: "Chapitre ATA", type: "Type de référence" };
+  const allOpts = { side: SIDE_OPTS, part: PART_OPTS, type: TYPE_OPTS };
+  const lbl = (f, id) => (f === "ata" ? "ATA " + id : allOpts[f].find((o) => o.id === id)?.label || id);
 
   const check = () => {
-    const good = fields.filter((f) => sel[f] === card.answers[f]).length;
-    setResults({ ...results, [card.id]: good });
-    setChecked(true);
+    fields.forEach((f) => at.lock(`${card.id}:${f}`, { k: sel[f], ok: sel[f] === card.answers[f], q: `${card.id} · ${labels[f]}`, choix: lbl(f, sel[f]), bonne: lbl(f, card.answers[f]) }));
   };
-  const go = (i) => { setIdx(i); setSel({}); setChecked(false); };
+  const go = (i) => { setIdx(i); setSel({}); };
+  const nextOpen = () => {
+    for (let s = 1; s <= cards.length; s++) {
+      const j = (idx + s) % cards.length;
+      if (!at.isLocked(`${cards[j].id}:side`)) return go(j);
+    }
+  };
   const Row = ({ field, label, opts }) => (
     <div className="flex flex-col gap-1.5">
       <div className="font-mono text-[11px] uppercase tracking-wider text-muted">{label}</div>
       <div className="flex flex-wrap gap-1.5">
         {opts.map((o) => {
-          const active = sel[field] === o.id;
-          const isAnswer = card.answers[field] === o.id;
-          return (
-            <Chip key={o.id} active={active || (checked && isAnswer)} tone={checked ? (isAnswer ? "green" : active ? "red" : "blue") : "blue"} disabled={checked} onClick={() => setSel({ ...sel, [field]: o.id })}>
-              {o.label}
-            </Chip>
-          );
+          const locked = at.get(`${card.id}:${field}`);
+          const state = locked ? optState(o.id, locked.k, card.answers[field]) : sel[field] === o.id ? "sel" : "idle";
+          if (state === "sel") return <Chip key={o.id} active tone="blue" onClick={() => setSel({ ...sel, [field]: o.id })}>{o.label}</Chip>;
+          return <LockChip key={o.id} state={state} onClick={() => setSel({ ...sel, [field]: o.id })}>{o.label}</LockChip>;
         })}
       </div>
     </div>
@@ -886,14 +856,19 @@ function OFDecoder({ onComplete }) {
       <div className="flex flex-wrap items-center gap-3 border-b border-line bg-panel2 px-5 py-3">
         <FileText size={18} className="text-amber" />
         <h3 className="font-display text-xl font-semibold text-ink">Simulateur 1 : le décodeur d'Ordre de Fabrication</h3>
-        <span className="ml-auto font-mono text-xs text-muted">{Object.keys(results).length}/{OF_CARDS.length} OF traités · {score}/{OF_CARDS.length * 4} champs justes</span>
+        <AtelierCounter at={at} />
       </div>
-      <div className="flex gap-1.5 overflow-x-auto px-5 pt-4">
-        {OF_CARDS.map((c, i) => (
-          <button key={c.id} type="button" onClick={() => go(i)} className={cx("shrink-0 rounded-md border px-2.5 py-1 font-mono text-[11px] transition", i === idx ? "border-amber bg-amber/15 text-ink" : results[c.id] === 4 ? "border-ok/60 text-ok" : results[c.id] !== undefined ? "border-ko/60 text-ko" : "border-line text-muted hover:text-ink")}>
-            {c.id}
-          </button>
-        ))}
+      <div className="px-5 pt-4"><LockRule /><p className="mt-2 text-[12px] text-muted">Tu peux ajuster tes 4 choix tant que l'OF n'est pas validé. Le bouton « Valider l'OF » verrouille définitivement la ligne : pas de seconde chance. Validation à 85 % des 28 champs (24 minimum).</p></div>
+      <div className="flex gap-1.5 overflow-x-auto px-5 pt-3">
+        {cards.map((c, i) => {
+          const done = at.isLocked(`${c.id}:side`);
+          const g = fields.filter((f) => at.get(`${c.id}:${f}`)?.ok).length;
+          return (
+            <button key={c.id} type="button" onClick={() => go(i)} className={cx("shrink-0 rounded-md border px-2.5 py-1 font-mono text-[11px] transition", i === idx ? "border-amber bg-amber/15 text-ink" : done ? (g === 4 ? "border-ok/60 text-ok" : "border-ko/60 text-ko") : "border-line text-muted hover:text-ink")}>
+              {c.id}{done && ` · ${g}/4`}
+            </button>
+          );
+        })}
       </div>
       <div className="grid gap-5 p-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
         <div className="rounded-lg border border-dashed border-amber/50 bg-bg p-4 font-mono text-[13px] text-ink">
@@ -910,22 +885,23 @@ function OFDecoder({ onComplete }) {
           <div className="mt-4 text-[11px] text-muted">Références génériques (xxxx) : la gamme réelle donne le numéro complet. Cotes pédagogiques, non issues d'un plan constructeur.</div>
         </div>
         <div className="flex flex-col gap-4">
-          {Row({ field: "side", label: "1 · Côté", opts: SIDE_OPTS })}
-          {Row({ field: "part", label: "2 · Partie de l'hélicoptère", opts: PART_OPTS })}
-          {Row({ field: "ata", label: "3 · Chapitre ATA de l'opération", opts: card.ataOptions.map((c) => ({ id: c, label: "ATA " + c })) })}
-          {Row({ field: "type", label: "4 · La référence citée relève de…", opts: TYPE_OPTS })}
+          {Row({ field: "side", label: "1 · Côté", opts: card.opts.side })}
+          {Row({ field: "part", label: "2 · Partie de l'hélicoptère", opts: card.opts.part })}
+          {Row({ field: "ata", label: "3 · Chapitre ATA de l'opération", opts: card.opts.ata })}
+          {Row({ field: "type", label: "4 · La référence citée relève de…", opts: card.opts.type })}
           {!checked ? (
-            <div><PrimaryButton onClick={check} disabled={!complete} tone="amber"><CheckCircle2 size={16} /> Valider l'OF</PrimaryButton></div>
+            <div><PrimaryButton onClick={check} disabled={!complete} tone="amber"><Lock size={16} /> Valider l'OF (définitif)</PrimaryButton></div>
           ) : (
             <div className="flex flex-col gap-3">
-              <div className={cx("rounded-lg border p-3 text-[13px] leading-relaxed text-ink", results[card.id] === 4 ? "border-ok/50 bg-ok/10" : "border-ko/50 bg-ko/10")}>
-                <strong className={results[card.id] === 4 ? "text-ok" : "text-ko"}>{results[card.id]}/4 champs justes. </strong>{card.explain}
+              <div className={cx("rounded-lg border p-3 text-[13px] leading-relaxed text-ink", goodFields === 4 ? "border-ok/50 bg-ok/10" : "border-ko/50 bg-ko/10")}>
+                <strong className={goodFields === 4 ? "text-ok" : "text-ko"}>{goodFields}/4 champs justes. </strong>{card.explain}
               </div>
-              <div><PrimaryButton onClick={() => go((idx + 1) % OF_CARDS.length)}>OF suivant <ArrowRight size={16} /></PrimaryButton></div>
+              {!at.finished && <div><PrimaryButton onClick={nextOpen}>OF suivant <ArrowRight size={16} /></PrimaryButton></div>}
             </div>
           )}
         </div>
       </div>
+      {at.finished && <div className="border-t border-line p-5"><AtelierResult at={at} /></div>}
     </Panel>
   );
 }
@@ -1004,6 +980,8 @@ function TabSystems({ done, onComplete }) {
         </div>
       </div>
 
+      <NormesTables />
+
       <OFDecoder onComplete={onComplete} />
       <ValidatedBanner done={done} label="Tu as décodé tous les OF de la série." />
     </div>
@@ -1044,21 +1022,22 @@ const MISSIONS = [
   { text: "Place le point sur le turbomoteur GAUCHE d'un bimoteur type H145 / H160.", test: (z, X, Y) => z === "400" && Y < 0 },
   { text: "Place le point sur le Fenestron, dans le plan de symétrie.", test: (z, X, Y) => z === "fen" && Math.abs(Y) <= 250 },
   { text: "Place le point sur la tête rotor (moyeu Starflex / Spheriflex).", test: (z) => z === "rotor" },
+  { text: "Place le point sur l'atterrisseur (patin ou train) côté DROIT (type sous-zone 712).", test: (z, X, Y) => z === "700" && Y > 0 },
 ];
 
 function TriedreSim({ onComplete }) {
   const [pos, setPos] = useState({ X: 2000, Y: 400, Z: 1500 });
-  const [mission, setMission] = useState(0);
-  const [solved, setSolved] = useState({});
-  const [feedback, setFeedback] = useState(null);
+  /* 7 missions tirées dans un ordre aléatoire ; une seule vérification par mission (verrouillée) */
+  const at = useAtelier({ id: "m1-triedre", label: "Atelier trièdre : 7 missions de placement X / Y / Z", total: MISSIONS.length, onComplete });
+  const order = useMemo(() => permutation(MISSIONS.length), [at.draw]);
+  const [step, setStep] = useState(0);
+  useEffect(() => { setStep(0); }, [at.draw]);
+  const mission = order[Math.min(step, order.length - 1)];
+  const locked = at.get(mission);
+  const feedback = locked ? { ok: locked.ok, txt: locked.txt } : null;
   const { X, Y, Z } = pos;
   const zone = locate(X, Y, Z);
   const info = zone ? ZONE_INFO[zone] : null;
-  const solvedCount = Object.keys(solved).length;
-
-  useEffect(() => {
-    if (solvedCount >= 3) onComplete();
-  }, [solvedCount]);
 
   const fb = X < 2600 ? "Pointe avant" : X <= 6200 ? "Cabine" : X < 11800 ? "Poutre" : "Fenestron";
   const lr = Y === 0 ? "Dans l'axe" : Y < 0 ? "Gauche" : "Droite";
@@ -1072,14 +1051,13 @@ function TriedreSim({ onComplete }) {
 
   const m = MISSIONS[mission];
   const checkMission = () => {
-    if (m.test(zone, X, Y, Z)) {
-      setSolved({ ...solved, [mission]: true });
-      setFeedback({ ok: true, txt: "Point d'intervention correct. Mission validée." });
-    } else {
-      setFeedback({ ok: false, txt: zone ? `Ton point est en ${info.name.toLowerCase()}${Y !== 0 ? ", côté " + lr.toLowerCase() : ", dans l'axe"}. Ajuste les curseurs.` : "Ton point est hors de la cellule. Ajuste les curseurs." });
-    }
+    if (locked) return;
+    const ok = !!m.test(zone, X, Y, Z);
+    const where = zone ? `${info.name.toLowerCase()}${Y !== 0 ? ", côté " + lr.toLowerCase() : ", dans l'axe"}` : "hors cellule";
+    at.lock(mission, { ok, q: m.text, choix: `X ${X} / Y ${Y} / Z ${Z} mm (${where})`, bonne: "Point situé dans la zone demandée",
+      txt: ok ? "Point d'intervention correct. Mission validée et verrouillée." : `Mission échouée (réponse verrouillée) : ton point est en ${where}. Relis la consigne : zone, côté (+Y droite / −Y gauche) et hauteur.` });
   };
-  const nextMission = () => { setMission((mission + 1) % MISSIONS.length); setFeedback(null); };
+  const nextMission = () => setStep((s) => Math.min(s + 1, MISSIONS.length - 1));
 
   const Slider = ({ axis, label, value, min, max, step, color }) => (
     <div className="flex flex-col gap-1">
@@ -1178,16 +1156,18 @@ function TriedreSim({ onComplete }) {
       <div className="border-t border-line bg-panel2 p-5">
         <div className="flex flex-wrap items-center gap-2">
           <Target size={18} className="text-amber" />
-          <span className="font-display text-lg font-semibold text-ink">Mission {mission + 1}/{MISSIONS.length}</span>
-          {solved[mission] && <CheckCircle2 size={16} className="text-ok" />}
-          <span className="ml-auto font-mono text-xs text-muted">{solvedCount} réussie{solvedCount > 1 ? "s" : ""} · 3 requises pour valider</span>
+          <span className="font-display text-lg font-semibold text-ink">Mission {step + 1}/{MISSIONS.length}</span>
+          {locked && (locked.ok ? <CheckCircle2 size={16} className="text-ok" /> : <XCircle size={16} className="text-ko" />)}
+          <AtelierCounter at={at} />
         </div>
         <p className="mt-2 text-[15px] text-ink">{m.text}</p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <PrimaryButton onClick={checkMission} tone="amber"><Crosshair size={16} /> Vérifier mon point</PrimaryButton>
-          <PrimaryButton onClick={nextMission}>Mission suivante <ArrowRight size={16} /></PrimaryButton>
+          <PrimaryButton onClick={checkMission} disabled={!!locked} tone="amber"><Lock size={16} /> Vérifier mon point (définitif)</PrimaryButton>
+          {locked && step < MISSIONS.length - 1 && <PrimaryButton onClick={nextMission}>Mission suivante <ArrowRight size={16} /></PrimaryButton>}
         </div>
+        <p className="mt-2 text-[12px] text-muted">Une seule vérification par mission : place ton point avec soin avant de cliquer. Validation à 85 % (6/7 missions minimum).</p>
         {feedback && <div className={cx("mt-3 rounded-lg border px-3 py-2 text-[13px]", feedback.ok ? "border-ok/50 bg-ok/10 text-ok" : "border-ko/50 bg-ko/10 text-ko")}>{feedback.txt}</div>}
+        {at.finished && <div className="mt-4"><AtelierResult at={at} /></div>}
       </div>
     </Panel>
   );
@@ -1210,315 +1190,224 @@ function TabAtelier({ done, onComplete }) {
    ============================================================ */
 const QUESTIONS = [
   {
-    tag: "ATA 67 · piège", scenario: true,
-    q: "Tu rédiges la gamme de montage d'une bielle de pas cyclique sur H145. Quel chapitre ATA et quelle opération de fin de montage ?",
-    options: ["ATA 27, auto-contrôle de l'opérateur", "ATA 67, double contrôle croisé par un second opérateur indépendant", "ATA 63, simple vérification visuelle", "ATA 62, essai en vol uniquement"],
-    answer: 1,
-    why: "Sur hélicoptère, les commandes de vol rotors (timonerie, bielles, guignols, servocommandes) relèvent de l'ATA 67. L'ATA 27 est celui des avions. Un second opérateur qualifié vérifie montage, freinage et sens de débattement.",
-    risk: "Une commande inversée ou mal freinée n'est pas toujours visible au sol. Une gamme classée en ATA 27 renvoie de plus vers une documentation qui ne correspond pas à l'appareil.",
+    tag: "ATA 67 · commandes", scenario: true,
+    q: "H145, FAL, poste plancher mécanique (zone 300). Tu rédiges la gamme de pose d'une bielle de pas cyclique entre servocommande et plateau. Quel chapitre ATA et quelle opération de clôture inscris-tu ?",
+    options: [
+      "ATA 67, double contrôle croisé par un second opérateur qualifié et indépendant",
+      "ATA 27, autocontrôle de l'opérateur puis tampon du chef d'équipe en fin de poste",
+      "ATA 63, contrôle visuel du freinage par l'opérateur qui a réalisé le montage",
+      "ATA 62, vérification différée lors de l'essai rotor au point fixe en piste",
+    ],
+    answer: 0,
+    why: "Sur hélicoptère, les commandes de vol (timonerie, bielles, guignols, servocommandes) relèvent de l'ATA 67. Une opération de commande de vol se clôt par un double contrôle croisé : un second opérateur qualifié vérifie montage, freinage et sens de débattement.",
+    risk: "Une commande inversée ou mal freinée n'est pas toujours détectable au sol. Classer la gamme en ATA 27 (avion) renvoie de plus vers une documentation inadaptée.",
   },
   {
-    tag: "PR sans pressurisation",
-    q: "Un H160 n'est pas pressurisé. Laquelle de ces raisons ne justifie PAS l'application de PR dans une gamme hélicoptère ?",
-    options: ["L'étanchéité aux intempéries", "L'étanchéité carburant et fluides", "L'étanchéité de pressurisation cabine", "La protection anticorrosion par interposition"],
+    tag: "PR · étanchéité",
+    q: "H160 (cellule non pressurisée), poste jonction cadre / panneau de toit. Le dossier de fabrication justifie l'application de mastic PR. Laquelle de ces justifications est FAUSSE sur cet appareil ?",
+    options: [
+      "Étanchéité de l'enveloppe à l'eau et aux intempéries",
+      "Étanchéité aux fluides carburant et hydraulique",
+      "Étanchéité de pressurisation de la cabine passagers",
+      "Isolation anticorrosion par interposition entre matériaux",
+    ],
     answer: 2,
-    why: "Le PR sur hélicoptère sert à l'étanchéité intempéries, carburant et fluides, aux cloisons pare-feu et à l'anticorrosion. Pas à la pressurisation, qui n'existe pas.",
-    risk: "Justifier une opération par la pressurisation, c'est copier une gamme avion : contrôles inutiles, et oubli des vraies exigences (drains, pare-feu, galvanique).",
+    why: "Un hélicoptère comme le H160 n'est pas pressurisé. Le PR y sert à l'étanchéité intempéries et fluides, aux traversées pare-feu et à l'interposition anticorrosion.",
+    risk: "Copier une justification de gamme avion entraîne des contrôles inutiles et fait oublier les vraies exigences : drains, pare-feu, couple galvanique.",
   },
   {
     tag: "Anticorrosion", scenario: true,
-    q: "Sur un H175, la gamme assemble un cadre en aluminium contre une peau carbone. Que doit imposer la gamme ?",
-    options: ["Un montage à sec pour gagner du temps", "Une interposition (PR ou film isolant) selon l'instruction applicable, contre la corrosion galvanique", "Un simple dégraissage", "Une peinture après montage seulement"],
+    q: "H175, poste structure arrière. La gamme assemble un cadre en alliage d'aluminium contre une peau en carbone. Quelle disposition la gamme doit-elle imposer à la jonction ?",
+    options: [
+      "Montage à sec, puis cordon de PR d'aspect en bordure après serrage",
+      "Interposition (PR ou film isolant) selon l'EI applicable, contre le couple galvanique",
+      "Dégraissage solvant des deux faces puis montage direct au couple nominal",
+      "Primaire de peinture sur l'aluminium uniquement, la face carbone restant nue",
+    ],
     answer: 1,
-    why: "Aluminium et carbone forment un couple galvanique : sans isolation, l'aluminium se corrode. L'interposition est définie par les instructions EI et le plan.",
+    why: "L'aluminium au contact du carbone forme un couple galvanique : l'aluminium se corrode. L'interposition (mastic ou film isolant) est définie par le plan et l'instruction EI.",
     risk: "Corrosion cachée sous la peau carbone, découverte en visite : dépose et réparation structurale lourde.",
   },
   {
     tag: "Pare-feu · ATA 71", scenario: true,
-    q: "Tu prépares la pose d'une cloison pare-feu autour d'un turbomoteur Arrano. Quelle exigence est déterminante ?",
-    options: ["Utiliser n'importe quel mastic disponible", "Matériau titane ou inox et étanchéité réalisée avec les produits et la méthode imposés", "Supprimer les fixations pour gagner du poids", "Laisser un jeu pour la ventilation"],
-    answer: 1,
-    why: "Le pare-feu doit contenir un feu moteur. Son matériau et son étanchéité sont qualifiés : le préparateur reprend exactement le produit et la méthode définis.",
-    risk: "Un produit d'étanchéité non qualifié ne tient pas au feu : en cas d'incendie moteur, les flammes atteignent la BTP ou la cabine.",
-  },
-  {
-    tag: "Standards AH",
-    q: "Le plan Airbus Helicopters indique « Vis ASN xxxx ». De quel référentiel s'agit-il ?",
-    options: ["Un chapitre ATA", "Une norme interne historique (Aerospatiale Norme) pour les pièces standard", "Une RG.Aéro du BNAE", "Une spécification S1000D"],
-    answer: 1,
-    why: "ASN (Aerospatiale Norme) et ECS (Eurocopter Standard) sont les référentiels internes de pièces standard et fixations. Ils coexistent avec les NF L et EN du BNAE.",
-    risk: "Remplacer une ASN par une vis du commerce « équivalente » rend la pièce non conforme à la définition : rebut ou dérogation.",
-  },
-  {
-    tag: "Standards AH",
-    q: "Où trouves-tu la règle maison Airbus Helicopters qui définit un procédé spécial (méthode de freinage, application PR, métallisation) ?",
-    options: ["Dans une instruction EI / EICM", "Dans le zonage ATA 100", "Dans la norme ECS d'une vis", "Dans le certificat de type"],
+    q: "H160, compartiment moteur Arrano (zone 400). Tu prépares la pose d'une traversée de cloison pare-feu. Quelle exigence est déterminante dans la gamme ?",
+    options: [
+      "Cloison titane ou inox et étanchéité avec le produit et la méthode qualifiés de l'EI",
+      "Cloison titane ou inox et étanchéité avec le PR standard disponible au poste",
+      "Cloison en alliage léger, plus facile à percer, avec un joint silicone courant",
+      "Cloison en composite carbone, ventilée par un jeu de 2 mm autour du passage",
+    ],
     answer: 0,
-    why: "Les EI / EICM sont les instructions Airbus Helicopters pour les procédés et les règles métier. L'ECS et l'ASN définissent les pièces, pas les procédés.",
-    risk: "Un procédé appliqué « de mémoire » sans renvoi à l'EI applicable donne un montage non traçable et souvent hors tolérance.",
+    why: "Le pare-feu doit contenir un feu moteur : matériau (titane, inox) et étanchéité sont qualifiés au feu. Le préparateur reprend exactement le produit et la méthode de l'instruction.",
+    risk: "Un mastic non qualifié ne tient pas au feu : en cas d'incendie moteur, les flammes atteignent la BTP ou la cabine.",
   },
   {
-    tag: "BNAE",
-    q: "La RG.Aéro 000 23, éditée par le BNAE, concerne :",
-    options: ["Les couples de serrage", "La gestion de configuration", "Le zonage hélicoptère", "Le Fenestron"],
+    tag: "ASN · ECS",
+    q: "H125, nomenclature d'un ensemble capot. Le plan appelle « Vis ASN… » alors qu'un plan plus récent du même appareil appelle « Vis ECS… ». Quelle lecture est correcte ?",
+    options: [
+      "ASN est périmée : on remplace d'office par l'ECS de même diamètre et longueur",
+      "ASN et ECS sont deux référentiels internes valides ; on monte la référence appelée",
+      "ASN est une norme européenne et ECS une norme française : elles sont équivalentes",
+      "ASN désigne un procédé et ECS une pièce : la vis doit être choisie dans l'EI",
+    ],
     answer: 1,
-    why: "Les RG.Aéro sont des recommandations générales du BNAE. La RG.Aéro 000 23 porte sur la gestion de configuration : quelle définition exacte est montée sur quel appareil.",
-    risk: "Sans gestion de configuration, une pièce d'ancien indice part sur un appareil d'un nouveau standard : appareil non conforme à sa définition certifiée.",
+    why: "ASN (Aerospatiale Norme, historique) et ECS (Eurocopter Standard) sont deux référentiels de pièces standard utilisés chez Airbus Helicopters selon l'âge de la définition. On ne les oppose pas : on monte exactement ce que le plan appelle.",
+    risk: "Substituer une référence sans décision du bureau d'études rend l'ensemble non conforme à sa définition : rebut ou dérogation.",
+  },
+  {
+    tag: "EI · EICM",
+    q: "H135, poste équipement. La gamme doit préciser la méthode de freinage au fil d'un bouchon et la métallisation d'un support. Dans quel document trouves-tu la règle maison applicable ?",
+    options: [
+      "Dans l'instruction EI / EICM citée en note de plan",
+      "Dans la fiche norme ECS de la vis de fixation",
+      "Dans le tableau de zonage ATA de l'appareil",
+      "Dans la fiche de navigabilité de l'appareil",
+    ],
+    answer: 0,
+    why: "Les EI / EICM sont les instructions Airbus Helicopters des procédés et règles métier (freinage, couples, PR, métallisation). Les normes ASN / ECS définissent les pièces, pas la façon de les poser.",
+    risk: "Un procédé appliqué de mémoire, sans renvoi à l'EI, donne un montage non traçable et souvent hors tolérance.",
+  },
+  {
+    tag: "RG.Aéro 000 23",
+    q: "H160, chaîne FAL. Une modification change l'indice d'un support à partir du MSN 1061. Quel document BNAE encadre la façon de gérer cette effectivité par MSN ?",
+    options: [
+      "La RG.Aéro 000 23, sur la gestion de configuration",
+      "La norme EN de la vis qui fixe le support modifié",
+      "Le chapitre ATA 53 du manuel de maintenance",
+      "L'instruction EI de métallisation du support",
+    ],
+    answer: 0,
+    why: "La RG.Aéro 000 23 du BNAE porte sur la gestion de configuration : quelle définition exacte est montée sur quel appareil, à partir de quel rang d'application.",
+    risk: "Sans gestion de configuration, une pièce d'ancien indice part sur un MSN d'un nouveau standard : appareil non conforme à sa définition certifiée.",
   },
   {
     tag: "Côté · place CdB", scenario: true,
-    q: "Sur un H145, le commandant de bord est assis à droite. Un OF indique la sous-zone 211. Où travailles-tu ?",
-    options: ["Côté droit, puisque le CdB est à droite", "Côté gauche géométrique de l'appareil (−Y), quelle que soit la place du CdB", "Dans l'axe", "Ça dépend de l'équipage du jour"],
+    q: "H145, poste habillage cabine. Le commandant de bord est assis à droite. L'OF indique la sous-zone 211. De quel côté de l'appareil interviens-tu ?",
+    options: [
+      "Côté droit, celui de la place du commandant de bord",
+      "Côté gauche géométrique (−Y), lu assis regard vers l'avant",
+      "Dans l'axe de symétrie, la sous-zone 211 étant centrale",
+      "Côté porte cargo, le seul accessible sur cette sous-zone",
+    ],
     answer: 1,
-    why: "211 se termine par un chiffre impair : gauche. Gauche et droite se lisent assis dans un siège pilote, regard vers l'avant. La place du commandant de bord ne change rien à la géométrie.",
-    risk: "Perçage ou pose sur le mauvais côté : trous en trop dans une structure, réparation à faire approuver par le bureau d'études.",
+    why: "Une sous-zone se terminant par un chiffre impair est à gauche. Gauche et droite se lisent assis, regard vers l'avant. La place du CdB ne change pas la géométrie.",
+    risk: "Perçage ou pose du mauvais côté : trous en trop dans la structure, réparation à faire approuver par le bureau d'études.",
   },
   {
     tag: "Trièdre",
-    q: "Sur une cellule d'hélicoptère, l'axe X (stations) va :",
-    options: ["Du plancher vers la tête rotor", "De la gauche vers la droite", "Du point zéro en avant du nez vers le Fenestron", "Du Fenestron vers le nez"],
-    answer: 2,
+    q: "H160, lecture de plan d'ensemble cellule. Dans quel sens croissent les stations X (STA) ?",
+    options: [
+      "Du point zéro situé en avant du nez vers le Fenestron",
+      "Du Fenestron vers le point zéro situé sous le nez",
+      "Du plancher de barque vers le plateau de tête rotor",
+      "Du côté gauche (−Y) vers le côté droit (+Y)",
+    ],
+    answer: 0,
     why: "X0 est placé en avant du nez pour que toutes les stations soient positives jusqu'à l'arrière. Z va de la barque vers la tête rotor, Y de gauche à droite.",
     risk: "Une erreur d'axe déplace un couple ou un support sur le papier : incohérence plan / gamme, montage bloqué.",
   },
   {
     tag: "Structure",
-    q: "Qu'est-ce qui distingue le plancher mécanique (structure primaire) de la BTP (pièce critique) ?",
-    options: ["Rien, ce sont deux pièces critiques", "Le plancher est conçu avec des chemins d'effort redondants ; la BTP n'a aucune redondance et sa défaillance unique est catastrophique", "La BTP est une structure secondaire", "Le plancher mécanique n'a pas besoin de contrôle"],
-    answer: 1,
-    why: "Une structure fail-safe garde un chemin d'effort si un élément casse. Une pièce critique n'en a pas : d'où la traçabilité totale (série, appairage, serrages enregistrés).",
-    risk: "Sans traçabilité, un défaut matière sur un lot de BTP rend impossible l'identification des hélicoptères à immobiliser.",
+    q: "H145, plancher mécanique (zone 300). Qu'est-ce qui distingue le plancher mécanique (structure primaire) de la BTP (pièce critique) ?",
+    options: [
+      "Le plancher a des chemins d'effort redondants, la BTP n'en a aucun",
+      "Le plancher est démontable en ligne, la BTP seulement en atelier",
+      "Le plancher est en composite, la BTP est en alliage de magnésium",
+      "Le plancher porte les moteurs, la BTP porte seulement le rotor",
+    ],
+    answer: 0,
+    why: "Une structure primaire fail-safe garde un chemin d'effort si un élément casse. Une pièce critique n'en a pas : d'où la traçabilité totale (série, appairage, serrages enregistrés).",
+    risk: "Sans traçabilité, un défaut matière sur un lot de BTP rend impossible l'identification des appareils à immobiliser.",
   },
   {
-    tag: "ATA 63",
-    q: "À quoi servent les barres de suspension BTP ?",
-    options: ["À fixer les capots moteur", "À transmettre la portance du rotor, via la BTP, aux anneaux principaux de la cellule", "À supporter les patins", "À guider la timonerie de commande"],
-    answer: 1,
-    why: "L'hélicoptère est suspendu à son rotor : la portance passe par le mât, la BTP et les barres de suspension jusqu'aux anneaux principaux. Elles relèvent de l'ATA 63 et sont des pièces critiques.",
+    tag: "ATA 63 · suspension",
+    q: "H125, montage de l'ensemble BTP sur le plancher mécanique. Quel est le rôle des barres de suspension BTP ?",
+    options: [
+      "Transmettre la portance du rotor, via la BTP, aux anneaux principaux",
+      "Reprendre le poids des turbomoteurs et filtrer leurs vibrations",
+      "Guider la timonerie de commande entre le poste et le plateau",
+      "Supporter les capots de BTP et les ouvertures de visite",
+    ],
+    answer: 0,
+    why: "L'hélicoptère est suspendu à son rotor : la portance passe par le mât, la BTP et les barres de suspension jusqu'aux anneaux principaux. Ce sont des pièces critiques (ATA 63).",
     risk: "Une barre mal montée ou mal freinée peut rompre en vol : séparation de l'ensemble rotor-BTP de la cellule.",
   },
   {
-    tag: "Vibrations", scenario: true,
-    q: "Sur la gamme du plateau cyclique, le freinage d'un écrou de biellette n'est pas précisé. Que fais-tu ?",
-    options: ["Serrer au couple maximal, ça suffit", "Mettre le frein filet disponible à l'atelier", "Bloquer l'opération et faire définir le freinage conforme (plan, EI, ATA 20) avant montage", "Laisser tel quel : le contrôle final le verra"],
-    answer: 2,
-    why: "Sur hélicoptère, chaque fixation a un moyen de freinage défini. Le préparateur ne l'improvise pas : il le fait définir et l'écrit dans la gamme.",
+    tag: "Freinage", scenario: true,
+    q: "H160, poste plateau cyclique. La gamme héritée ne précise pas le freinage d'un écrou de biellette de pas. Quelle est ta décision de préparateur ?",
+    options: [
+      "Bloquer l'opération et faire définir le freinage conforme (plan, EI) avant diffusion",
+      "Prescrire un frein filet anaérobie standard, déjà utilisé sur d'autres postes",
+      "Prescrire le couple maximal de la plage pour compenser l'absence de freinage",
+      "Diffuser en l'état et demander au contrôle final de statuer sur le freinage",
+    ],
+    answer: 0,
+    why: "Sur hélicoptère, chaque fixation a un moyen de freinage défini par le plan ou l'EI. Le préparateur ne l'improvise pas : il le fait définir et l'écrit dans la gamme.",
     risk: "Sous vibration rotor, un écrou non freiné se desserre : jeu dans la chaîne de commande et perte de contrôle du pas des pales.",
   },
   {
-    tag: "ATA 64",
-    q: "Pourquoi le Fenestron d'un H160 a-t-il des pales à espacement irrégulier ?",
-    options: ["Pour simplifier l'équilibrage", "Pour réduire le bruit en répartissant ses fréquences", "Pour économiser une pale", "Pour faciliter le démontage"],
-    answer: 1,
+    tag: "ATA 64 · Fenestron",
+    q: "H160, montage du Fenestron dans la dérive. Pourquoi ses pales sont-elles réparties avec un espacement angulaire irrégulier ?",
+    options: [
+      "Pour répartir le bruit sur plusieurs fréquences et le rendre moins gênant",
+      "Pour compenser le balourd créé par la pale porteuse du repère de calage",
+      "Pour laisser le passage de la biellette de pas entre deux pales voisines",
+      "Pour réduire le nombre de pales sans modifier la poussée anticouple",
+    ],
+    answer: 0,
     why: "Avec un espacement régulier, le bruit se concentre sur une fréquence. L'espacement irrégulier l'étale et le rend moins gênant. Le Fenestron relève de l'ATA 64.",
     risk: "Monter une pale à une position différente de la définition détruit l'équilibrage et le gain acoustique : vibrations et non-conformité.",
   },
   {
     tag: "ATA 65",
-    q: "Les arbres de transmission arrière, les paliers intermédiaires et la BTA relèvent de :",
-    options: ["ATA 63", "ATA 64", "ATA 65", "ATA 67"],
-    answer: 2,
-    why: "ATA 65 : entraînement du rotor arrière. ATA 64 : le rotor arrière ou le Fenestron lui-même. ATA 63 : entraînement du rotor principal.",
-    risk: "Un mauvais chapitre renvoie le compagnon vers la mauvaise documentation : couples ou jeux d'alignement faux sur les paliers.",
+    q: "H145, poutre de queue. Tu prépares la pose des arbres de transmission arrière, de leurs paliers et de la boîte arrière. Quel chapitre ATA portes-tu sur la gamme ?",
+    options: ["ATA 65 · Transmission rotor arrière", "ATA 64 · Rotor arrière / Fenestron", "ATA 63 · Transmission rotor principal", "ATA 67 · Commandes de vol rotors"],
+    answer: 0,
+    why: "ATA 65 : entraînement du rotor arrière (arbres, paliers, boîtes). ATA 64 : le rotor arrière ou le Fenestron lui-même. ATA 63 : entraînement du rotor principal.",
+    risk: "Un mauvais chapitre renvoie vers la mauvaise documentation : couples ou alignement faux sur les paliers.",
   },
   {
     tag: "ATA 62",
-    q: "Le moyeu Starflex d'un H125 relève de quel chapitre ?",
-    options: ["ATA 62 · Rotor principal", "ATA 63 · Entraînement rotor principal", "ATA 67 · Commandes de vol", "ATA 53 · Fuselage"],
+    q: "H125, tête rotor. Tu prépares la pose du moyeu Starflex et des pales. Quel chapitre ATA portes-tu sur la gamme ?",
+    options: ["ATA 62 · Rotor principal", "ATA 63 · Transmission rotor principal", "ATA 67 · Commandes de vol rotors", "ATA 53 · Structure de fuselage"],
     answer: 0,
-    why: "Pales, moyeu (Starflex, Spheriflex) et amortisseurs de traînée relèvent de l'ATA 62. Le mât et la BTP relèvent de l'ATA 63.",
+    why: "Pales, moyeu (Starflex, Spheriflex) et amortisseurs relèvent de l'ATA 62. Le mât et la BTP relèvent de l'ATA 63, le plateau cyclique et les bielles de l'ATA 67.",
     risk: "Le moyeu est une pièce critique : un classement erroné peut faire perdre les exigences de traçabilité associées.",
   },
   {
-    tag: "ATA 28", scenario: true,
-    q: "Intervention dans le réservoir sous plancher d'un H160. Quelle séquence est indispensable ?",
-    options: ["Aucune précaution particulière", "Inventaire outillage entrée / sortie (FOD), étanchéité PR carburant, contrôle de continuité électrique", "Uniquement un nettoyage final", "Une peinture de protection"],
-    answer: 1,
-    why: "En zone carburant, le risque FOD est maximal, l'étanchéité utilise un PR spécifique carburant et la continuité électrique évite l'accumulation de charges statiques.",
+    tag: "ATA 28 · carburant", scenario: true,
+    q: "H160, barque (zone 100). Intervention dans le caisson de réservoir sous plancher cabine. Quelle séquence la gamme doit-elle imposer ?",
+    options: [
+      "Inventaire outillage entrée / sortie, PR qualifié carburant, continuité électrique",
+      "Nettoyage final par aspiration, PR standard d'aspect, contrôle visuel des fixations",
+      "Inventaire outillage en fin de poste, PR qualifié carburant, peinture de protection",
+      "Contrôle visuel des fixations, PR standard, essai d'étanchéité au remplissage en piste",
+    ],
+    answer: 0,
+    why: "En zone carburant : risque FOD maximal (inventaire à l'entrée et à la sortie du caisson), PR qualifié carburant, et continuité électrique pour éviter les charges statiques.",
     risk: "Un outil oublié peut obstruer une pompe ; une fixation sans continuité électrique peut provoquer un arc dans les vapeurs de carburant.",
   },
   {
     tag: "Mécanique du vol",
-    q: "Le pilote tire le levier de pas collectif. Que se passe-t-il, et que doit-il compenser ?",
-    options: ["L'hélico translate ; rien à compenser", "L'hélico monte ; il compense l'augmentation du couple aux palonniers (anticouple)", "L'hélico tourne sur lui-même ; il compense au cyclique", "Le rotor ralentit ; il compense à la manette"],
-    answer: 1,
+    q: "H145 en stationnaire. Le pilote augmente le pas collectif. Que se passe-t-il et que doit-il compenser ?",
+    options: [
+      "L'appareil monte ; le couple augmente et il compense aux palonniers",
+      "L'appareil avance ; le disque s'incline et il compense au cyclique",
+      "L'appareil monte ; le régime rotor augmente et il réduit la puissance",
+      "L'appareil tourne en lacet ; il compense en réduisant le collectif",
+    ],
+    answer: 0,
     why: "Plus de pas collectif = plus de portance, mais aussi plus de couple absorbé : le fuselage tend à tourner en sens inverse du rotor, d'où l'action aux palonniers.",
-    risk: "Confondre collectif et cyclique dans une gamme de réglage du plateau cyclique fausse les débattements : réglage non conforme au point fixe.",
+    risk: "Confondre collectif et cyclique dans une gamme de réglage du plateau fausse les débattements : réglage non conforme au point fixe.",
   },
 ];
 
 function TabSprint({ done, onComplete, onScore }) {
-  const [order, setOrder] = useState(() => shuffle(QUESTIONS.map((_, i) => i)));
-  const [pos, setPos] = useState(0);
-  const [picked, setPicked] = useState(null);
-  const [history, setHistory] = useState([]);
-  const [streak, setStreak] = useState(0);
-  const [best, setBest] = useState(0);
-  const [started, setStarted] = useState(false);
-
-  const total = order.length;
-  const finished = pos >= total;
-  const correct = history.filter((h) => h.ok).length;
-  const reliability = history.length ? Math.round((correct / history.length) * 100) : 100;
-  const q = !finished ? QUESTIONS[order[pos]] : null;
-
-  useEffect(() => {
-    if (!finished) return;
-    /* Pont LMS : score brut tronqué au dixième (jamais arrondi vers le haut), statut calculé par le portail */
-    const raw = (correct / total) * 100;
-    if (onScore) onScore(Math.floor(raw * 10) / 10);
-    if (raw >= 85) onComplete();
-  }, [finished]);
-
-  const answer = (k) => {
-    if (picked !== null) return;
-    setPicked(k);
-    const ok = k === q.answer;
-    setHistory([...history, { qi: order[pos], picked: k, ok }]);
-    const s = ok ? streak + 1 : 0;
-    setStreak(s);
-    setBest(Math.max(best, s));
-  };
-  const next = () => { setPos(pos + 1); setPicked(null); };
-  const restart = () => {
-    setOrder(shuffle(QUESTIONS.map((_, i) => i)));
-    setPos(0); setPicked(null); setHistory([]); setStreak(0); setBest(0); setStarted(true);
-  };
-
-  const relTone = reliability >= 85 ? "text-ok" : reliability >= 65 ? "text-amber" : "text-ko";
-  const letters = ["A", "B", "C", "D"];
-
-  if (!started) {
-    return (
-      <div className="flex flex-col gap-6">
-        <SectionHead icon={Trophy} kicker="Onglet 5 · Évaluation" title="Sprint Préparateur Méthodes Hélicoptère">
-          {QUESTIONS.length} questions tirées au hasard, théorie et mises en situation en atelier Airbus Helicopters. Après chaque réponse, une explication technique te montre pourquoi c'est juste, et ce que l'erreur aurait provoqué sur chaîne.
-        </SectionHead>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Panel className="p-4"><Flame size={18} className="text-amber" /><div className="mt-2 font-display text-lg font-semibold text-ink">Série</div><p className="text-[13px] text-muted">Enchaîne les bonnes réponses pour faire monter ta série.</p></Panel>
-          <Panel className="p-4"><Gauge size={18} className="text-ok" /><div className="mt-2 font-display text-lg font-semibold text-ink">Fiabilité industrielle</div><p className="text-[13px] text-muted">Ton taux de bonnes réponses. 85 % minimum pour valider le module.</p></Panel>
-          <Panel className="p-4"><AlertTriangle size={18} className="text-ko" /><div className="mt-2 font-display text-lg font-semibold text-ink">Conséquence terrain</div><p className="text-[13px] text-muted">Chaque erreur est reliée à la non-conformité qu'elle aurait causée.</p></Panel>
-        </div>
-        <div><PrimaryButton onClick={restart} tone="amber"><Zap size={16} /> Lancer le sprint</PrimaryButton></div>
-        <ValidatedBanner done={done} label="Sprint réussi avec au moins 85 % de fiabilité." />
-      </div>
-    );
-  }
-
-  if (finished) {
-    const pct = Math.round((correct / total) * 100);
-    const grade = pct >= 85 ? { t: "Valide", c: "text-ok", d: pct >= 90 ? "Ta gamme partirait en production sans retour du contrôle qualité." : "Bonne maîtrise. Revois les points ci-dessous avant le module suivant." }
-      : { t: "À revoir", c: "text-ko", d: "Score inférieur à 85 % : module non validé. Relis les points ci-dessous et les onglets concernés, puis relance le sprint." };
-    const errors = history.filter((h) => !h.ok);
-    return (
-      <div className="flex flex-col gap-6">
-        <Panel className="p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-            <Award size={44} className={grade.c} />
-            <div className="min-w-0 flex-1">
-              <Eyebrow tone="amber">Débriefing du sprint</Eyebrow>
-              <div className={cx("font-display text-3xl font-semibold", grade.c)}>{grade.t}</div>
-              <p className="text-[14px] text-ink/85">{grade.d}</p>
-            </div>
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-lg border border-line bg-bg px-3 py-2"><div className="font-mono text-2xl font-semibold text-ink tabular-nums">{correct}/{total}</div><div className="font-mono text-[10px] uppercase text-muted">Bonnes</div></div>
-              <div className="rounded-lg border border-line bg-bg px-3 py-2"><div className={cx("font-mono text-2xl font-semibold tabular-nums", grade.c)}>{pct}%</div><div className="font-mono text-[10px] uppercase text-muted">Fiabilité</div></div>
-              <div className="rounded-lg border border-line bg-bg px-3 py-2"><div className="font-mono text-2xl font-semibold text-amber tabular-nums">{best}</div><div className="font-mono text-[10px] uppercase text-muted">Meilleure série</div></div>
-            </div>
-          </div>
-        </Panel>
-        {errors.length > 0 && (
-          <div className="flex flex-col gap-2">
-            <Eyebrow tone="red">À revoir · {errors.length} point{errors.length > 1 ? "s" : ""}</Eyebrow>
-            {errors.map((h) => {
-              const qq = QUESTIONS[h.qi];
-              return (
-                <Panel key={h.qi} className="p-4">
-                  <div className="font-mono text-[11px] uppercase tracking-wider text-muted">{qq.tag}</div>
-                  <div className="text-[14px] font-semibold text-ink">{qq.q}</div>
-                  <div className="mt-1 text-[13px] text-ok">Bonne réponse : {qq.options[qq.answer]}</div>
-                  <div className="mt-1 text-[13px] text-ink/80">{qq.why}</div>
-                </Panel>
-              );
-            })}
-          </div>
-        )}
-        <div><PrimaryButton onClick={restart} tone="amber"><RotateCcw size={16} /> Relancer un sprint</PrimaryButton></div>
-        <ValidatedBanner done={done} label="Sprint réussi avec au moins 85 % de fiabilité." />
-      </div>
-    );
-  }
-
-  const ok = picked !== null && picked === q.answer;
   return (
-    <div className="flex flex-col gap-5">
-      <div className="grid grid-cols-3 gap-2">
-        <Panel className="p-3">
-          <div className="font-mono text-[10px] uppercase tracking-wider text-muted">Question</div>
-          <div className="font-mono text-xl font-semibold text-ink tabular-nums">{pos + 1}<span className="text-muted">/{total}</span></div>
-        </Panel>
-        <Panel className="p-3">
-          <div className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-wider text-muted"><Flame size={12} className={streak > 0 ? "text-amber" : "text-muted"} /> Série</div>
-          <div className={cx("font-mono text-xl font-semibold tabular-nums", streak >= 3 ? "text-amber" : "text-ink")}>{streak}{streak >= 3 && <span className="ml-1 text-sm">en feu</span>}</div>
-        </Panel>
-        <Panel className="p-3">
-          <div className="font-mono text-[10px] uppercase tracking-wider text-muted">Fiabilité industrielle</div>
-          <div className={cx("font-mono text-xl font-semibold tabular-nums", relTone)}>{reliability}%</div>
-        </Panel>
-      </div>
-      <div className="flex gap-1" aria-label="Progression du sprint">
-        {order.map((qi, i) => {
-          const h = history[i];
-          return <div key={qi} className={cx("h-1.5 flex-1 rounded-full", h ? (h.ok ? "bg-ok" : "bg-ko") : i === pos ? "bg-sky" : "bg-line")} />;
-        })}
-      </div>
-
-      <Panel className="p-5 sm:p-6">
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <span className="rounded-md border border-sky/50 bg-sky/10 px-2 py-0.5 font-mono text-[11px] text-sky">{q.tag}</span>
-          {q.scenario && <span className="rounded-md border border-amber/50 bg-amber/10 px-2 py-0.5 font-mono text-[11px] text-amber">Mise en situation</span>}
-        </div>
-        <h3 className="font-display text-xl font-semibold leading-snug text-ink sm:text-2xl" style={{ textWrap: "balance" }}>{q.q}</h3>
-        <div className="mt-5 flex flex-col gap-2">
-          {q.options.map((o, k) => {
-            const isAns = k === q.answer;
-            const isPicked = k === picked;
-            const state = picked === null ? "idle" : isAns ? "good" : isPicked ? "bad" : "dim";
-            return (
-              <button key={k} type="button" onClick={() => answer(k)} disabled={picked !== null}
-                className={cx("flex items-start gap-3 rounded-lg border p-3 text-left text-[14px] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky",
-                  state === "idle" && "border-line bg-bg text-ink hover:border-sky/70",
-                  state === "good" && "border-ok bg-ok/10 text-ink",
-                  state === "bad" && "border-ko bg-ko/10 text-ink",
-                  state === "dim" && "border-line bg-bg text-muted")}>
-                <span className={cx("flex h-6 w-6 shrink-0 items-center justify-center rounded font-mono text-xs font-semibold", state === "good" ? "bg-ok text-bg" : state === "bad" ? "bg-ko text-bg" : "bg-line text-ink")}>{letters[k]}</span>
-                <span className="min-w-0 flex-1">{o}</span>
-                {state === "good" && <CheckCircle2 size={18} className="shrink-0 text-ok" />}
-                {state === "bad" && <XCircle size={18} className="shrink-0 text-ko" />}
-              </button>
-            );
-          })}
-        </div>
-
-        {picked !== null && (
-          <div className="mt-5 flex flex-col gap-3">
-            <div className={cx("rounded-lg border p-4", ok ? "border-ok/50 bg-ok/10" : "border-ko/50 bg-ko/10")}>
-              <div className="mb-1 flex items-center gap-2">
-                {ok ? <CheckCircle2 size={18} className="text-ok" /> : <XCircle size={18} className="text-ko" />}
-                <span className={cx("font-display text-lg font-semibold", ok ? "text-ok" : "text-ko")}>{ok ? "Bonne réponse" : "Réponse incorrecte"}</span>
-              </div>
-              <div className="font-mono text-[10px] uppercase tracking-wider text-muted">Explication technique</div>
-              <p className="mt-1 text-[14px] leading-relaxed text-ink">{q.why}</p>
-            </div>
-            <div className="rounded-lg border border-amber/40 bg-amber/10 p-4">
-              <div className="mb-1 flex items-center gap-2"><AlertTriangle size={16} className="text-amber" /><span className="font-mono text-[11px] uppercase tracking-wider text-amber">{ok ? "Ce que tu viens d'éviter sur chaîne" : "Ce que ton erreur aurait provoqué sur chaîne"}</span></div>
-              <p className="text-[14px] leading-relaxed text-ink">{q.risk}</p>
-            </div>
-            <div><PrimaryButton onClick={next}>{pos + 1 === total ? "Voir le débriefing" : "Question suivante"} <ArrowRight size={16} /></PrimaryButton></div>
-          </div>
-        )}
-      </Panel>
-    </div>
+    <SprintQCM questions={QUESTIONS} done={done} onComplete={onComplete} onScore={onScore}
+      SectionHead={SectionHead} ValidatedBanner={ValidatedBanner}
+      kicker="Onglet 5 · Évaluation" title="Sprint Préparateur Méthodes Hélicoptère"
+      intro={`${QUESTIONS.length} questions tirées au hasard, théorie et mises en situation en atelier Airbus Helicopters. Après chaque réponse, une explication technique te montre pourquoi c'est juste, et ce que l'erreur aurait provoqué sur chaîne.`} />
   );
 }
 
@@ -1526,11 +1415,11 @@ function TabSprint({ done, onComplete, onScore }) {
    APPLICATION
    ============================================================ */
 const TABS = [
-  { id: "vol", short: "Mécanique du vol", n: "1", icon: Fan, rule: "Réussir le contrôle de fin d'onglet" },
-  { id: "reperer", short: "Se repérer", n: "2", icon: Compass, rule: "Classer correctement les 11 pièces" },
-  { id: "systemes", short: "Systèmes & normes", n: "3", icon: BookOpen, rule: "Traiter les 7 OF du décodeur" },
-  { id: "atelier", short: "Atelier trièdre", n: "4", icon: Crosshair, rule: "Réussir 3 missions de placement" },
-  { id: "sprint", short: "Sprint évaluation", n: "5", icon: Trophy, rule: "Finir le sprint avec 85 % ou plus" },
+  { id: "vol", short: "Mécanique du vol", n: "1", icon: Fan, rule: "Contrôle de fin d'onglet ≥ 85 % (réponses verrouillées)" },
+  { id: "reperer", short: "Se repérer", n: "2", icon: Compass, rule: "Atelier de tri ≥ 85 % (10/11), 1er choix verrouillé" },
+  { id: "systemes", short: "Systèmes & normes", n: "3", icon: BookOpen, rule: "Décodeur d'OF ≥ 85 % des 28 champs" },
+  { id: "atelier", short: "Atelier trièdre", n: "4", icon: Crosshair, rule: "Trièdre ≥ 85 % (6/7 missions), 1 essai par mission" },
+  { id: "sprint", short: "Sprint évaluation", n: "5", icon: Trophy, rule: "Sprint final ≥ 85 % (score enregistré au portail)" },
 ];
 
 export default function App({ onSaveScore, onBack, student } = {}) {

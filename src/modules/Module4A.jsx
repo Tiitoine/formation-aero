@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import BackToPortal from "../lms/BackToPortal.jsx";
 import { scopedKey } from "../lms/session.js";
+import LaboPlans from "./plans/LaboPlans.jsx";
+import { shuffle, shuffleSpread, permutation, useAtelier, AtelierCounter, AtelierResult, LockRule, LockChip, OptionButton, optState, LETTERS, LockedQuickCheck, SprintQCM, useModuleSession } from "../lib/pedago.jsx";
 import {
   Layers, Wrench, Zap, Eye, Trophy, ShieldCheck, ShieldAlert,
   CheckCircle2, XCircle, Flame, RotateCcw, ChevronRight, Gauge, AlertTriangle, Info,
@@ -31,14 +33,6 @@ const saveProgress = (p) => {
   } catch (e) {
     /* stockage indisponible : la progression reste en mémoire */
   }
-};
-const shuffle = (arr) => {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
 };
 const cx = (...c) => c.filter(Boolean).join(" ");
 const fmt = (n) => (n > 0 ? "+" : "") + n.toLocaleString("fr-FR");
@@ -132,55 +126,9 @@ function ValidatedBanner({ done, label }) {
 }
 
 /* QCM court réutilisable pour valider un onglet */
-function QuickCheck({ title, questions, onComplete }) {
-  const [picked, setPicked] = useState({});
-  const [perms] = useState(() => questions.map((q) => shuffle(q.options.map((_, k) => k))));
-  const allGood = questions.every((q, i) => picked[i] === q.answer);
-  useEffect(() => {
-    if (allGood) onComplete();
-  }, [allGood]);
-  return (
-    <Panel className="p-5">
-      <div className="mb-4 flex items-center gap-2">
-        <ClipboardList size={18} className="text-sky" />
-        <h3 className="font-display text-xl font-semibold text-ink">{title}</h3>
-        <span className="ml-auto font-mono text-xs text-muted">
-          {questions.filter((q, i) => picked[i] === q.answer).length}/{questions.length} validées
-        </span>
-      </div>
-      <div className="flex flex-col gap-5">
-        {questions.map((q, i) => {
-          const p = picked[i];
-          const answered = p !== undefined;
-          const good = p === q.answer;
-          return (
-            <div key={i} className="flex flex-col gap-2">
-              <div className="text-[15px] font-medium text-ink">{i + 1}. {q.q}</div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {perms[i].map((k) => [q.options[k], k]).map(([o, k]) => (
-                  <Chip
-                    key={k}
-                    active={p === k}
-                    tone={p === k ? (good ? "green" : "red") : "blue"}
-                    disabled={good}
-                    onClick={() => !good && setPicked({ ...picked, [i]: k })}
-                  >
-                    {o}
-                  </Chip>
-                ))}
-              </div>
-              {answered && (
-                <div className={cx("rounded-lg border px-3 py-2 text-[13px] leading-relaxed", good ? "border-ok/40 bg-ok/10 text-ink" : "border-ko/40 bg-ko/10 text-ink")}>
-                  {good ? <strong className="text-ok">Exact. </strong> : <strong className="text-ko">Non, recommence. </strong>}
-                  {good ? q.why : q.hint}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </Panel>
-  );
+/* Contrôle de fin d'onglet : 1er clic verrouillé, questions et propositions mélangées, validation ≥ 85 % */
+function QuickCheck(props) {
+  return <LockedQuickCheck {...props} />;
 }
 
 /* ============================================================
@@ -286,22 +234,17 @@ function Feedback({ ok, children }) {
 }
 
 /* Choix unique à options mélangées, réutilisé dans les ateliers */
-function ChoiceStep({ options, answer, picked, onPick, locked }) {
-  const [perm] = useState(() => shuffle(options.map((_, k) => k)));
+/* Choix unique verrouillé au 1er clic : propositions mélangées (Fisher-Yates), bonne réponse révélée après un faux */
+function ChoiceStep({ options, answer, picked, onPick }) {
+  const [perm] = useState(() => permutation(options.length));
+  const locked = picked !== undefined && picked !== null;
   return (
     <div className="flex flex-col gap-2">
-      {perm.map((k) => {
-        const isPicked = picked === k;
-        const good = isPicked && k === answer;
-        return (
-          <button key={k} type="button" disabled={locked} onClick={() => onPick(k)}
-            className={cx("flex items-start gap-3 rounded-lg border p-3 text-left text-[14px] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky",
-              isPicked ? (good ? "border-ok bg-ok/10 text-ink" : "border-ko bg-ko/10 text-ink") : locked ? "border-line bg-bg text-muted" : "border-line bg-bg text-ink hover:border-sky/70")}>
-            <span className="min-w-0 flex-1">{options[k].t}</span>
-            {isPicked && (good ? <CheckCircle2 size={18} className="shrink-0 text-ok" /> : <XCircle size={18} className="shrink-0 text-ko" />)}
-          </button>
-        );
-      })}
+      {perm.map((k, i) => (
+        <OptionButton key={k} letter={LETTERS[i]} state={optState(k, locked ? picked : undefined, answer)} onClick={() => !locked && onPick(k)}>
+          {options[k].t}
+        </OptionButton>
+      ))}
     </div>
   );
 }
@@ -441,22 +384,22 @@ function CountersinkTrainer() {
 
 const Q_PLAN = [
   {
-    q: "Le plan d'une ferrure est en projection européenne (1er dièdre). Où est dessinée la vue de gauche ?",
-    options: ["À droite de la vue de face", "À gauche de la vue de face", "Au-dessus de la vue de face", "Elle n'existe pas en 1er dièdre"],
+    q: "H160, plan de ferrure de BTP en projection européenne (1er dièdre). Où est dessinée la vue de gauche par rapport à la vue de face ?",
+    options: ["À droite de la vue de face", "À gauche de la vue de face", "Au-dessus de la vue de face", "En dessous de la vue de face"],
     answer: 0,
-    why: "En 1er dièdre, ce que l'on voit depuis la gauche se dessine à droite de la vue de face. En 3e dièdre (projection américaine), c'est l'inverse : c'est pour cela qu'on lit d'abord le symbole de projection du cartouche.",
-    hint: "Pense au principe du 1er dièdre : on projette la pièce sur le plan placé derrière elle.",
+    why: "En 1er dièdre, ce que l'on voit depuis la gauche se dessine à droite de la vue de face. En 3e dièdre (projection américaine), c'est l'inverse : on lit d'abord le symbole de projection du cartouche.",
+    hint: "En 1er dièdre, on projette la pièce sur le plan placé derrière elle.",
   },
   {
-    q: "Le plan définit la ferrure repère -1 (dessinée) et la -2 (symétrique, non dessinée). Tu prépares le poste côté droit, qui reçoit la -2. Comment raisonnes-tu ?",
-    options: ["Je monte la -2 en lisant la vue dessinée en symétrie", "Je monte la -1 puisque c'est elle qui est dessinée", "Peu importe, -1 et -2 sont interchangeables", "Je retourne la -1 de 180°"],
+    q: "H145, plan de ferrure : repère -1 dessiné, repère -2 symétrique non dessiné. Tu prépares le poste côté droit, qui reçoit la -2. Comment raisonnes-tu ?",
+    options: ["Je monte la -2, géométrie lue en symétrie sur la vue de la -1", "Je monte la -1, seule pièce dont la géométrie est dessinée", "Je monte indifféremment la -1 ou la -2, elles sont interchangeables", "Je monte la -1 retournée de 180° autour de son axe vertical"],
     answer: 0,
-    why: "Les pièces symétriques ne sont pas interchangeables : la -2 est l'image miroir de la -1. Sa géométrie se lit en symétrie sur la vue de la -1. La gamme cite le bon repère pour chaque côté.",
+    why: "Les pièces symétriques ne sont pas interchangeables : la -2 est l'image miroir de la -1. Sa géométrie se lit en symétrie sur la vue de la -1, et la gamme cite le bon repère pour chaque côté.",
     hint: "Une pièce symétrique n'est jamais une pièce retournée.",
   },
   {
-    q: "Le plan exige Ra 0,8 µm dans l'alésage d'une ferrure de BTP. Après alésage manuel, l'opérateur voit une rayure hélicoïdale. Pourquoi est-ce grave ?",
-    options: ["La rayure est une amorce de crique de fatigue sous les vibrations du rotor", "C'est seulement esthétique", "Elle gêne la mise en peinture", "Elle augmente la masse de la pièce"],
+    q: "H175, ferrure de BTP. Le plan exige Ra 0,8 µm dans l'alésage. Après alésage manuel, l'opérateur voit une rayure hélicoïdale. Pourquoi est-ce grave ?",
+    options: ["La rayure est une amorce de crique de fatigue sous les vibrations du rotor", "La rayure modifie le diamètre mesuré au-delà de la tolérance IT7", "La rayure empêche l'adhérence du primaire anticorrosion dans l'alésage", "La rayure fausse le contrôle au tampon lisse côté N'entre pas"],
     answer: 0,
     why: "Sous les efforts alternés du rotor, une rayure concentre les contraintes et amorce une crique de fatigue. L'état de surface fait partie de la conformité, au même titre que le diamètre.",
     hint: "Une ferrure de BTP subit des millions de cycles de vibration.",
@@ -561,22 +504,22 @@ function FamiliesSVG() {
 
 const Q_FITS = [
   {
-    q: "Ø10 H7 : quelles sont les cotes limites du trou ?",
+    q: "H160, alésage de ferrure coté Ø10 H7 (IT7 = 15 µm à ce diamètre). Quelles sont les cotes limites du trou ?",
     options: ["10,000 à 10,015 mm", "9,985 à 10,000 mm", "9,992 à 10,008 mm", "10,015 à 10,030 mm"],
     answer: 0,
     why: "Majuscule = alésage. Pour H, l'écart inférieur vaut 0 ; IT7 à Ø10 vaut 15 µm. Le trou va donc de 10,000 à 10,015 mm.",
     hint: "Pour la lettre H, l'écart inférieur est toujours nul.",
   },
   {
-    q: "Bague épaulée Ø25 H7/p6 dans une ferrure de BTP : quelle famille et quelle action dans la gamme ?",
-    options: ["Serrage : contraction à l'azote liquide ou presse étalonnée, puis attente de remise à température", "Jeu : montage glissant à la graisse", "Incertain : pose au maillet doux", "Serrage : frappe au marteau jusqu'à affleurement"],
+    q: "H175, bague épaulée Ø25 H7/p6 dans une ferrure de BTP. Quelle famille d'ajustement et quelle prescription de gamme ?",
+    options: ["Serrage : bague contractée au LN₂ (ou presse étalonnée), contrôle après retour à température", "Jeu : montage glissant à la main avec graisse de montage, contrôle immédiat", "Incertain : pose au maillet doux après alésage de finition, contrôle immédiat", "Serrage : bague frappée au marteau jusqu'à affleurement, contrôle après pose"],
     answer: 0,
-    why: "p est au-delà de n : la bague est plus grande que le trou. On la contracte au LN₂ (ou on la presse avec une presse étalonnée), et on attend le retour à température ambiante avant contrôle.",
+    why: "p est au-delà de n : la bague est plus grande que le trou. On la contracte au LN₂ ou on la presse avec une presse étalonnée, puis on attend le retour à température ambiante avant contrôle.",
     hint: "Les lettres p à z donnent un arbre toujours plus grand que le trou.",
   },
   {
-    q: "8 H7/k6 sur une fixation structurale ajustée : pourquoi le Bureau d'Études choisit-il cet ajustement ?",
-    options: ["Pour supprimer tout jeu sous vibrations sans imposer un fort serrage", "Pour que l'axe tourne librement", "Pour pouvoir monter sans aucun outillage", "Pour réduire le coût de la fixation"],
+    q: "H145, fixation structurale ajustée Ø8 H7/k6. Pourquoi le bureau d'études choisit-il cet ajustement ?",
+    options: ["Pour supprimer le jeu sous vibrations sans imposer un fort serrage", "Pour que l'axe tourne librement dans son alésage en service", "Pour permettre un montage à la main sans aucun outillage", "Pour garantir un serrage fort qui interdit tout démontage"],
     answer: 0,
     why: "Un ajustement incertain donne un jeu ou un serrage de quelques micromètres. La fixation reprend l'effort sans battre sous les vibrations, et reste posable par alésage de finition et maillet doux ou tire-boulon.",
     hint: "Lettres j à n : la zone de l'arbre chevauche celle du trou.",
@@ -705,19 +648,25 @@ function JigSVG({ seq }) {
 }
 
 function IsostatTrainer() {
-  const [seq, setSeq] = useState([]);
+  /* 3 appuis à ordonner : chaque choix est verrouillé ; en cas d'erreur, l'appui correct est posé pour continuer */
+  const at = useAtelier({ id: "m4a-isostatisme-321", label: "Ordre d'accostage 3-2-1 dans le bâti", total: 3 });
+  const btns = useMemo(() => shuffle(["A", "B", "C"]), [at.draw]);
   const [err, setErr] = useState(null);
+  useEffect(() => setErr(null), [at.draw]);
   const expected = ["A", "B", "C"];
+  const seq = expected.slice(0, at.nb);
   const press = (r) => {
-    if (seq.includes(r)) return;
-    if (r !== expected[seq.length]) {
-      setErr(r === "B" || seq.length === 0
-        ? `Tu accostes sur ${r} avant d'avoir plaqué la pièce sur ${expected[seq.length]}. Quand tu la plaqueras ensuite sur ${expected[seq.length]}, elle glissera ou basculera sur ${r} : le positionnement obtenu n'est pas celui que la cotation du plan exige.`
-        : `Tu poses la butée C avant d'avoir accosté sur B. La pièce peut encore tourner autour de Z : en l'accostant ensuite sur B, elle quitte la butée C.`);
+    if (seq.includes(r) || at.finished) return;
+    const step = at.nb;
+    const ok = r === expected[step];
+    at.lock(step, { k: r, ok, q: `Appui n° ${step + 1}`, choix: `Plaquer sur ${r}`, bonne: `Plaquer sur ${expected[step]}` });
+    if (!ok) {
+      setErr((r === "B" || step === 0
+        ? `Tu accostes sur ${r} avant d'avoir plaqué la pièce sur ${expected[step]}. Quand tu la plaqueras ensuite sur ${expected[step]}, elle glissera ou basculera sur ${r} : le positionnement obtenu n'est pas celui que la cotation du plan exige.`
+        : `Tu poses la butée C avant d'avoir accosté sur B. La pièce peut encore tourner autour de Z : en l'accostant ensuite sur B, elle quitte la butée C.`) + ` Erreur verrouillée : l'appui correct (${expected[step]}) est posé pour la suite.`);
       return;
     }
     setErr(null);
-    setSeq([...seq, r]);
   };
   const blocked = DOF.filter((d) => seq.includes(d.by)).length;
   return (
@@ -725,16 +674,17 @@ function IsostatTrainer() {
       <div className="flex flex-wrap items-center gap-2">
         <Boxes size={18} className="text-sky" />
         <h3 className="font-display text-xl font-semibold text-ink">Rédige l'ordre d'accostage dans le bâti (règle 3-2-1)</h3>
+        <AtelierCounter at={at} />
       </div>
+      <LockRule />
       <p className="text-[14px] text-muted">Le plan cote la pièce par rapport à [A | B | C]. Choisis dans quel ordre l'opérateur met la pièce en appui.</p>
       <div className="grid gap-4 md:grid-cols-[1fr_1fr] md:items-center">
         <JigSVG seq={seq} />
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap gap-2">
-            {["C", "A", "B"].map((r) => (
-              <Chip key={r} active={seq.includes(r)} tone="green" onClick={() => press(r)}>Plaquer sur {r}</Chip>
+            {btns.map((r) => (
+              <Chip key={r} active={seq.includes(r)} tone={seq.includes(r) ? (at.get(expected.indexOf(r))?.ok ? "green" : "red") : "blue"} disabled={seq.includes(r) || at.finished} onClick={() => press(r)}>Plaquer sur {r}</Chip>
             ))}
-            <button type="button" onClick={() => { setSeq([]); setErr(null); }} className="inline-flex items-center gap-1 px-2 text-[12px] text-muted hover:text-ink"><RotateCcw size={12} /> Recommencer</button>
           </div>
           <div className="grid grid-cols-3 gap-1.5">
             {DOF.map((d) => (
@@ -745,7 +695,8 @@ function IsostatTrainer() {
           </div>
           <div className="font-mono text-[13px] text-ink">Degrés de liberté supprimés : <strong className={blocked === 6 ? "text-ok" : "text-amber"}>{blocked}/6</strong></div>
           {err && <Feedback ok={false}>{err}</Feedback>}
-          {seq.length === 3 && <Feedback ok>A (3 points) bloque Tz, Rx, Ry. B (2 points) bloque Ty et Rz. C (1 point) bloque Tx. La pièce est isostatique : chaque appui n'enlève que les degrés de liberté qui restent.</Feedback>}
+          {seq.length === 3 && <Feedback ok={at.passed}>A (3 points) bloque Tz, Rx, Ry. B (2 points) bloque Ty et Rz. C (1 point) bloque Tx. La pièce est isostatique : chaque appui n'enlève que les degrés de liberté qui restent.</Feedback>}
+          <AtelierResult at={at} />
         </div>
       </div>
     </Panel>
@@ -785,22 +736,22 @@ function BonusTrainer() {
 
 const Q_GPS = [
   {
-    q: "Dans le cadre [⌖ | Ø0,1 Ⓜ | A | B | C], que signifie le Ø devant 0,1 ?",
-    options: ["La zone de tolérance est un cylindre de Ø0,1 mm autour de la position théorique", "Le trou fait 0,1 mm de diamètre", "La position est tolérancée à ±0,1 mm en X et en Y", "Le trou doit être parfaitement cylindrique"],
+    q: "H160, plan de cadre. Dans le cadre de tolérance [⌖ | Ø0,1 Ⓜ | A | B | C] porté sur un trou, que signifie le Ø devant 0,1 ?",
+    options: ["La zone de tolérance est un cylindre de Ø0,1 mm autour de la position théorique", "La position est tolérancée à ±0,1 mm séparément en X et en Y", "Le diamètre du trou peut dépasser la cote nominale de 0,1 mm", "La cylindricité de l'alésage doit être meilleure que 0,1 mm"],
     answer: 0,
     why: "Le Ø transforme la zone en cylindre. L'axe réel du trou doit tenir dans ce cylindre de Ø0,1, soit au plus 0,05 mm d'écart radial par rapport à la position théorique.",
     hint: "Le Ø décrit la forme de la zone, pas la taille du trou.",
   },
   {
-    q: "Le plan d'un cadre est coté par rapport à [A | B | C]. Dans quel ordre l'opérateur met-il le cadre en appui dans le bâti ?",
-    options: ["A (3 points), puis B (2 points), puis C (1 butée)", "C, puis B, puis A", "Dans l'ordre le plus commode pour l'opérateur", "B, puis A, puis C"],
+    q: "H145, mise en bâti d'un cadre coté par rapport à [A | B | C]. Dans quel ordre l'opérateur met-il le cadre en appui ?",
+    options: ["A (3 points), puis B (2 points), puis C (1 butée)", "C (1 butée), puis B (2 points), puis A (3 points)", "B (2 points), puis A (3 points), puis C (1 butée)", "A, B et C ensemble, avec bridage simultané"],
     answer: 0,
     why: "L'ordre des références dans le cadre est l'ordre de mise en position : primaire, secondaire, tertiaire. C'est la règle de l'isostatisme 3-2-1.",
     hint: "L'ordre de lecture du cadre est l'ordre d'accostage.",
   },
   {
-    q: "Un trou Ø8 H8 mesure 8,012 mm. Sa localisation est ⌖ Ø0,1 Ⓜ. Quelle zone de position est autorisée ?",
-    options: ["Ø0,112 mm", "Ø0,1 mm", "Ø0,088 mm", "Ø0,122 mm"],
+    q: "H175, contrôle d'un trou Ø8 H8 mesuré à 8,012 mm. Sa localisation est ⌖ Ø0,1 Ⓜ. Quelle zone de position est autorisée ?",
+    options: ["Ø0,112 mm", "Ø0,100 mm", "Ø0,088 mm", "Ø0,122 mm"],
     answer: 0,
     why: "Bonus = diamètre réel − maximum de matière = 8,012 − 8,000 = 0,012 mm. Zone autorisée : 0,1 + 0,012 = Ø0,112 mm.",
     hint: "Pour un trou, le maximum de matière est son plus petit diamètre.",
@@ -919,9 +870,8 @@ const SHIM_STEPS = [
 ];
 
 function ShimWorkedExample() {
-  const [picks, setPicks] = useState({});
-  const solved = SHIM_STEPS.filter((s, i) => picks[i] === s.answer).length;
-  const peel = solved >= 3 ? 7 : 0;
+  const at = useAtelier({ id: "m4a-cale-exemple", label: "Exemple terrain : cale pelable sous ferrure de plancher mécanique", total: SHIM_STEPS.length });
+  const peel = at.finished ? 7 : 0;
   return (
     <Panel className="flex flex-col gap-4 p-5">
       <div className="flex flex-wrap items-center gap-2">
@@ -931,18 +881,20 @@ function ShimWorkedExample() {
       <p className="text-[14px] leading-relaxed text-ink/85">L'opérateur mesure au jeu de cales un espace résiduel de <strong>0,65 mm</strong>. La gamme autorise un jeu résiduel maxi de <strong>0,05 mm</strong> après calage. La cale pelable fait <strong>1,00 mm</strong>, en feuillets de <strong>0,05 mm</strong> (20 feuillets).</p>
       <div className="grid gap-5 md:grid-cols-[1fr_auto]">
         <div className="flex flex-col gap-4">
+          <LockRule />
           {SHIM_STEPS.map((s, i) => {
-            const unlocked = i === 0 || picks[i - 1] === SHIM_STEPS[i - 1].answer;
+            const unlocked = i === 0 || at.isLocked(i - 1);
             if (!unlocked) return null;
-            const p = picks[i];
+            const p = at.get(i)?.k;
             return (
-              <div key={i} className="flex flex-col gap-2">
+              <div key={`${at.draw}-${i}`} className="flex flex-col gap-2">
                 <div className="text-[15px] font-medium text-ink">{s.q}</div>
-                <ChoiceStep options={s.options} answer={s.answer} picked={p} onPick={(k) => setPicks({ ...picks, [i]: k })} locked={p === s.answer} />
-                {p !== undefined && <Feedback ok={p === s.answer}>{p === s.answer ? s.why : "Reprends le raisonnement : on part de l'espace mesuré."}</Feedback>}
+                <ChoiceStep options={s.options} answer={s.answer} picked={p} onPick={(k) => at.lock(i, { k, ok: k === s.answer, q: s.q, choix: s.options[k].t, bonne: s.options[s.answer].t })} />
+                {p !== undefined && <Feedback ok={p === s.answer}>{p === s.answer ? s.why : `Faux (verrouillé). Bonne réponse : ${s.options[s.answer].t}. ${s.why}`}</Feedback>}
               </div>
             );
           })}
+          <AtelierResult at={at} />
         </div>
         <div className="flex flex-col items-center gap-2">
           <ShimStackSVG peel={peel} />
@@ -956,22 +908,22 @@ function ShimWorkedExample() {
 
 const Q_CHAIN = [
   {
-    q: "A = 24,00 (+0,10 / 0) et B = 23,60 ±0,05. Quel est le Jmin du jeu J = A − B ?",
+    q: "H160, chaîne de cotes d'une chape : A = 24,00 (+0,10 / 0) et B = 23,60 ±0,05. Quel est le jeu mini Jmin de J = A − B ?",
     options: ["0,35 mm", "0,40 mm", "0,55 mm", "0,30 mm"],
     answer: 0,
     why: "Jmin = Amin − Bmax = 24,00 − 23,65 = 0,35 mm. (Jmax = Amax − Bmin = 24,10 − 23,55 = 0,55 mm.)",
     hint: "Jmin : la plus petite place disponible moins la plus grosse pièce.",
   },
   {
-    q: "Espace mesuré 0,45 mm, cale pelable 1,00 mm en feuillets de 0,05 mm. Combien de feuillets peler ?",
+    q: "H145, calage d'une ferrure. Espace mesuré 0,45 mm, cale pelable de 1,00 mm en feuillets de 0,05 mm. Combien de feuillets faut-il peler ?",
     options: ["11 feuillets", "9 feuillets", "10 feuillets", "12 feuillets"],
     answer: 0,
     why: "À retirer : 1,00 − 0,45 = 0,55 mm. 0,55 / 0,05 = 11 feuillets. Il reste 9 feuillets, soit 0,45 mm.",
     hint: "Calcule d'abord l'épaisseur à retirer, puis divise par l'épaisseur d'un feuillet.",
   },
   {
-    q: "Ton calcul de chaîne de cotes donne Jmin = −0,07 mm. Que signifie ce résultat ?",
-    options: ["Au pire cumul, les pièces interfèrent : serrage imprévu", "Le jeu sera toujours de 0,07 mm", "Rien, la valeur est négligeable", "Il faut une cale de 0,07 mm"],
+    q: "H175, étude d'assemblage. Ton calcul de chaîne de cotes donne Jmin = −0,07 mm. Que signifie ce résultat ?",
+    options: ["Au pire cumul, les pièces interfèrent : serrage imprévu à remonter au BE", "Le jeu réel sera toujours de 0,07 mm, quelle que soit la pièce", "Le résultat est négligeable devant la dispersion de mesure", "Il suffit de prévoir une cale de 0,07 mm au montage"],
     answer: 0,
     why: "Un jeu négatif est un serrage. Dans le cas le plus défavorable, les pièces ne rentrent pas sans forcer : il faut remonter l'écart au BE avant de lancer la gamme.",
     hint: "Un jeu négatif, c'est de la matière en trop.",
@@ -1069,16 +1021,15 @@ function fitSummary(c) {
   return `Jeu maxi ${mm3(jmax / 1000)} mm · serrage maxi ${mm3(-jmin / 1000)} mm`;
 }
 
-function FitCaseWorkbench({ c, onSolved }) {
-  const [p, setP] = useState({});
+function FitCaseWorkbench({ c, at }) {
+  const p = Object.fromEntries(["fam", "op", "eq"].filter((k) => at.isLocked(`${c.id}:${k}`)).map((k) => [k, at.get(`${c.id}:${k}`).k]));
   const steps = [
     { key: "fam", q: "1 · Quel type d'ajustement ?", options: FAMILY_OPTS, answer: c.fam },
     { key: "op", q: "2 · Quelle opération écris-tu dans la gamme SAP ?", options: OP_OPTS, answer: c.op },
     { key: "eq", q: "3 · Quels outillages et EPI appelles-tu sur l'opération ?", options: EQ_OPTS, answer: c.eq },
   ];
   const ok = (s) => p[s.key] === s.answer;
-  const all = steps.every(ok);
-  useEffect(() => { if (all) onSolved(); }, [all]);
+  const all = steps.every((s) => p[s.key] !== undefined);
   const lim = (n, d) => mm3(n + d / 1000);
   return (
     <div className="grid gap-5 lg:grid-cols-[1fr_1fr]">
@@ -1093,47 +1044,52 @@ function FitCaseWorkbench({ c, onSolved }) {
           <Stat label="Trou mini / maxi" value={`${lim(c.nom, c.hole[0])} / ${lim(c.nom, c.hole[1])}`} tone="text-sky" />
           <Stat label="Arbre mini / maxi" value={`${lim(c.nom, c.shaft[0])} / ${lim(c.nom, c.shaft[1])}`} tone="text-amber" />
         </div>
-        {p.fam === c.fam && <div className="rounded-lg border border-line bg-panel2 px-3 py-2 font-mono text-[13px] text-ink">{fitSummary(c)}</div>}
+        {p.fam !== undefined && <div className="rounded-lg border border-line bg-panel2 px-3 py-2 font-mono text-[13px] text-ink">{fitSummary(c)}</div>}
       </div>
       <div className="flex flex-col gap-4">
         {steps.map((s, i) => {
-          if (i > 0 && !ok(steps[i - 1])) return null;
+          if (i > 0 && p[steps[i - 1].key] === undefined) return null;
           const picked = p[s.key];
           return (
             <div key={s.key} className="flex flex-col gap-2">
               <div className="text-[15px] font-medium text-ink">{s.q}</div>
-              <ChoiceStep options={s.options} answer={s.answer} picked={picked} onPick={(k) => setP({ ...p, [s.key]: k })} locked={ok(s)} />
-              {picked !== undefined && !ok(s) && <Feedback ok={false}>{i === 0 ? "Compare l'arbre maxi au trou mini, puis l'arbre mini au trou maxi." : picked === 3 ? "Interdit : la frappe directe mate la bague et la ferrure, le chalumeau altère le traitement thermique et la protection de la pièce." : "Ce mode opératoire ne correspond pas à la famille d'ajustement que tu viens d'identifier."}</Feedback>}
+              <ChoiceStep key={`${at.draw}-${c.id}-${s.key}`} options={s.options} answer={s.answer} picked={picked} onPick={(k) => at.lock(`${c.id}:${s.key}`, { k, ok: k === s.answer, q: `${c.call} (${c.ac}) · ${s.q}`, choix: s.options[k].t, bonne: s.options[s.answer].t })} />
+              {picked !== undefined && !ok(s) && <Feedback ok={false}>Faux (verrouillé). Attendu : {s.options[s.answer].t}. {i === 0 ? "Compare l'arbre maxi au trou mini, puis l'arbre mini au trou maxi." : picked === 3 ? "Interdit : la frappe directe mate la bague et la ferrure, le chalumeau altère le traitement thermique et la protection de la pièce." : "Ce mode opératoire ne correspond pas à la famille d'ajustement de l'appel de plan."}</Feedback>}
             </div>
           );
         })}
-        {all && <Feedback ok>{c.why}</Feedback>}
+        {all && <Feedback ok={steps.every(ok)}>{c.why}</Feedback>}
       </div>
     </div>
   );
 }
 
 function TabTranslator({ done, onComplete }) {
-  const [cur, setCur] = useState("c1");
-  const [solved, setSolved] = useState({});
-  const n = Object.keys(solved).length;
-  useEffect(() => { if (n === FIT_CASES.length) onComplete(); }, [n]);
-  const c = FIT_CASES.find((x) => x.id === cur);
+  const at = useAtelier({ id: "m4a-traducteur-iso", label: "Traducteur d'ajustements ISO → gamme SAP (5 appels × 3 décisions)", total: FIT_CASES.length * 3, onComplete });
+  const cases = useMemo(() => shuffle(FIT_CASES), [at.draw]);
+  const [cur, setCur] = useState(null);
+  useEffect(() => setCur(cases[0].id), [at.draw]);
+  const isDone = (x) => ["fam", "op", "eq"].every((k) => at.isLocked(`${x.id}:${k}`));
+  const isPerfect = (x) => ["fam", "op", "eq"].every((k) => at.get(`${x.id}:${k}`)?.ok);
+  const n = FIT_CASES.filter(isDone).length;
+  const c = FIT_CASES.find((x) => x.id === (cur || cases[0].id));
   return (
     <div className="flex flex-col gap-6">
       <SectionHead icon={Hammer} kicker="Onglet 5 · Simulateur 1" title="Le traducteur d'ajustements ISO → gamme SAP">
-        Clique sur un appel de plan. Lis les cotes limites du trou et de l'arbre, déduis la famille d'ajustement, puis choisis l'opération de gamme et les outillages et EPI exacts.
+        Clique sur un appel de plan. Lis les cotes limites du trou et de l'arbre, déduis la famille d'ajustement, puis choisis l'opération de gamme et les outillages et EPI exacts. Chaque décision est définitive : validation à 85 % des 15 décisions (13 minimum).
       </SectionHead>
+      <LockRule />
       <div className="flex flex-wrap gap-2">
-        {FIT_CASES.map((x) => (
-          <Chip key={x.id} active={cur === x.id} tone={solved[x.id] ? "green" : "blue"} onClick={() => setCur(x.id)}>
-            <span className="flex items-center gap-2">{solved[x.id] && <CheckCircle2 size={14} className="text-ok" />}<span className="font-mono">{x.call}</span><span className="hidden text-muted sm:inline">· {x.ac}</span></span>
+        {cases.map((x) => (
+          <Chip key={x.id} active={c.id === x.id} tone={isDone(x) ? (isPerfect(x) ? "green" : "red") : "blue"} onClick={() => setCur(x.id)}>
+            <span className="flex items-center gap-2">{isDone(x) && (isPerfect(x) ? <CheckCircle2 size={14} className="text-ok" /> : <XCircle size={14} className="text-ko" />)}<span className="font-mono">{x.call}</span><span className="hidden text-muted sm:inline">· {x.ac}</span></span>
           </Chip>
         ))}
       </div>
-      <div className="font-mono text-[12px] text-muted">Appels traduits : <strong className="text-ink">{n}/{FIT_CASES.length}</strong></div>
-      <Panel className="p-5"><FitCaseWorkbench key={c.id} c={c} onSolved={() => setSolved((s) => (s[c.id] ? s : { ...s, [c.id]: true }))} /></Panel>
-      <ValidatedBanner done={done} label="Les 5 appels de plan sont traduits en opérations de gamme." />
+      <div className="flex flex-wrap items-center gap-2 font-mono text-[12px] text-muted">Appels traduits : <strong className="text-ink">{n}/{FIT_CASES.length}</strong><AtelierCounter at={at} /></div>
+      <Panel className="p-5"><FitCaseWorkbench key={`${at.draw}-${c.id}`} c={c} at={at} /></Panel>
+      <AtelierResult at={at} />
+      <ValidatedBanner done={done} label="Les 5 appels de plan sont traduits en opérations de gamme (≥ 85 %)." />
     </div>
   );
 }
@@ -1171,9 +1127,13 @@ function SupportSVG({ pts, kept }) {
   );
 }
 
-function ReleveBench({ r, onSolved }) {
-  const [peel, setPeel] = useState(0);
-  const [verdict, setVerdict] = useState(null);
+function ReleveBench({ r, at }) {
+  const locked = at.get(r.id);
+  const [peel, setPeelRaw] = useState(locked ? locked.peel : 0);
+  const verdict = locked ? { ok: locked.ok, t: locked.t } : null;
+  const setPeel = (v) => { if (!locked) setPeelRaw(v); };
+  const setVerdict = (v) => at.lock(r.id, { ok: v.ok, t: v.t, peel, q: `${r.name} : relevé ${r.pts.map(mm).join(" / ")} mm`, choix: v.choix, bonne: r.flat ? "Calage conforme (cale plane pelée au bon nombre de feuillets)" : "Planéité hors tolérance : QN" });
+  const onSolved = () => {};
   const kept = r2(NOMINAL - peel * LEAF);
   const minP = Math.min(...r.pts), maxP = Math.max(...r.pts);
   const spread = r2(maxP - minP);
@@ -1181,14 +1141,15 @@ function ReleveBench({ r, onSolved }) {
   const res = r.pts.map((v) => r2(v - kept));
   const decide = (choice) => {
     if (choice === "qn") {
-      if (!r.flat) { setVerdict({ ok: true, t: `Dispersion ${mm(spread)} mm entre P${r.pts.indexOf(minP) + 1} et P${r.pts.indexOf(maxP) + 1} : aucune cale plane ne peut donner un jeu résiduel ≤ 0,05 mm partout sans serrer un des points. Arrêt, QN, et solution définie par le BE (cale usinée biaise ou calage liquide).` }); onSolved(); }
-      else setVerdict({ ok: false, t: `La dispersion n'est que de ${mm(spread)} mm : une cale pelable plane suffit. Bloquer la chaîne ici, c'est une QN inutile.` });
+      if (!r.flat) { setVerdict({ ok: true, choix: "QN planéité", t: `Dispersion ${mm(spread)} mm entre P${r.pts.indexOf(minP) + 1} et P${r.pts.indexOf(maxP) + 1} : aucune cale plane ne peut donner un jeu résiduel ≤ 0,05 mm partout sans serrer un des points. Arrêt, QN, et solution définie par le BE (cale usinée biaise ou calage liquide).` }); onSolved(); }
+      else setVerdict({ ok: false, choix: "QN planéité", t: `La dispersion n'est que de ${mm(spread)} mm : une cale pelable plane suffit. Bloquer la chaîne ici, c'est une QN inutile.` });
       return;
     }
-    if (!r.flat) { setVerdict({ ok: false, t: `Regarde P${r.pts.indexOf(maxP) + 1} : avec une cale plane calée sur le point le plus faible, il reste ${mm(r2(maxP - Math.floor(minP / LEAF + 1e-9) * LEAF))} mm de jeu. Planéité de l'interface hors tolérance : on ne valide pas.` }); return; }
-    if (res.some((v) => v < -1e-9)) { setVerdict({ ok: false, t: `Cale trop épaisse : ${mm(kept)} mm pour un point mesuré à ${mm(minP)} mm. Le serrage des fixations plaquerait le support en force (pré-contrainte). Pèle davantage.` }); return; }
-    if (res.some((v) => v > RESID + 1e-9)) { setVerdict({ ok: false, t: `Jeu résiduel de ${mm(Math.max(...res))} mm au point le plus ouvert : au-delà de 0,05 mm. Tu as trop pelé.` }); return; }
-    setVerdict({ ok: true, t: `${peel} feuillets pelés, ${LEAVES - peel} conservés = ${mm(kept)} mm. Jeu résiduel maxi ${mm(Math.max(...res))} mm, aucun point en serrage. Calage conforme, à enregistrer dans le dossier de suivi.` });
+    const ch = `Calage validé à ${peel} feuillets pelés`;
+    if (!r.flat) { setVerdict({ ok: false, choix: ch, t: `Regarde P${r.pts.indexOf(maxP) + 1} : avec une cale plane calée sur le point le plus faible, il reste ${mm(r2(maxP - Math.floor(minP / LEAF + 1e-9) * LEAF))} mm de jeu. Planéité de l'interface hors tolérance : on ne valide pas.` }); return; }
+    if (res.some((v) => v < -1e-9)) { setVerdict({ ok: false, choix: ch, t: `Cale trop épaisse : ${mm(kept)} mm pour un point mesuré à ${mm(minP)} mm. Le serrage des fixations plaquerait le support en force (pré-contrainte). Pèle davantage.` }); return; }
+    if (res.some((v) => v > RESID + 1e-9)) { setVerdict({ ok: false, choix: ch, t: `Jeu résiduel de ${mm(Math.max(...res))} mm au point le plus ouvert : au-delà de 0,05 mm. Tu as trop pelé.` }); return; }
+    setVerdict({ ok: true, choix: ch, t: `${peel} feuillets pelés, ${LEAVES - peel} conservés = ${mm(kept)} mm. Jeu résiduel maxi ${mm(Math.max(...res))} mm, aucun point en serrage. Calage conforme, à enregistrer dans le dossier de suivi.` });
     onSolved();
   };
   return (
@@ -1207,7 +1168,7 @@ function ReleveBench({ r, onSolved }) {
       </div>
       <div className="flex flex-col gap-4">
         <div className="grid grid-cols-[1fr_auto] items-center gap-4">
-          <Stepper label="Feuillets de 0,05 mm à peler" value={peel} min={0} max={LEAVES} onChange={(v) => { setPeel(v); setVerdict(null); }} />
+          <Stepper label="Feuillets de 0,05 mm à peler" value={peel} min={0} max={LEAVES} onChange={(v) => setPeel(v)} />
           <ShimStackSVG peel={peel} />
         </div>
         <div className="grid grid-cols-2 gap-2">
@@ -1215,11 +1176,11 @@ function ReleveBench({ r, onSolved }) {
           <Stat label="Dispersion des 4 points" value={`${mm(spread)} mm`} tone={spread > RESID ? "text-amber" : "text-ink"} />
         </div>
         <div className="flex flex-wrap gap-2">
-          <PrimaryButton onClick={() => decide("ok")} tone="green"><CheckCircle2 size={16} /> Valider le calage</PrimaryButton>
-          <PrimaryButton onClick={() => decide("qn")} tone="amber"><FileWarning size={16} /> Planéité hors tolérance : QN</PrimaryButton>
+          <PrimaryButton onClick={() => decide("ok")} disabled={!!locked} tone="green"><CheckCircle2 size={16} /> Valider le calage (définitif)</PrimaryButton>
+          <PrimaryButton onClick={() => decide("qn")} disabled={!!locked} tone="amber"><FileWarning size={16} /> Planéité hors tolérance : QN</PrimaryButton>
         </div>
         {verdict && <Feedback ok={verdict.ok}>{verdict.t}</Feedback>}
-        {verdict && verdict.ok && r.flat && <NoteBox>Méthode : épaisseur à conserver = multiple de 0,05 mm juste inférieur ou égal au point le plus serré ({mm(minP)} mm), soit {expected} feuillets à peler.</NoteBox>}
+        {verdict && r.flat && <NoteBox>Méthode : épaisseur à conserver = multiple de 0,05 mm juste inférieur ou égal au point le plus serré ({mm(minP)} mm), soit {expected} feuillets à peler.</NoteBox>}
       </div>
     </div>
   );
@@ -1252,21 +1213,21 @@ function PlugSVG({ go, nogo }) {
   );
 }
 
-function PlugBench({ onSolved }) {
-  const [picks, setPicks] = useState({});
-  const good = PLUG_CASES.filter((c) => picks[c.id] === c.answer).length;
-  useEffect(() => { if (good === PLUG_CASES.length) onSolved(); }, [good]);
+function PlugBench({ at }) {
+  const cases = useMemo(() => shuffle(PLUG_CASES), [at.draw]);
+  const decs = useMemo(() => permutation(PLUG_DECISIONS.length), [at.draw]);
+  const good = PLUG_CASES.filter((c) => at.get(c.id)?.ok).length;
   return (
     <Panel className="flex flex-col gap-4 p-5">
       <div className="flex flex-wrap items-center gap-2">
         <Stamp size={18} className="text-sky" />
         <h3 className="font-display text-xl font-semibold text-ink">Contrôle au tampon lisse Entre / N'entre pas · alésages Ø8 H7</h3>
-        <span className="ml-auto font-mono text-xs text-muted">{good}/{PLUG_CASES.length} jugés</span>
+        <span className="ml-auto font-mono text-xs text-muted">{PLUG_CASES.filter((c) => at.isLocked(c.id)).length}/{PLUG_CASES.length} jugés · {good} justes</span>
       </div>
       <p className="text-[14px] text-muted">Ø8 H7 = 8,000 à 8,015 mm. Côté Entre (Go) Ø8,000, côté N'entre pas (No-Go) Ø8,015. « Passe » signifie que ce côté du tampon entre dans l'alésage.</p>
       <div className="grid gap-4 md:grid-cols-2">
-        {PLUG_CASES.map((c) => {
-          const p = picks[c.id];
+        {cases.map((c) => {
+          const p = at.get(c.id)?.k;
           const ok = p === c.answer;
           return (
             <div key={c.id} className="flex flex-col gap-2 rounded-xl border border-line bg-bg p-4">
@@ -1274,11 +1235,11 @@ function PlugBench({ onSolved }) {
               <PlugSVG go={c.go} nogo={c.nogo} />
               {c.note && <div className="flex items-center gap-2 text-[13px] text-amber"><Flashlight size={14} /> {c.note}</div>}
               <div className="flex flex-col gap-1.5">
-                {PLUG_DECISIONS.map((d, k) => (
-                  <Chip key={k} active={p === k} tone={p === k ? (ok ? "green" : "red") : "blue"} disabled={ok} onClick={() => !ok && setPicks({ ...picks, [c.id]: k })}>{d}</Chip>
+                {decs.map((k) => (
+                  <LockChip key={k} state={optState(k, p, c.answer)} onClick={() => at.lock(c.id, { k, ok: k === c.answer, q: `${c.label} : Entre ${c.go ? "passe" : "bloque"}, N'entre pas ${c.nogo ? "passe" : "bloque"}${c.note ? " · " + c.note : ""}`, choix: PLUG_DECISIONS[k], bonne: PLUG_DECISIONS[c.answer] })}>{PLUG_DECISIONS[k]}</LockChip>
                 ))}
               </div>
-              {p !== undefined && <Feedback ok={ok}>{ok ? PLUG_WHY[c.id === "t4" ? 3 : c.answer] : "Relis ce que chaque côté du tampon t'apprend sur le diamètre, et ce que le plan exige en plus de la cote."}</Feedback>}
+              {p !== undefined && <Feedback ok={ok}>{ok ? "" : `Faux (verrouillé). Décision attendue : ${PLUG_DECISIONS[c.answer]}. `}{PLUG_WHY[c.id === "t4" ? 3 : c.answer]}</Feedback>}
             </div>
           );
         })}
@@ -1288,28 +1249,31 @@ function PlugBench({ onSolved }) {
 }
 
 function TabShim({ done, onComplete }) {
-  const [cur, setCur] = useState("r1");
-  const [solved, setSolved] = useState({});
-  const [plugOk, setPlugOk] = useState(false);
-  const n = Object.keys(solved).length;
-  useEffect(() => { if (n === RELEVES.length && plugOk) onComplete(); }, [n, plugOk]);
-  const r = RELEVES.find((x) => x.id === cur);
+  /* 3 relevés (1 décision chacun) + 4 alésages au tampon = 7 décisions verrouillées ; 85 % = 6/7 */
+  const at = useAtelier({ id: "m4a-calage-tampon", label: "Atelier calage pelable (3 relevés) et tampon Go / No-Go (4 alésages)", total: RELEVES.length + PLUG_CASES.length, onComplete });
+  const releves = useMemo(() => shuffle(RELEVES), [at.draw]);
+  const [cur, setCur] = useState(null);
+  useEffect(() => setCur(releves[0].id), [at.draw]);
+  const n = RELEVES.filter((x) => at.isLocked(x.id)).length;
+  const r = RELEVES.find((x) => x.id === (cur || releves[0].id));
   return (
     <div className="flex flex-col gap-6">
       <SectionHead icon={Layers} kicker="Onglet 6 · Simulateur 2" title="L'atelier de calage pelable et de contrôle au tampon">
-        Relevé d'accostage en 4 points sous un support d'équipement de la barque d'un H160. Cale pelable de 1,00 mm en 20 feuillets de 0,05 mm. Exigence : jeu résiduel ≤ 0,05 mm en tout point, sans aucun point en serrage.
+        Relevé d'accostage en 4 points sous un support d'équipement de la barque d'un H160. Cale pelable de 1,00 mm en 20 feuillets de 0,05 mm. Exigence : jeu résiduel ≤ 0,05 mm en tout point, sans aucun point en serrage. Une seule décision par relevé et par alésage : ajuste les feuillets avant de valider.
       </SectionHead>
+      <LockRule />
       <div className="flex flex-wrap gap-2">
-        {RELEVES.map((x) => (
-          <Chip key={x.id} active={cur === x.id} tone={solved[x.id] ? "green" : "blue"} onClick={() => setCur(x.id)}>
-            <span className="flex items-center gap-2">{solved[x.id] && <CheckCircle2 size={14} className="text-ok" />}{x.name}</span>
+        {releves.map((x) => (
+          <Chip key={x.id} active={r.id === x.id} tone={at.isLocked(x.id) ? (at.get(x.id).ok ? "green" : "red") : "blue"} onClick={() => setCur(x.id)}>
+            <span className="flex items-center gap-2">{at.isLocked(x.id) && (at.get(x.id).ok ? <CheckCircle2 size={14} className="text-ok" /> : <XCircle size={14} className="text-ko" />)}{x.name}</span>
           </Chip>
         ))}
       </div>
-      <div className="font-mono text-[12px] text-muted">Relevés traités : <strong className="text-ink">{n}/{RELEVES.length}</strong></div>
-      <Panel className="p-5"><ReleveBench key={r.id} r={r} onSolved={() => setSolved((s) => (s[r.id] ? s : { ...s, [r.id]: true }))} /></Panel>
-      <PlugBench onSolved={() => setPlugOk(true)} />
-      <ValidatedBanner done={done} label="Les 3 relevés de calage et les 4 contrôles au tampon sont traités." />
+      <div className="flex flex-wrap items-center gap-2 font-mono text-[12px] text-muted">Relevés traités : <strong className="text-ink">{n}/{RELEVES.length}</strong><AtelierCounter at={at} /></div>
+      <Panel className="p-5"><ReleveBench key={`${at.draw}-${r.id}`} r={r} at={at} /></Panel>
+      <PlugBench at={at} />
+      <AtelierResult at={at} />
+      <ValidatedBanner done={done} label="Calage pelable et contrôle au tampon validés (≥ 85 %)." />
     </div>
   );
 }
@@ -1320,276 +1284,120 @@ function TabShim({ done, onComplete }) {
 const QUESTIONS = [
   {
     tag: "Ajustements ISO 286",
-    q: "Sur le même plan, tu lis Ø12 H7/g6 sur un guignol et Ø30 H7/p6 sur une bague de ferrure de BTP. Quelle affirmation est juste ?",
-    options: ["g6 donne toujours du jeu, p6 toujours du serrage", "Les deux donnent du jeu, seul le diamètre change", "g6 donne du serrage, p6 du jeu", "Les deux sont des ajustements incertains"],
+    q: "H160, même plan : Ø12 H7/g6 sur un guignol et Ø30 H7/p6 sur une bague de ferrure de BTP. Quelle affirmation est juste ?",
+    options: ["g6 donne toujours du jeu, p6 toujours du serrage", "g6 donne toujours du serrage, p6 toujours du jeu", "g6 et p6 donnent du jeu, seul le diamètre change", "g6 et p6 sont deux ajustements incertains"],
     answer: 0,
     why: "Avec un trou H : lettres a à h = jeu, j à n = incertain, p à z = serrage. g6 est sous la cote nominale, p6 au-dessus du trou maxi.",
-    risk: "Une bague p6 traitée comme un montage glissant : l'opérateur force, la bague se coince à mi-course et mate l'alésage de la ferrure de BTP.",
+    risk: "Une bague p6 traitée comme un montage glissant : l'opérateur force, la bague se coince et mate l'alésage de la ferrure.",
   },
   {
     tag: "Montage azote liquide", scenario: true,
-    q: "Tu rédiges l'opération de pose d'une bague Ø25 H7/p6. Quelle séquence est correcte ?",
-    options: ["Contracter la bague au LN₂ avec EPI cryogéniques, la poser sans forcer, attendre la remise à température, puis contrôler", "Chauffer la bague au chalumeau, puis la poser au marteau", "Contracter la ferrure au LN₂ et poser la bague à température ambiante", "Poser la bague au LN₂ et contrôler le diamètre immédiatement"],
+    q: "H175, poste ferrures de BTP. Tu rédiges la pose d'une bague Ø25 H7/p6. Quelle séquence est correcte ?",
+    options: ["Bague contractée au LN₂ (EPI cryo), posée sans forcer, contrôle après remise à température", "Bague chauffée au four à 150 °C, posée au maillet, contrôle immédiat au tampon", "Ferrure contractée au LN₂, bague posée à l'ambiante, contrôle immédiat au tampon", "Bague contractée au LN₂ (EPI cryo), posée sans forcer, contrôle immédiat à froid"],
     answer: 0,
     why: "On refroidit la pièce intérieure (la bague) pour la contracter. Le contrôle se fait après retour à température ambiante, sinon les cotes mesurées sont faussées.",
-    risk: "Contrôle fait à froid : cotes faussées, bague déclarée conforme qui bouge ensuite, ou opérateur brûlé par le froid sans gants cryogéniques.",
+    risk: "Contrôle à froid : cotes faussées, bague déclarée conforme qui bouge ensuite.",
   },
   {
     tag: "Contrôle tampon lisse", scenario: true,
-    q: "Contrôle d'un alésage Ø8 H7 au tampon lisse : le côté Entre passe, le côté N'entre pas passe aussi. Que décides-tu ?",
-    options: ["Non conforme : le trou est trop grand, arrêt et QN", "Conforme : les deux côtés passent", "Trop petit : repasser l'alésoir", "Recontrôler avec un autre tampon jusqu'à ce que ça bloque"],
+    q: "H145, contrôle d'un alésage Ø8 H7 au tampon lisse. Le côté Entre passe, le côté N'entre pas passe aussi. Quelle est ta décision ?",
+    options: ["Non conforme : trou trop grand, arrêt et QN", "Conforme : les deux côtés du tampon passent", "Trop petit : nouvelle passe d'alésoir prévue", "À recontrôler avec un second tampon lisse"],
     answer: 0,
     why: "Si le côté N'entre pas (Ø8,015) passe, le trou dépasse la cote maxi. La matière enlevée ne se remet pas : QN et réparation définie par le BE.",
-    risk: "Fixation posée dans un trou surdimensionné : jeu sous vibrations, ovalisation, perte de l'ajustement de la fixation structurale.",
+    risk: "Fixation posée dans un trou surdimensionné : jeu sous vibrations, ovalisation, perte de l'ajustement.",
   },
   {
     tag: "Cadre ISO GPS",
-    q: "Que dit le cadre [⌖ | Ø0,1 Ⓜ | A | B | C] porté sur un trou ?",
-    options: ["L'axe du trou doit rester dans un cylindre de Ø0,1 mm positionné par rapport à A, puis B, puis C, avec bonus au maximum de matière", "Le trou doit faire Ø0,1 mm de plus que la cote nominale", "Le trou doit être perpendiculaire à A, B et C à 0,1° près", "La planéité de A, B et C doit être de 0,1 mm"],
+    q: "H160, plan de cadre. Que signifie le cadre [⌖ | Ø0,1 Ⓜ | A | B | C] porté sur un trou ?",
+    options: ["Axe dans un cylindre Ø0,1 positionné par A, puis B, puis C, bonus au maximum de matière", "Diamètre du trou égal à la cote nominale + 0,1 mm, mesuré depuis A, B et C", "Perpendicularité du trou à 0,1° près par rapport aux trois faces A, B et C", "Planéité de 0,1 mm exigée sur chacune des trois faces de référence A, B et C"],
     answer: 0,
     why: "⌖ = localisation, Ø = zone cylindrique, Ⓜ = maximum de matière, A | B | C = système de références dans l'ordre primaire, secondaire, tertiaire.",
-    risk: "Cadre mal lu : gabarit de perçage indexé sur la mauvaise référence, trous décalés, ferrures non interchangeables.",
+    risk: "Cadre mal lu : gabarit indexé sur la mauvaise référence, trous décalés, ferrures non interchangeables.",
   },
   {
     tag: "Isostatisme 3-2-1", scenario: true,
-    q: "Dans la gamme d'accostage d'une poutre de queue dans son bâti, références [A | B | C]. Quelle phrase écris-tu ?",
-    options: ["Plaquer sur A (3 appuis), puis accoster sur B (2 appuis) en gardant A, puis venir en butée sur C", "Mettre en butée sur C, puis plaquer sur A et B", "Plaquer sur les trois références en même temps", "Accoster sur B, puis plaquer sur A, puis C"],
+    q: "H145, accostage d'une poutre de queue dans son bâti, références [A | B | C]. Quelle phrase écris-tu dans la gamme ?",
+    options: ["Plaquer sur A (3 appuis), accoster sur B (2 appuis) en gardant A, butée sur C", "Butée sur C, puis plaquer sur A (3 appuis), puis accoster sur B (2 appuis)", "Plaquer simultanément sur A, B et C, puis brider en une seule opération", "Accoster sur B (2 appuis), plaquer sur A (3 appuis), puis butée sur C"],
     answer: 0,
     why: "L'ordre des références est l'ordre de mise en position. A supprime 3 degrés de liberté, B 2, C le dernier.",
-    risk: "Pièce mise en butée avant d'être plaquée : elle bascule au serrage, les perçages sont faits hors position.",
+    risk: "Pièce mise en butée avant d'être plaquée : elle bascule au serrage, perçages hors position.",
   },
   {
     tag: "Isostatisme 3-2-1",
-    q: "Combien et quels degrés de liberté supprime la référence secondaire B (appui linéaire, 2 points) ?",
-    options: ["2 : une translation et une rotation", "3 : une translation et deux rotations", "1 : une translation", "6 : tous"],
+    q: "H160, montage d'usinage. Combien et quels degrés de liberté supprime la référence secondaire B (appui linéaire, 2 points) ?",
+    options: ["2 : une translation et une rotation", "3 : une translation et deux rotations", "1 : une seule translation", "3 : deux translations et une rotation"],
     answer: 0,
-    why: "Primaire plan : 3 (1 translation, 2 rotations). Secondaire linéaire : 2 (1 translation, 1 rotation). Tertiaire ponctuel : 1 (la dernière translation). Total 6.",
-    risk: "Trop d'appuis sur B : la pièce est hyperstatique, elle se déforme quand on la bride, et se relâche hors cote au débridage.",
+    why: "Primaire plan : 3 (1 translation, 2 rotations). Secondaire linéaire : 2 (1 translation, 1 rotation). Tertiaire ponctuel : 1. Total 6.",
+    risk: "Trop d'appuis sur B : pièce hyperstatique, déformée au bridage, hors cote au débridage.",
   },
   {
     tag: "Maximum de matière Ⓜ",
-    q: "Trou Ø10 H8 (10,000 à 10,022 mm) avec ⌖ Ø0,1 Ⓜ. Il mesure 10,018 mm. Quelle zone de position est autorisée ?",
-    options: ["Ø0,118 mm", "Ø0,1 mm", "Ø0,082 mm", "Ø0,122 mm"],
+    q: "H175, trou Ø10 H8 (10,000 à 10,022 mm) avec ⌖ Ø0,1 Ⓜ. Il mesure 10,018 mm. Quelle zone de position est autorisée ?",
+    options: ["Ø0,118 mm", "Ø0,100 mm", "Ø0,082 mm", "Ø0,122 mm"],
     answer: 0,
     why: "Bonus = 10,018 − 10,000 = 0,018 mm. Zone autorisée = 0,1 + 0,018 = Ø0,118 mm.",
-    risk: "Bonus ignoré : un trou bon est déclaré hors position, QN et retouche inutiles qui bloquent le poste.",
+    risk: "Bonus ignoré : un trou bon est déclaré hors position, QN et retouche inutiles.",
   },
   {
     tag: "Cale pelable", scenario: true,
-    q: "Espace mesuré 0,30 mm sous une ferrure. Cale pelable de 1,00 mm en feuillets de 0,05 mm, jeu résiduel maxi 0,05 mm. Combien de feuillets peler ?",
+    q: "H160, calage sous ferrure. Espace mesuré 0,30 mm, cale pelable de 1,00 mm en feuillets de 0,05 mm. Combien de feuillets peler ?",
     options: ["14 feuillets", "6 feuillets", "13 feuillets", "7 feuillets"],
     answer: 0,
     why: "À retirer : 1,00 − 0,30 = 0,70 mm. 0,70 / 0,05 = 14 feuillets. Il en reste 6, soit 0,30 mm.",
-    risk: "Cale trop épaisse : la ferrure est plaquée en force au serrage des fixations, avec une pré-contrainte qui fissure la structure en fatigue.",
+    risk: "Cale trop épaisse : ferrure plaquée en force, pré-contrainte qui fissure la structure en fatigue.",
   },
   {
-    tag: "Fraisage proche / opposé",
-    q: "Le plan indique un fraisage 100° côté opposé (far side). Qu'est-ce que ta gamme doit préciser ?",
-    options: ["La face d'accès pour fraiser : la face cachée de la vue, et l'outillage adapté", "Rien, l'opérateur fraise toujours côté vue", "Qu'il faut fraiser les deux faces", "Qu'il faut remplacer le fraisage par un lamage"],
+    tag: "Fraisage côté opposé",
+    q: "H145, revêtement de poutre. Le plan indique un fraisage 100° côté opposé (far side). Que doit préciser ta gamme ?",
+    options: ["La face d'accès au fraisage (face cachée de la vue) et l'outillage", "Un fraisage côté vue, la mention far side étant indicative", "Un fraisage des deux faces pour garantir l'affleurement", "Un lamage plat à la place du fraisage 100° demandé"],
     answer: 0,
-    why: "Far side = le fraisage est sur la face que tu ne vois pas sur la vue. La gamme doit donner la face d'accès en clair pour éviter l'erreur.",
-    risk: "Fraisage sur la mauvaise face : tête de fixation en saillie côté aérodynamique, tôle rebutée ou réparée sous QN.",
+    why: "Far side : le fraisage est sur la face que tu ne vois pas sur la vue. La gamme doit donner la face d'accès en clair pour éviter l'erreur.",
+    risk: "Fraisage sur la mauvaise face : tête de fixation en saillie côté aérodynamique, tôle rebutée ou réparée.",
   },
   {
     tag: "Perpendicularité d'alésage", scenario: true,
-    q: "Un trou de Hi-Lok est percé de travers (environ 3° hors normale). L'opérateur propose de serrer plus fort pour plaquer la tête. Ta réponse ?",
-    options: ["Non : tête en appui partiel = rupture en fatigue. Arrêt, QN", "Oui, le serrage redressera la fixation", "Oui, avec une rondelle biaise trouvée à l'atelier", "Oui, si le couple reste dans la plage"],
+    q: "H160, jonction de cadre. Un trou de Hi-Lok est percé à environ 3° hors normale. L'opérateur propose de serrer plus fort pour plaquer la tête. Ta réponse ?",
+    options: ["Non : tête en appui partiel, fixation en flexion. Arrêt et QN", "Oui : le serrage redresse la fixation dans son logement", "Oui : avec une rondelle biaise prise dans le stock atelier", "Oui : si le couple de pose reste dans la plage du plan"],
     answer: 0,
     why: "Une tête qui porte d'un seul côté met la fixation en flexion. Le défaut de perpendicularité ne se rattrape pas au serrage : QN et décision du BE.",
-    risk: "Hi-Lok en flexion sous vibrations rotor : rupture de fixation en service sur structure primaire.",
+    risk: "Fixation en flexion sous vibrations : rupture en service sur structure primaire.",
   },
   {
     tag: "Lecture ISO 286",
-    q: "Dans l'appel Ø16 H7/h6, que désignent H7 et h6 ?",
-    options: ["H7 l'alésage (trou), h6 l'arbre (axe)", "H7 l'arbre, h6 l'alésage", "Deux qualités de surface", "La tolérance du trou avant et après traitement"],
+    q: "H175, appel d'ajustement Ø16 H7/h6 sur un plan de guignol. Que désignent H7 et h6 ?",
+    options: ["H7 : l'alésage (trou), h6 : l'arbre (axe)", "H7 : l'arbre (axe), h6 : l'alésage (trou)", "H7 et h6 : deux états de surface exigés", "H7 et h6 : tolérances avant / après traitement"],
     answer: 0,
     why: "Majuscule = alésage, minuscule = arbre. H et h placent tous deux leur zone contre la cote nominale : le jeu mini est nul.",
     risk: "Cotes du trou et de l'axe inversées dans la gamme : mauvais alésoir commandé, alésage hors cote.",
   },
   {
     tag: "Chaîne de cotes", scenario: true,
-    q: "Chape A = 20,00 (+0,05 / 0), ferrure B = 19,98 ±0,05. Que donne la chaîne J = A − B au pire cumul ?",
-    options: ["Jmin = −0,03 mm (serrage possible), Jmax = 0,12 mm", "Jmin = 0,02 mm, Jmax = 0,07 mm", "Jmin = 0, Jmax = 0,05 mm", "Jmin = 0,07 mm, Jmax = 0,12 mm"],
+    q: "H145, chape A = 20,00 (+0,05 / 0) et ferrure B = 19,98 ±0,05. Que donne la chaîne J = A − B au pire cumul ?",
+    options: ["Jmin = −0,03 mm (serrage possible), Jmax = 0,12 mm", "Jmin = 0,02 mm, Jmax = 0,07 mm (jeu toujours positif)", "Jmin = 0,00 mm, Jmax = 0,05 mm (jeu toujours positif)", "Jmin = 0,07 mm, Jmax = 0,12 mm (jeu toujours positif)"],
     answer: 0,
     why: "Jmin = Amin − Bmax = 20,00 − 20,03 = −0,03 mm : serrage possible. Jmax = Amax − Bmin = 20,05 − 19,93 = 0,12 mm. Le jeu nominal (0,02 mm) cache le risque d'interférence.",
     risk: "Interférence non détectée : ferrure montée en force dans la chape, pré-contrainte et blessure des surfaces.",
   },
 ];
 
-function TabSprint({ done, onComplete, onScore }) {
-  const [order, setOrder] = useState(() => shuffle(QUESTIONS.map((_, i) => i)));
-  const [perms, setPerms] = useState(() => QUESTIONS.map((q) => shuffle(q.options.map((_, k) => k))));
-  const [pos, setPos] = useState(0);
-  const [picked, setPicked] = useState(null);
-  const [history, setHistory] = useState([]);
-  const [streak, setStreak] = useState(0);
-  const [best, setBest] = useState(0);
-  const [started, setStarted] = useState(false);
-
-  const total = order.length;
-  const finished = pos >= total;
-  const correct = history.filter((h) => h.ok).length;
-  const reliability = history.length ? Math.round((correct / history.length) * 100) : 100;
-  const q = !finished ? QUESTIONS[order[pos]] : null;
-
-  useEffect(() => {
-    if (!finished) return;
-    /* Pont LMS : score brut tronqué au dixième (jamais arrondi vers le haut), statut calculé par le portail */
-    const raw = (correct / total) * 100;
-    if (onScore) onScore(Math.floor(raw * 10) / 10);
-    if (raw >= 85) onComplete();
-  }, [finished]);
-
-  const answer = (k) => {
-    if (picked !== null) return;
-    setPicked(k);
-    const ok = k === q.answer;
-    setHistory([...history, { qi: order[pos], picked: k, ok }]);
-    const s = ok ? streak + 1 : 0;
-    setStreak(s);
-    setBest(Math.max(best, s));
-  };
-  const next = () => { setPos(pos + 1); setPicked(null); };
-  const restart = () => {
-    setOrder(shuffle(QUESTIONS.map((_, i) => i)));
-    setPerms(QUESTIONS.map((q) => shuffle(q.options.map((_, k) => k))));
-    setPos(0); setPicked(null); setHistory([]); setStreak(0); setBest(0); setStarted(true);
-  };
-
-  const relTone = reliability >= 85 ? "text-ok" : reliability >= 65 ? "text-amber" : "text-ko";
-  const letters = ["A", "B", "C", "D"];
-
-  if (!started) {
-    return (
-      <div className="flex flex-col gap-6">
-        <SectionHead icon={Trophy} kicker="Onglet 7 · Évaluation" title="Sprint Préparateur Méthodes · Module 4A">
-          {QUESTIONS.length} questions tirées au hasard, questions et mises en situation sur les ajustements ISO, le montage à l'azote liquide, le cadre ISO GPS, l'isostatisme 3-2-1, le maximum de matière, le calage pelable, le fraisage et la perpendicularité d'alésage (H125, H145, H160, H175). Après chaque réponse, une explication technique te montre pourquoi c'est juste, et ce que l'erreur aurait provoqué sur chaîne ou en audit.
-        </SectionHead>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Panel className="p-4"><Flame size={18} className="text-amber" /><div className="mt-2 font-display text-lg font-semibold text-ink">Série</div><p className="text-[13px] text-muted">Enchaîne les bonnes réponses pour faire monter ta série.</p></Panel>
-          <Panel className="p-4"><Gauge size={18} className="text-ok" /><div className="mt-2 font-display text-lg font-semibold text-ink">Fiabilité industrielle</div><p className="text-[13px] text-muted">Ton taux de bonnes réponses. 85 % minimum pour valider le module.</p></Panel>
-          <Panel className="p-4"><AlertTriangle size={18} className="text-ko" /><div className="mt-2 font-display text-lg font-semibold text-ink">Conséquence terrain</div><p className="text-[13px] text-muted">Chaque erreur est reliée à la non-conformité qu'elle aurait causée.</p></Panel>
-        </div>
-        <div><PrimaryButton onClick={restart} tone="amber"><Zap size={16} /> Lancer le sprint</PrimaryButton></div>
-        <ValidatedBanner done={done} label="Sprint réussi avec au moins 85 % de fiabilité." />
-      </div>
-    );
-  }
-
-  if (finished) {
-    const pct = Math.round((correct / total) * 100);
-    const grade = pct >= 85 ? { t: "Valide", c: "text-ok", d: pct >= 90 ? "Ta gamme partirait en production sans retour du contrôle qualité." : "Bonne maîtrise. Revois les points ci-dessous avant le module suivant." }
-      : { t: "À revoir", c: "text-ko", d: "Score inférieur à 85 % : module non validé. Relis les points ci-dessous et les onglets concernés, puis relance le sprint." };
-    const errors = history.filter((h) => !h.ok);
-    return (
-      <div className="flex flex-col gap-6">
-        <Panel className="p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-            <Award size={44} className={grade.c} />
-            <div className="min-w-0 flex-1">
-              <Eyebrow tone="amber">Débriefing du sprint</Eyebrow>
-              <div className={cx("font-display text-3xl font-semibold", grade.c)}>{grade.t}</div>
-              <p className="text-[14px] text-ink/85">{grade.d}</p>
-            </div>
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-lg border border-line bg-bg px-3 py-2"><div className="font-mono text-2xl font-semibold text-ink tabular-nums">{correct}/{total}</div><div className="font-mono text-[10px] uppercase text-muted">Bonnes</div></div>
-              <div className="rounded-lg border border-line bg-bg px-3 py-2"><div className={cx("font-mono text-2xl font-semibold tabular-nums", grade.c)}>{pct}%</div><div className="font-mono text-[10px] uppercase text-muted">Fiabilité</div></div>
-              <div className="rounded-lg border border-line bg-bg px-3 py-2"><div className="font-mono text-2xl font-semibold text-amber tabular-nums">{best}</div><div className="font-mono text-[10px] uppercase text-muted">Meilleure série</div></div>
-            </div>
-          </div>
-        </Panel>
-        {errors.length > 0 && (
-          <div className="flex flex-col gap-2">
-            <Eyebrow tone="red">À revoir · {errors.length} point{errors.length > 1 ? "s" : ""}</Eyebrow>
-            {errors.map((h) => {
-              const qq = QUESTIONS[h.qi];
-              return (
-                <Panel key={h.qi} className="p-4">
-                  <div className="font-mono text-[11px] uppercase tracking-wider text-muted">{qq.tag}</div>
-                  <div className="text-[14px] font-semibold text-ink">{qq.q}</div>
-                  <div className="mt-1 text-[13px] text-ok">Bonne réponse : {qq.options[qq.answer]}</div>
-                  <div className="mt-1 text-[13px] text-ink/80">{qq.why}</div>
-                </Panel>
-              );
-            })}
-          </div>
-        )}
-        <div><PrimaryButton onClick={restart} tone="amber"><RotateCcw size={16} /> Relancer un sprint</PrimaryButton></div>
-        <ValidatedBanner done={done} label="Sprint réussi avec au moins 85 % de fiabilité." />
-      </div>
-    );
-  }
-
-  const ok = picked !== null && picked === q.answer;
+function TabLabo({ done, onComplete }) {
   return (
-    <div className="flex flex-col gap-5">
-      <div className="grid grid-cols-3 gap-2">
-        <Panel className="p-3">
-          <div className="font-mono text-[10px] uppercase tracking-wider text-muted">Question</div>
-          <div className="font-mono text-xl font-semibold text-ink tabular-nums">{pos + 1}<span className="text-muted">/{total}</span></div>
-        </Panel>
-        <Panel className="p-3">
-          <div className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-wider text-muted"><Flame size={12} className={streak > 0 ? "text-amber" : "text-muted"} /> Série</div>
-          <div className={cx("font-mono text-xl font-semibold tabular-nums", streak >= 3 ? "text-amber" : "text-ink")}>{streak}{streak >= 3 && <span className="ml-1 text-sm">en feu</span>}</div>
-        </Panel>
-        <Panel className="p-3">
-          <div className="font-mono text-[10px] uppercase tracking-wider text-muted">Fiabilité industrielle</div>
-          <div className={cx("font-mono text-xl font-semibold tabular-nums", relTone)}>{reliability}%</div>
-        </Panel>
-      </div>
-      <div className="flex gap-1" aria-label="Progression du sprint">
-        {order.map((qi, i) => {
-          const h = history[i];
-          return <div key={qi} className={cx("h-1.5 flex-1 rounded-full", h ? (h.ok ? "bg-ok" : "bg-ko") : i === pos ? "bg-sky" : "bg-line")} />;
-        })}
-      </div>
-
-      <Panel className="p-5 sm:p-6">
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <span className="rounded-md border border-sky/50 bg-sky/10 px-2 py-0.5 font-mono text-[11px] text-sky">{q.tag}</span>
-          {q.scenario && <span className="rounded-md border border-amber/50 bg-amber/10 px-2 py-0.5 font-mono text-[11px] text-amber">Mise en situation</span>}
-        </div>
-        <h3 className="font-display text-xl font-semibold leading-snug text-ink sm:text-2xl" style={{ textWrap: "balance" }}>{q.q}</h3>
-        <div className="mt-5 flex flex-col gap-2">
-          {perms[order[pos]].map((k, slot) => [q.options[k], k, slot]).map(([o, k, slot]) => {
-            const isAns = k === q.answer;
-            const isPicked = k === picked;
-            const state = picked === null ? "idle" : isAns ? "good" : isPicked ? "bad" : "dim";
-            return (
-              <button key={k} type="button" onClick={() => answer(k)} disabled={picked !== null}
-                className={cx("flex items-start gap-3 rounded-lg border p-3 text-left text-[14px] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky",
-                  state === "idle" && "border-line bg-bg text-ink hover:border-sky/70",
-                  state === "good" && "border-ok bg-ok/10 text-ink",
-                  state === "bad" && "border-ko bg-ko/10 text-ink",
-                  state === "dim" && "border-line bg-bg text-muted")}>
-                <span className={cx("flex h-6 w-6 shrink-0 items-center justify-center rounded font-mono text-xs font-semibold", state === "good" ? "bg-ok text-bg" : state === "bad" ? "bg-ko text-bg" : "bg-line text-ink")}>{letters[slot]}</span>
-                <span className="min-w-0 flex-1">{o}</span>
-                {state === "good" && <CheckCircle2 size={18} className="shrink-0 text-ok" />}
-                {state === "bad" && <XCircle size={18} className="shrink-0 text-ko" />}
-              </button>
-            );
-          })}
-        </div>
-
-        {picked !== null && (
-          <div className="mt-5 flex flex-col gap-3">
-            <div className={cx("rounded-lg border p-4", ok ? "border-ok/50 bg-ok/10" : "border-ko/50 bg-ko/10")}>
-              <div className="mb-1 flex items-center gap-2">
-                {ok ? <CheckCircle2 size={18} className="text-ok" /> : <XCircle size={18} className="text-ko" />}
-                <span className={cx("font-display text-lg font-semibold", ok ? "text-ok" : "text-ko")}>{ok ? "Bonne réponse" : "Réponse incorrecte"}</span>
-              </div>
-              <div className="font-mono text-[10px] uppercase tracking-wider text-muted">Explication technique</div>
-              <p className="mt-1 text-[14px] leading-relaxed text-ink">{q.why}</p>
-            </div>
-            <div className="rounded-lg border border-amber/40 bg-amber/10 p-4">
-              <div className="mb-1 flex items-center gap-2"><AlertTriangle size={16} className="text-amber" /><span className="font-mono text-[11px] uppercase tracking-wider text-amber">{ok ? "Ce que tu viens d'éviter sur chaîne" : "Ce que ton erreur aurait provoqué sur chaîne"}</span></div>
-              <p className="text-[14px] leading-relaxed text-ink">{q.risk}</p>
-            </div>
-            <div><PrimaryButton onClick={next}>{pos + 1 === total ? "Voir le débriefing" : "Question suivante"} <ArrowRight size={16} /></PrimaryButton></div>
-          </div>
-        )}
-      </Panel>
+    <div className="flex flex-col gap-6">
+      <SectionHead icon={FileText} kicker="Onglet 7 · Laboratoire d'étude de plans" title="Trois plans de liasse BE à analyser comme sur poste">
+        Un plan de pièce métallique usinée, un plan d'ensemble avec sa nomenclature et un plan de pièce composite. Ouvre chaque plan en grand format, clique sur les repères bleus pour lire chaque exigence, puis extrais toi-même les paramètres de ta gamme dans l'atelier verrouillé du plan.
+      </SectionHead>
+      <NoteBox>Plans de formation : les références et les valeurs sont réalistes mais fictives. Sur la chaîne, seul le plan applicable au MSN fait foi.</NoteBox>
+      <LaboPlans onComplete={onComplete} />
+      <ValidatedBanner done={done} label="Tu sais extraire d'un plan BE tout ce que ta gamme doit contenir." />
     </div>
+  );
+}
+function TabSprint({ done, onComplete, onScore }) {
+  return (
+    <SprintQCM questions={QUESTIONS} done={done} onComplete={onComplete} onScore={onScore}
+      SectionHead={SectionHead} ValidatedBanner={ValidatedBanner}
+      kicker="Onglet 8 · Évaluation" title="Sprint Préparateur Méthodes · Module 4A"
+      intro={`${QUESTIONS.length} questions tirées au hasard, questions et mises en situation sur les ajustements ISO, le montage à l'azote liquide, le cadre ISO GPS, l'isostatisme 3-2-1, le maximum de matière, le calage pelable, le fraisage et la perpendicularité d'alésage (H125, H145, H160, H175). Après chaque réponse, une explication technique te montre pourquoi c'est juste, et ce que l'erreur aurait provoqué sur chaîne ou en audit.`} />
   );
 }
 
@@ -1603,7 +1411,8 @@ const TABS = [
   { id: "chain", short: "Chaînes de cotes", n: "4", icon: Scale, rule: "Réussir le contrôle de fin d'onglet" },
   { id: "trad", short: "Traducteur ISO → SAP", n: "5", icon: Hammer, rule: "Traduire les 5 appels de plan en opérations de gamme" },
   { id: "shim", short: "Calage & tampon", n: "6", icon: Layers, rule: "Traiter les 3 relevés de calage et les 4 contrôles au tampon" },
-  { id: "sprint", short: "Sprint", n: "7", icon: Trophy, rule: "Finir le sprint avec 85 % ou plus" },
+  { id: "labo", short: "Labo plans", n: "7", icon: FileText, rule: "Valider les 3 ateliers de plans (85 % ou plus chacun)" },
+  { id: "sprint", short: "Sprint", n: "8", icon: Trophy, rule: "Finir le sprint avec 85 % ou plus" },
 ];
 export default function App({ onSaveScore, onBack, student } = {}) {
   const [tab, setTab] = useState("plan");
@@ -1670,6 +1479,7 @@ export default function App({ onSaveScore, onBack, student } = {}) {
         {tab === "chain" && <TabChain done={progress.chain} onComplete={complete("chain")} />}
         {tab === "trad" && <TabTranslator done={progress.trad} onComplete={complete("trad")} />}
         {tab === "shim" && <TabShim done={progress.shim} onComplete={complete("shim")} />}
+        {tab === "labo" && <TabLabo done={progress.labo} onComplete={complete("labo")} />}
         {tab === "sprint" && <TabSprint done={progress.sprint} onComplete={complete("sprint")} onScore={onSaveScore} />}
 
         <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">

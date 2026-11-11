@@ -1,6 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import BackToPortal from "../lms/BackToPortal.jsx";
 import { scopedKey } from "../lms/session.js";
+import { GammeMESScreen, GammeMESAtelier } from "./m3/GammeMES.jsx";
+import { QnSwimlane, QnDecisionMatrix, StandardVsConcession, QnWorkflowAtelier } from "./m3/QnWorkflow.jsx";
+import { PlanLab } from "./plans/PlanKit.jsx";
+import { PLAN2_MBOM } from "./plans/Plan2Jonction.jsx";
+import { shuffle, shuffleSpread, permutation, useAtelier, AtelierCounter, AtelierResult, LockRule, LockChip, OptionButton, optState, LETTERS, LockedQuickCheck, SprintQCM, useModuleSession } from "../lib/pedago.jsx";
 import {
   Layers, Wrench, Zap, ListOrdered, Eye, Trophy, ShieldCheck, ShieldAlert,
   CheckCircle2, XCircle, Flame, RotateCcw, ChevronRight, Gauge, AlertTriangle, Info,
@@ -31,14 +36,6 @@ const saveProgress = (p) => {
   } catch (e) {
     /* stockage indisponible : la progression reste en mémoire */
   }
-};
-const shuffle = (arr) => {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
 };
 const cx = (...c) => c.filter(Boolean).join(" ");
 const fmt = (n) => (n > 0 ? "+" : "") + n.toLocaleString("fr-FR");
@@ -132,55 +129,9 @@ function ValidatedBanner({ done, label }) {
 }
 
 /* QCM court réutilisable pour valider un onglet */
-function QuickCheck({ title, questions, onComplete }) {
-  const [picked, setPicked] = useState({});
-  const [perms] = useState(() => questions.map((q) => shuffle(q.options.map((_, k) => k))));
-  const allGood = questions.every((q, i) => picked[i] === q.answer);
-  useEffect(() => {
-    if (allGood) onComplete();
-  }, [allGood]);
-  return (
-    <Panel className="p-5">
-      <div className="mb-4 flex items-center gap-2">
-        <ClipboardList size={18} className="text-sky" />
-        <h3 className="font-display text-xl font-semibold text-ink">{title}</h3>
-        <span className="ml-auto font-mono text-xs text-muted">
-          {questions.filter((q, i) => picked[i] === q.answer).length}/{questions.length} validées
-        </span>
-      </div>
-      <div className="flex flex-col gap-5">
-        {questions.map((q, i) => {
-          const p = picked[i];
-          const answered = p !== undefined;
-          const good = p === q.answer;
-          return (
-            <div key={i} className="flex flex-col gap-2">
-              <div className="text-[15px] font-medium text-ink">{i + 1}. {q.q}</div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {perms[i].map((k) => [q.options[k], k]).map(([o, k]) => (
-                  <Chip
-                    key={k}
-                    active={p === k}
-                    tone={p === k ? (good ? "green" : "red") : "blue"}
-                    disabled={good}
-                    onClick={() => !good && setPicked({ ...picked, [i]: k })}
-                  >
-                    {o}
-                  </Chip>
-                ))}
-              </div>
-              {answered && (
-                <div className={cx("rounded-lg border px-3 py-2 text-[13px] leading-relaxed", good ? "border-ok/40 bg-ok/10 text-ink" : "border-ko/40 bg-ko/10 text-ink")}>
-                  {good ? <strong className="text-ok">Exact. </strong> : <strong className="text-ko">Non, recommence. </strong>}
-                  {good ? q.why : q.hint}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </Panel>
-  );
+/* Contrôle de fin d'onglet : 1er clic verrouillé, questions et propositions mélangées, validation ≥ 85 % */
+function QuickCheck(props) {
+  return <LockedQuickCheck {...props} />;
 }
 
 /* ============================================================
@@ -286,22 +237,17 @@ function Feedback({ ok, children }) {
 }
 
 /* Choix unique à options mélangées, réutilisé dans les ateliers */
-function ChoiceStep({ options, answer, picked, onPick, locked }) {
-  const [perm] = useState(() => shuffle(options.map((_, k) => k)));
+/* Choix unique verrouillé au 1er clic : propositions mélangées (Fisher-Yates), bonne réponse révélée après un faux */
+function ChoiceStep({ options, answer, picked, onPick }) {
+  const [perm] = useState(() => permutation(options.length));
+  const locked = picked !== undefined && picked !== null;
   return (
     <div className="flex flex-col gap-2">
-      {perm.map((k) => {
-        const isPicked = picked === k;
-        const good = isPicked && k === answer;
-        return (
-          <button key={k} type="button" disabled={locked} onClick={() => onPick(k)}
-            className={cx("flex items-start gap-3 rounded-lg border p-3 text-left text-[14px] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky",
-              isPicked ? (good ? "border-ok bg-ok/10 text-ink" : "border-ko bg-ko/10 text-ink") : locked ? "border-line bg-bg text-muted" : "border-line bg-bg text-ink hover:border-sky/70")}>
-            <span className="min-w-0 flex-1">{options[k].t}</span>
-            {isPicked && (good ? <CheckCircle2 size={18} className="shrink-0 text-ok" /> : <XCircle size={18} className="shrink-0 text-ko" />)}
-          </button>
-        );
-      })}
+      {perm.map((k, i) => (
+        <OptionButton key={k} letter={LETTERS[i]} state={optState(k, locked ? picked : undefined, answer)} onClick={() => !locked && onPick(k)}>
+          {options[k].t}
+        </OptionButton>
+      ))}
     </div>
   );
 }
@@ -322,48 +268,38 @@ const BOM_ITEMS = [
 ];
 
 function BomSorter() {
-  const [assign, setAssign] = useState({});
-  const [checked, setChecked] = useState(false);
-  const all = BOM_ITEMS.every((it) => assign[it.id]);
-  const score = BOM_ITEMS.filter((it) => assign[it.id] === it.src).length;
-  const set = (id, v) => { setAssign({ ...assign, [id]: v }); setChecked(false); };
+  const at = useAtelier({ id: "m3-kit-poste30", label: "Construis le kit du poste 30 : E-BOM ou ajout M-BOM", total: BOM_ITEMS.length });
+  const items = useMemo(() => shuffleSpread(BOM_ITEMS, (x) => x.src), [at.draw]);
+  const opts = useMemo(() => shuffle([{ id: "ebom", l: "E-BOM (BE)" }, { id: "mbom", l: "Ajout M-BOM" }]), [at.draw]);
+  const lab = (id) => (id === "ebom" ? "E-BOM (BE)" : "Ajout M-BOM");
   return (
     <Panel className="p-5">
-      <div className="mb-1 flex items-center gap-2">
+      <div className="mb-1 flex flex-wrap items-center gap-2">
         <Boxes size={18} className="text-sky" />
         <h3 className="font-display text-xl font-semibold text-ink">Exercice · Construis le kit du poste 30</h3>
+        <AtelierCounter at={at} />
       </div>
-      <p className="mb-4 text-[14px] text-muted">Pour chaque article du kit de montage de la ferrure de servocommande, indique s'il provient de l'E-BOM du Bureau d'Études (il est dans la maquette 3D) ou s'il est ajouté par toi dans la M-BOM.</p>
+      <p className="mb-3 text-[14px] text-muted">Pour chaque article du kit de montage de la ferrure de servocommande, indique s'il provient de l'E-BOM du Bureau d'Études (il est dans la maquette 3D) ou s'il est ajouté par toi dans la M-BOM. Un clic par ligne, définitif.</p>
+      <LockRule className="mb-3" />
       <div className="flex flex-col divide-y divide-line rounded-lg border border-line bg-bg">
-        {BOM_ITEMS.map((it) => {
-          const v = assign[it.id];
-          const bad = checked && v !== it.src;
+        {items.map((it) => {
+          const a = at.get(it.id);
           return (
-            <div key={it.id} className={cx("flex flex-col gap-2 px-3 py-2 sm:flex-row sm:items-center", bad && "bg-ko/10")}>
-              <span className="min-w-0 flex-1 text-[14px] text-ink">{it.t}</span>
+            <div key={`${at.draw}-${it.id}`} className={cx("flex flex-col gap-2 px-3 py-2 sm:flex-row sm:items-center", a && !a.ok && "bg-ko/10")}>
+              <span className="min-w-0 flex-1 text-[14px] text-ink">{it.t}{a && !a.ok && <span className="block text-[12px] text-ko">Faux : {lab(it.src)}.</span>}</span>
               <div className="flex gap-2">
-                <Chip active={v === "ebom"} onClick={() => set(it.id, "ebom")} tone={checked && v === "ebom" ? (it.src === "ebom" ? "green" : "red") : "blue"}>E-BOM (BE)</Chip>
-                <Chip active={v === "mbom"} onClick={() => set(it.id, "mbom")} tone={checked && v === "mbom" ? (it.src === "mbom" ? "green" : "red") : "amber"}>Ajout M-BOM</Chip>
+                {opts.map((o) => (
+                  <LockChip key={o.id} state={optState(o.id, a?.k, it.src)} onClick={() => at.lock(it.id, { k: o.id, ok: o.id === it.src, q: it.t, choix: o.l, bonne: lab(it.src) })}>{o.l}</LockChip>
+                ))}
               </div>
             </div>
           );
         })}
       </div>
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        <PrimaryButton onClick={() => setChecked(true)} disabled={!all}><ListChecks size={16} /> Vérifier le kit</PrimaryButton>
-        {checked && (
-          <span className={cx("font-mono text-sm", score === BOM_ITEMS.length ? "text-ok" : "text-amber")}>
-            {score}/{BOM_ITEMS.length} correct{score > 1 ? "s" : ""}
-          </span>
-        )}
-      </div>
-      {checked && (
-        <div className="mt-3">
-          <Feedback ok={score === BOM_ITEMS.length}>
-            {score === BOM_ITEMS.length
-              ? "Les pièces structurales et les fixations sont définies par le BE dans l'E-BOM. Les consommables (mastic, cales pelables, fil à freiner, solvant, chiffons) sont ajoutés par le préparateur dans la M-BOM : sans eux, le kit arrive incomplet au poste et le compagnon s'arrête."
-              : "Les lignes en rouge sont mal classées. Rappel : ce qui est dessiné dans la 3D vient de l'E-BOM. Ce qui se consomme pendant le montage, et que la 3D ne montre pas, est ajouté par les Méthodes."}
-          </Feedback>
+      {at.finished && (
+        <div className="mt-3 flex flex-col gap-3">
+          <Feedback ok={at.passed}>Ce qui est dessiné dans la 3D (pièces structurales, fixations) vient de l'E-BOM du BE. Les consommables (mastic, cales pelables, fil à freiner, solvant, chiffons) sont ajoutés par le préparateur dans la M-BOM : sans eux, le kit arrive incomplet au poste et le compagnon s'arrête.</Feedback>
+          <AtelierResult at={at} />
         </div>
       )}
     </Panel>
@@ -382,14 +318,18 @@ const EFF_CASES = [
 ];
 
 function EffectivityTrainer() {
-  const [picked, setPicked] = useState({});
+  const at = useAtelier({ id: "m3-effectivite-msn", label: "Lire l'effectivité MSN d'un H145", total: EFF_CASES.length });
+  const cases = useMemo(() => shuffle(EFF_CASES), [at.draw]);
+  const opts = useMemo(() => shuffle(["C", "D", "E", "SB"]), [at.draw]);
+  const lab = (o) => (o === "SB" ? "Hors chaîne : Service Bulletin" : "Indice " + o);
   return (
     <Panel className="p-5">
-      <div className="mb-1 flex items-center gap-2">
+      <div className="mb-1 flex flex-wrap items-center gap-2">
         <Hash size={18} className="text-sky" />
         <h3 className="font-display text-xl font-semibold text-ink">Exercice · Lire l'effectivité MSN d'un H145</h3>
+        <AtelierCounter at={at} />
       </div>
-      <p className="mb-3 text-[14px] text-muted">Le cartouche du plan de la cornière de poutre de queue indique trois tranches d'effectivité. Pour chaque appareil, quelle définition s'applique ?</p>
+      <p className="mb-3 text-[14px] text-muted">Le cartouche du plan de la cornière de poutre de queue indique trois tranches d'effectivité. Pour chaque appareil, quelle définition s'applique ? Un seul choix par appareil.</p>
       <div className="mb-4 overflow-x-auto rounded-lg border border-line">
         <table className="w-full min-w-[460px] text-left text-[13px]">
           <thead className="bg-panel2 font-mono text-[11px] uppercase tracking-wider text-muted">
@@ -403,51 +343,49 @@ function EffectivityTrainer() {
         </table>
       </div>
       <div className="flex flex-col gap-4">
-        {EFF_CASES.map((c) => {
-          const p = picked[c.sn];
-          const ok = p === c.answer;
+        {cases.map((c) => {
+          const a = at.get(c.sn);
           return (
-            <div key={c.sn} className="flex flex-col gap-2">
+            <div key={`${at.draw}-${c.sn}`} className="flex flex-col gap-2">
               <div className="flex flex-wrap items-center gap-2 text-[14px] text-ink">
                 <Plane size={14} className="text-sky" />
                 <span className="font-mono font-semibold">H145 S/N {c.sn}</span>
                 <span className="text-muted">· {c.state}</span>
               </div>
               <div className="flex flex-wrap gap-2">
-                {["C", "D", "E", "SB"].map((o) => (
-                  <Chip key={o} active={p === o} tone={p === o ? (ok ? "green" : "red") : "blue"} disabled={ok} onClick={() => !ok && setPicked({ ...picked, [c.sn]: o })}>
-                    {o === "SB" ? "Hors chaîne : Service Bulletin" : "Indice " + o}
-                  </Chip>
+                {opts.map((o) => (
+                  <LockChip key={o} state={optState(o, a?.k, c.answer)} onClick={() => at.lock(c.sn, { k: o, ok: o === c.answer, q: `H145 S/N ${c.sn} (${c.state})`, choix: lab(o), bonne: lab(c.answer) })}>{lab(o)}</LockChip>
                 ))}
               </div>
-              {p && <Feedback ok={ok}>{ok ? c.why : "Relis les bornes de la tranche et l'état de l'appareil (en production ou livré)."}</Feedback>}
+              {a && <Feedback ok={a.ok}>{a.ok ? "" : `Réponse attendue : ${lab(c.answer)}. `}{c.why}</Feedback>}
             </div>
           );
         })}
       </div>
+      <div className="mt-4"><AtelierResult at={at} /></div>
     </Panel>
   );
 }
 
 const Q_BE = [
   {
-    q: "Qui construit la M-BOM ?",
-    options: ["Le Bureau d'Études, en même temps que la 3D", "Le préparateur méthodes, à partir de l'E-BOM", "Le magasin logistique", "Le client à la commande"],
-    answer: 1,
+    q: "H160, industrialisation d'un nouvel ensemble de plancher. Le BE a livré l'E-BOM fonctionnelle. Qui construit la M-BOM structurée par poste de la FAL ?",
+    options: ["Le préparateur méthodes, à partir de l'E-BOM et de la séquence de montage", "Le bureau d'études, en même temps que la maquette 3D de l'ensemble", "Le magasin logistique, à partir des besoins de kitting de chaque poste", "La qualité produit, à partir du plan de contrôle et des points d'arrêt"],
+    answer: 0,
     why: "Le BE livre l'E-BOM fonctionnelle. Le préparateur la restructure par poste de la FAL, prépare le kitting et ajoute les consommables.",
     hint: "Pense à qui connaît la séquence réelle de montage par poste.",
   },
   {
-    q: "Un trou de fixation Ø 6 mm dans une tôle aluminium : quelle distance au bord minimale vise-t-on typiquement ?",
-    options: ["6 mm (1D)", "9 mm (1,5D)", "12 mm (2D)", "36 mm (6D)"],
-    answer: 2,
-    why: "ED ≥ 2D en métallique, soit 12 mm. En composite carbone, on vise souvent 2,5D, soit 15 mm. Le plan et les normes BNAE/ECS font toujours foi.",
+    q: "H145, tôle de cadre en alliage d'aluminium. Tu vérifies une implantation de fixation Ø 6 mm. Quelle distance au bord (ED) minimale vise-t-on typiquement, sauf indication du plan ?",
+    options: ["12 mm (2D)", "9 mm (1,5D)", "6 mm (1D)", "15 mm (2,5D)"],
+    answer: 0,
+    why: "En métallique, la règle de base est ED ≥ 2D, soit 12 mm. En composite carbone on vise souvent 2,5D. Le plan et les normes applicables font toujours foi.",
     hint: "La règle de base en métal est ED ≥ 2 fois le diamètre.",
   },
   {
-    q: "Quelle est la différence entre un MOD et un SB ?",
-    options: ["Aucune, ce sont deux noms du même document", "Le MOD s'applique en production (Part-21G), le SB sur les appareils déjà livrés", "Le SB s'applique en production, le MOD en exploitation", "Le MOD concerne la peinture, le SB la structure"],
-    answer: 1,
+    q: "H175, gestion des évolutions de définition. Quelle est la différence entre un MOD et un Service Bulletin (SB) ?",
+    options: ["Le MOD s'applique en production (Part-21G), le SB sur les appareils déjà livrés", "Le SB s'applique en production (Part-21G), le MOD sur les appareils déjà livrés", "Le MOD concerne la structure, le SB concerne seulement les équipements", "Le MOD est rédigé par la FAL, le SB par le bureau d'études de l'exploitant"],
+    answer: 0,
     why: "Le MOD change la définition à partir d'un rang d'effectivité sur la chaîne. Le Service Bulletin permet de porter une modification sur la flotte en service.",
     hint: "Un appareil sur la chaîne et un appareil chez le client ne sont pas modifiés par le même document.",
   },
@@ -554,34 +492,37 @@ const REWRITES = [
 ];
 
 function RewriteTrainer() {
-  const [picked, setPicked] = useState({});
-  const [perms] = useState(() => REWRITES.map((r) => shuffle(r.options.map((_, k) => k))));
+  const at = useAtelier({ id: "m3-reecriture-instruction", label: "Réécris l'instruction de gamme", total: REWRITES.length });
+  const drawn = useMemo(() => shuffle(REWRITES.map((r, i) => ({ ...r, _i: i, perm: permutation(r.options.length) }))), [at.draw]);
   return (
     <Panel className="p-5">
-      <div className="mb-1 flex items-center gap-2">
+      <div className="mb-1 flex flex-wrap items-center gap-2">
         <FileWarning size={18} className="text-amber" />
         <h3 className="font-display text-xl font-semibold text-ink">Exercice · Réécris l'instruction</h3>
+        <AtelierCounter at={at} />
       </div>
-      <p className="mb-4 text-[14px] text-muted">Ces phrases ont été trouvées dans une gamme en relecture. Choisis la formulation qui passe un audit.</p>
+      <p className="mb-3 text-[14px] text-muted">Ces phrases ont été trouvées dans une gamme en relecture. Choisis la formulation qui passe un audit. Un seul choix, verrouillé.</p>
+      <LockRule className="mb-4" />
       <div className="flex flex-col gap-5">
-        {REWRITES.map((r, i) => {
-          const p = picked[i];
-          const ok = p !== undefined && r.options[p].ok;
+        {drawn.map((r) => {
+          const a = at.get(r._i);
+          const good = r.options.findIndex((o) => o.ok);
           return (
-            <div key={i} className="flex flex-col gap-2">
+            <div key={`${at.draw}-${r._i}`} className="flex flex-col gap-2">
               <div className="rounded-lg border border-ko/40 bg-ko/10 px-3 py-2 font-mono text-[13px] text-ink"><span className="mr-2 text-ko">✗</span>« {r.bad} »</div>
-              {perms[i].map((k) => (
-                <Chip key={k} active={p === k} tone={p === k ? (r.options[k].ok ? "green" : "red") : "blue"} disabled={ok} onClick={() => !ok && setPicked({ ...picked, [i]: k })}>
+              {r.perm.map((k, i) => (
+                <OptionButton key={k} compact letter={LETTERS[i]} state={optState(k, a?.k, good)} onClick={() => at.lock(r._i, { k, ok: !!r.options[k].ok, q: r.bad, choix: r.options[k].t, bonne: r.options[good].t })}>
                   {r.options[k].t}
-                </Chip>
+                </OptionButton>
               ))}
-              {p !== undefined && (
-                <Feedback ok={ok}>{ok ? "Verbe d'action, valeur chiffrée, moyen défini et enregistrement : l'opération est exécutable et vérifiable." : "Cette formulation laisse le compagnon interpréter. Ce qui n'est pas chiffré n'est pas contrôlable."}</Feedback>
+              {a && (
+                <Feedback ok={a.ok}>{a.ok ? "Verbe d'action, valeur chiffrée, moyen défini et enregistrement : l'opération est exécutable et vérifiable." : "Cette formulation laisse le compagnon interpréter : ce qui n'est pas chiffré n'est pas contrôlable. La bonne formulation est surlignée en pointillés verts."}</Feedback>
               )}
             </div>
           );
         })}
       </div>
+      <div className="mt-4"><AtelierResult at={at} /></div>
     </Panel>
   );
 }
@@ -642,24 +583,24 @@ function MesHoldPoint() {
 
 const Q_GAMME = [
   {
-    q: "Pourquoi la gamme a-t-elle une valeur légale en Part-21G ?",
-    options: ["Parce qu'elle fixe le temps alloué aux compagnons", "Parce qu'elle prouve que l'appareil a été construit conformément à sa définition approuvée", "Parce qu'elle remplace le plan du BE", "Elle n'a pas de valeur légale, c'est un document interne"],
-    answer: 1,
-    why: "Tout ce qui est écrit doit être fait, tout ce qui est fait doit être écrit et tracé. Le dossier de fabrication soldé est la preuve de conformité au certificat de type.",
-    hint: "Pense à ce que l'autorité vérifie lors d'un audit de l'organisme de production (POA).",
+    q: "H160, audit POA de l'organisme de production. Pourquoi la gamme soldée a-t-elle une valeur légale en Part-21G ?",
+    options: ["Elle prouve que l'appareil a été construit conformément à sa définition approuvée", "Elle fixe les temps alloués et sert de base au calcul du coût de production", "Elle remplace le plan du bureau d'études lorsqu'il y a contradiction", "Elle autorise l'organisme de production à modifier la définition en cas d'écart"],
+    answer: 0,
+    why: "Tout ce qui est écrit doit être fait, tout ce qui est fait doit être tracé. Le dossier de fabrication soldé est la preuve de conformité à la définition certifiée.",
+    hint: "Pense à ce que l'autorité vérifie lors d'un audit de l'organisme de production.",
   },
   {
-    q: "Avant d'appliquer un mastic PR, la gamme doit faire vérifier…",
-    options: ["La couleur du mastic", "La date de péremption (Shelf Life) et le n° de lot", "Le nom du fournisseur seulement", "Rien, le magasin l'a déjà vérifié"],
-    answer: 1,
-    why: "Un mastic périmé peut ne pas polymériser ou perdre son adhérence. Le contrôle au poste et le relevé du lot sont la seule barrière avant application.",
+    q: "H145, poste étanchéité. Avant l'application d'un mastic PR, quelle vérification la gamme doit-elle imposer au poste ?",
+    options: ["Date de péremption (shelf life) et numéro de lot relevés", "Couleur du mastic conforme au nuancier de la gamme", "Nom du fournisseur conforme à la liste des agréés", "Température du mastic relevée à la sortie du magasin"],
+    answer: 0,
+    why: "Un mastic périmé peut ne pas polymériser ou perdre son adhérence. Le contrôle au poste et le relevé du lot sont la dernière barrière avant application, et assurent la traçabilité.",
     hint: "Les produits chimiques vieillissent même dans leur emballage.",
   },
   {
-    q: "Sur quelles opérations le double contrôle indépendant est-il obligatoire ?",
-    options: ["Sur la peinture de finition", "Sur les commandes de vol (ATA 67)", "Sur la pose des tapis de protection", "Uniquement sur demande du client"],
-    answer: 1,
-    why: "Une erreur de montage sur les commandes de vol rotor est catastrophique. Un second contrôleur habilité, indépendant de celui qui a monté, vérifie et signe séparément.",
+    q: "H160, rédaction de gamme. Sur quelles opérations le double contrôle indépendant est-il obligatoire ?",
+    options: ["Sur les commandes de vol (ATA 67)", "Sur la peinture de finition extérieure", "Sur la pose des protections temporaires", "Sur les opérations demandées par le client"],
+    answer: 0,
+    why: "Une erreur de montage sur les commandes de vol est catastrophique. Un second contrôleur habilité, indépendant de celui qui a monté, vérifie et signe séparément.",
     hint: "Quelle chaîne d'organes ne tolère aucune erreur de montage ?",
   },
 ];
@@ -684,15 +625,11 @@ function TabGamme({ done, onComplete }) {
         </div>
       </div>
 
-      <GammeExtract
-        title="H160 · Pose ferrure de servocommande · Poste 30"
-        lines={[
-          { op: "0010", text: "EPI : gants nitrile, lunettes. Vérifier l'étiquette de validité de la clé dynamométrique 5-25 N.m." },
-          { op: "0020", text: "Contrôler la date de péremption de la cartouche PR 1776 B2. Relever le n° de lot dans le MES." },
-          { op: "0030", text: "Poser la ferrure en montage humide. Serrer en croix au couple de 12 à 14 N.m selon norme EICM." },
-          { op: "0040", stop: true, text: "Contrôle Qualité de la zone avant fermeture du caisson." },
-        ]}
-      />
+      <div className="flex flex-col gap-3">
+        <Eyebrow>Écran réel · ordre de fabrication dans SAP / MES</Eyebrow>
+        <p className="text-[14px] leading-relaxed text-ink/85">Voici la gamme complète d'une jonction cadre / plancher H160 telle qu'elle apparaît au poste. Clique sur une ligne pour afficher son détail. Repère les 4 Hold Points, le double contrôle ATA 67 et la traçabilité des lots et des étalonnages.</p>
+        <GammeMESScreen />
+      </div>
 
       <RewriteTrainer />
 
@@ -706,6 +643,8 @@ function TabGamme({ done, onComplete }) {
       </div>
 
       <MesHoldPoint />
+
+      <GammeMESAtelier />
 
       <ImpactBox title="Le test du compagnon remplaçant">
         Relis chaque opération en te demandant : un compagnon qui arrive de l'intérim et qui n'a jamais vu ce poste peut-il l'exécuter et la tracer sans poser une seule question ? Si non, la gamme n'est pas finie.
@@ -741,58 +680,62 @@ const DEC_CASES = [
 ];
 
 function DecisionSorter() {
-  const [picked, setPicked] = useState({});
-  const [order] = useState(() => shuffle(DEC_CASES.map((_, i) => i)));
+  const at = useAtelier({ id: "m3-decision-qn", label: "Quelle décision de traitement de QN ?", total: DEC_CASES.length });
+  const order = useMemo(() => permutation(DEC_CASES.length), [at.draw]);
+  const decs = useMemo(() => shuffle(DECISIONS), [at.draw]);
+  const lab = (id) => DECISIONS.find((d) => d.id === id).label;
   return (
     <Panel className="p-5">
-      <div className="mb-1 flex items-center gap-2">
+      <div className="mb-1 flex flex-wrap items-center gap-2">
         <Scale size={18} className="text-sky" />
         <h3 className="font-display text-xl font-semibold text-ink">Exercice · Quelle décision de traitement ?</h3>
+        <AtelierCounter at={at} />
       </div>
-      <p className="mb-4 text-[14px] text-muted">Pour chaque QN soldée, retrouve la décision officielle qui a été prise.</p>
+      <p className="mb-3 text-[14px] text-muted">Pour chaque QN soldée, retrouve la décision officielle qui a été prise. Un seul clic par cas.</p>
+      <LockRule className="mb-4" />
       <div className="flex flex-col gap-4">
         {order.map((ci) => {
           const c = DEC_CASES[ci];
-          const p = picked[ci];
-          const ok = p === c.answer;
+          const a = at.get(ci);
           return (
-            <div key={ci} className="flex flex-col gap-2">
+            <div key={`${at.draw}-${ci}`} className="flex flex-col gap-2">
               <div className="text-[14px] text-ink">{c.t}</div>
               <div className="flex flex-wrap gap-2">
-                {DECISIONS.map((d) => (
-                  <Chip key={d.id} active={p === d.id} tone={p === d.id ? (ok ? "green" : "red") : "blue"} disabled={ok} onClick={() => !ok && setPicked({ ...picked, [ci]: d.id })}>
+                {decs.map((d) => (
+                  <LockChip key={d.id} state={optState(d.id, a?.k, c.answer)} onClick={() => at.lock(ci, { k: d.id, ok: d.id === c.answer, q: c.t, choix: d.label, bonne: lab(c.answer) })}>
                     <span className="font-mono">{d.label}</span>
-                  </Chip>
+                  </LockChip>
                 ))}
               </div>
-              {p && <Feedback ok={ok}>{ok ? DECISIONS.find((d) => d.id === c.answer).text : "Demande-toi : la pièce revient-elle exactement au plan ? Y a-t-il un travail physique ? Est-elle récupérable ?"}</Feedback>}
+              {a && <Feedback ok={a.ok}>{a.ok ? "" : `Décision attendue : ${lab(c.answer)}. `}{DECISIONS.find((d) => d.id === c.answer).text}</Feedback>}
             </div>
           );
         })}
       </div>
+      <div className="mt-4"><AtelierResult at={at} /></div>
     </Panel>
   );
 }
 
 const Q_QN = [
   {
-    q: "Le compagnon te montre un écart au plan. Le chef d'équipe te demande de « valider vite pour ne pas bloquer la chaîne ». Tu…",
-    options: ["Valides, tu es responsable méthodes", "Ouvres une QN : tu n'as pas le droit d'autoriser un écart à la définition du BE", "Demandes au compagnon de continuer et de noter l'écart plus tard", "Valides oralement sans trace écrite"],
-    answer: 1,
-    why: "L'organisme de production (Part-21G) n'a pas le pouvoir de modifier une définition approuvée par l'organisme de conception (Part-21J). Seul le BE peut décider d'une dérogation.",
+    q: "H160, poste jonction poutre. Le compagnon te montre un écart au plan. Le chef d'équipe te demande de « valider vite pour ne pas bloquer la chaîne ». Que fais-tu ?",
+    options: ["J'ouvre une QN : seul le BE peut autoriser un écart à la définition", "Je valide l'écart en tant que préparateur responsable de la gamme", "Je fais continuer et je demande de consigner l'écart en fin de poste", "Je valide oralement et je trace l'écart lors du prochain audit qualité"],
+    answer: 0,
+    why: "L'organisme de production (Part-21G) n'a pas le pouvoir de modifier une définition approuvée par l'organisme de conception (Part-21J). Seul le BE décide d'une dérogation.",
     hint: "Qui détient l'approbation de conception ?",
   },
   {
-    q: "Quelle description de QN est recevable ?",
-    options: ["Trou mal percé sur le cadre", "Alésage mesuré à Ø 6,42 mm pour Ø 6,35 H7 (+0,015/-0) demandé au plan, cadre X4500, position 12", "Défaut d'alésage, voir avec l'atelier", "Alésage trop grand, probablement à cause du foret"],
-    answer: 1,
+    q: "H145, cadre X4500. Tu rédiges la description d'une QN sur un alésage. Quelle description est recevable par le bureau d'études ?",
+    options: ["Alésage mesuré Ø 6,42 mm pour Ø 6,35 H7 (+0,015/0), cadre X4500, position 12", "Alésage trop grand sur le cadre X4500, probablement dû à l'usure du foret utilisé", "Défaut d'alésage constaté sur le cadre X4500, à voir directement avec l'atelier", "Alésage hors tolérance sur le cadre X4500, valeur à mesurer par la métrologie"],
+    answer: 0,
     why: "Une QN est factuelle et cotée : valeur mesurée, valeur demandée avec sa tolérance, référence de la pièce et localisation. Le BE doit pouvoir calculer sans venir sur le poste.",
-    hint: "Le Stress Office a besoin de chiffres, pas d'impressions.",
+    hint: "Le bureau de calcul a besoin de chiffres, pas d'impressions.",
   },
   {
-    q: "Quelle décision ramène la pièce exactement à la définition du plan ?",
-    options: ["REPAIR", "USE AS IS", "REWORK", "SCRAP"],
-    answer: 2,
+    q: "H175, traitement d'une non-conformité. Quelle décision ramène la pièce exactement à la définition du plan d'origine ?",
+    options: ["REWORK (retouche)", "REPAIR (réparation)", "USE AS IS (en l'état)", "SCRAP (rebut)"],
+    answer: 0,
     why: "Le REWORK est la seule décision qui rend la pièce strictement conforme au plan initial. Le REPAIR restaure l'aptitude au vol par une définition différente, approuvée par le BE.",
     hint: "Retouche ou réparation : laquelle revient au plan d'origine ?",
   },
@@ -810,22 +753,18 @@ function TabQN({ done, onComplete }) {
       </DangerBox>
 
       <div className="flex flex-col gap-3">
+        <Eyebrow>Qui fait quoi · frontière légale Part-21G / Part-21J</Eyebrow>
+        <QnSwimlane />
+      </div>
+
+      <div className="flex flex-col gap-3">
         <Eyebrow>Workflow de traitement d'une anomalie sur poste · QN SAP</Eyebrow>
         <div className="grid gap-3 lg:grid-cols-3">
           {QN_STEPS.map((s) => (
             <RuleCard key={s.n} title={"Étape " + s.n + " · " + s.title} icon={s.icon} tone={s.n === "1" ? "red" : s.n === "2" ? "amber" : "blue"}>{s.text}</RuleCard>
           ))}
         </div>
-        <div className="grid gap-3 md:grid-cols-2">
-          <Panel className="border-ok/40 p-4">
-            <Eyebrow tone="green">Cas A · Réparation standard existante</Eyebrow>
-            <p className="mt-2 text-[14px] leading-relaxed text-ink/85">Une instruction générique pré-approuvée par le BE autorise directement le passage en fixation « oversize » (cote réparation), <strong>et</strong> la distance au bord reste respectée (ED ≥ 2D avec le nouveau diamètre). Le préparateur applique la solution standard et la trace dans la QN.</p>
-          </Panel>
-          <Panel className="border-amber/40 p-4">
-            <Eyebrow tone="amber">Cas B · Hors tolérance standard</Eyebrow>
-            <p className="mt-2 text-[14px] leading-relaxed text-ink/85">Aucune réparation standard ne couvre le cas, ou ses conditions ne sont pas remplies. La QN est envoyée au <strong>Bureau d'Études (DOA Part-21J) / Stress Office</strong> pour une demande de <strong>dérogation (concession)</strong>. La zone reste bloquée jusqu'à la réponse.</p>
-          </Panel>
-        </div>
+        <StandardVsConcession />
       </div>
 
       <div className="flex flex-col gap-3">
@@ -840,7 +779,11 @@ function TabQN({ done, onComplete }) {
         </div>
       </div>
 
+      <QnDecisionMatrix />
+
       <DecisionSorter />
+
+      <QnWorkflowAtelier />
 
       <ImpactBox title="Après la décision, c'est encore ton travail">
         Pour un REPAIR, tu rédiges l'opération de retouche dans la gamme QN à partir de l'instruction BE : outillage, consommables, valeurs, traçabilité et point d'arrêt qualité. La QN n'est soldée que quand cette opération est exécutée et contrôlée.
@@ -878,9 +821,12 @@ const ZONES = [
 ];
 
 function FodCounter() {
+  /* Une seule déclaration « zone fermable » : elle verrouille le bilan (protections oubliées = fautes) */
+  const at = useAtelier({ id: "m3-retrait-protections", label: "Retrait comptabilisé des protections anti-FOD (tout ou rien)", total: 1 });
   const [removed, setRemoved] = useState({});
   const [lamp, setLamp] = useState(false);
-  const [tried, setTried] = useState(false);
+  useEffect(() => { setRemoved({}); setLamp(false); }, [at.draw]);
+  const tried = at.finished;
   const count = Object.keys(removed).length;
   const total = PROTECTIONS.length;
   const ok = count === total;
@@ -916,7 +862,7 @@ function FodCounter() {
                   {items.map((p) => {
                     const r = removed[p.id];
                     return (
-                      <button key={p.id} type="button" disabled={r} onClick={() => setRemoved({ ...removed, [p.id]: true })}
+                      <button key={p.id} type="button" disabled={r || tried} onClick={() => setRemoved({ ...removed, [p.id]: true })}
                         className={cx("rounded-md border px-2 py-1 text-[12px] transition", r ? "border-ok/40 bg-ok/10 text-muted line-through" : "border-amber/60 bg-amber/15 text-ink hover:bg-amber/25")}>
                         {p.t}
                       </button>
@@ -929,8 +875,7 @@ function FodCounter() {
         })}
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <PrimaryButton onClick={() => setTried(true)} tone={ok ? "green" : "blue"}><ShieldCheck size={16} /> Déclarer la zone fermable</PrimaryButton>
-        <button type="button" onClick={() => { setRemoved({}); setLamp(false); setTried(false); }} className="inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-wider text-muted hover:text-ink"><RotateCcw size={12} /> Rejouer</button>
+        <PrimaryButton disabled={tried} onClick={() => at.lock("decl", { ok: count === total, q: "Bilan posées = retirées avant fermeture de zone", choix: `${count}/${total} retirées`, bonne: `${total}/${total} retirées` })} tone="amber"><Lock size={16} /> Déclarer la zone fermable (définitif)</PrimaryButton>
       </div>
       {tried && (
         <div className="mt-3">
@@ -939,6 +884,7 @@ function FodCounter() {
               ? "Bilan posées = retirées : 13/13. Tu peux solder l'opération et présenter la zone au point d'arrêt qualité."
               : "Refusé : " + count + " retirées pour " + total + " posées. Une protection manque à l'appel. Tant que le compte n'est pas juste, la zone ne se ferme pas, on cherche (pense aux zones masquées)."}
           </Feedback>
+          <div className="mt-3"><AtelierResult at={at} /></div>
         </div>
       )}
     </Panel>
@@ -967,24 +913,24 @@ function PokaYokeSVG() {
 
 const Q_LEAN = [
   {
-    q: "Deux lignes hydrauliques voisines arrivent sur la même servocommande. Quelle disposition de gamme ou de définition rend l'inversion impossible ?",
-    options: ["Une note « attention à ne pas inverser » dans la gamme", "Des raccords de diamètres différents (détrompage Poka-Yoke)", "Un compagnon plus expérimenté", "Un contrôle visuel en fin de gamme"],
-    answer: 1,
-    why: "Le Poka-Yoke rend l'erreur physiquement impossible : le raccord -8 n'entre pas sur le port -6. Une note ou un contrôle détecte l'erreur, le détrompeur l'empêche.",
+    q: "H160, servocommande principale. Deux lignes hydrauliques voisines arrivent sur la même servocommande. Quelle disposition rend l'inversion physiquement impossible ?",
+    options: ["Des raccords de diamètres différents (détrompage Poka-Yoke)", "Une note « attention à ne pas inverser » en rouge dans la gamme", "Un repérage couleur des tuyauteries au marqueur indélébile", "Un contrôle visuel croisé en fin de gamme par un second opérateur"],
+    answer: 0,
+    why: "Le Poka-Yoke rend l'erreur impossible : un raccord -8 n'entre pas sur un port -6. Une note ou un contrôle détecte l'erreur, le détrompeur l'empêche.",
     hint: "Cherche la solution qui ne dépend pas de l'attention humaine.",
   },
   {
-    q: "À quel moment la gamme prescrit-elle la pose des protections temporaires ?",
-    options: ["Dès la première opération du poste", "Juste avant la livraison", "Quand un compagnon le demande", "Après la peinture"],
+    q: "H145, ouverture d'un poste d'équipement cabine. À quel moment la gamme prescrit-elle la pose des protections temporaires (tapis, bouchons, capuchons) ?",
+    options: ["Dès la première opération du poste", "Au premier dommage constaté sur le poste", "Juste avant le passage en peinture", "Juste avant la livraison au client"],
     answer: 0,
-    why: "Les tapis mousse, bouchons et capuchons protègent la structure et les circuits dès l'ouverture du poste. Leur retrait est comptabilisé en fin de gamme.",
+    why: "Les protections sont posées dès l'ouverture du poste, et leur retrait est compté en fin de gamme.",
     hint: "Un dommage ou une pollution arrive dès que le premier compagnon monte dans la cellule.",
   },
   {
-    q: "Fin de gamme : 13 protections posées, 12 retirées. Que fais-tu ?",
-    options: ["Tu clôtures, une protection a dû être jetée", "Tu bloques la fermeture de zone et lances une recherche FOD jusqu'à retrouver la 13e", "Tu notes l'écart et tu fermes", "Tu demandes au compagnon de signer quand même"],
-    answer: 1,
-    why: "Une protection non retrouvée est un FOD potentiel dans une zone qui va devenir inaccessible, voire un bouchon resté sur un circuit hydraulique. Le compte doit être juste avant fermeture.",
+    q: "H160, fin de gamme d'un caisson de plancher. Bilan : 13 protections posées, 12 retirées. Que fais-tu ?",
+    options: ["Je bloque la fermeture et lance une recherche FOD jusqu'à retrouver la 13e", "Je clôture : une protection a probablement été jetée pendant le poste", "Je note l'écart dans la gamme et j'autorise la fermeture de la zone", "Je fais signer le compagnon et je reporte la recherche au poste suivant"],
+    answer: 0,
+    why: "Une protection non retrouvée est un FOD potentiel dans une zone qui va devenir inaccessible, voire un bouchon resté sur un circuit. Le compte doit être juste avant fermeture.",
     hint: "Où peut être la protection manquante, et que se passe-t-il si on ferme ?",
   },
 ];
@@ -1087,41 +1033,52 @@ const AUDIT_LINES = [
 const AUDIT_ERRORS = AUDIT_LINES.filter((l) => !l.ok).length;
 
 function TabAuditeur({ done, onComplete }) {
+  /* Chaque ligne est jugée une seule fois :
+     - ligne fautive : 1 seul choix de correctif (verrouillé)
+     - ligne saine cliquée : fausse alerte définitive
+     « Soumettre l'audit » verrouille le reste (fautes non trouvées = ratées, lignes saines non suspectées = justes). */
+  const at = useAtelier({ id: "m3-auditeur-gamme", label: "Auditeur de gamme SAP/MES : servocommande H175", total: AUDIT_LINES.length, onComplete });
   const [sel, setSel] = useState(null);
-  const [fixed, setFixed] = useState({});
-  const [tries, setTries] = useState({});
-  const [falseAlarms, setFalseAlarms] = useState({});
-  const nFixed = Object.keys(fixed).length;
-  const valid = nFixed === AUDIT_ERRORS;
-  useEffect(() => { if (valid) onComplete(); }, [valid]);
+  useEffect(() => setSel(null), [at.draw]);
+  const optKey = `${at.draw}`;
   const line = sel !== null ? AUDIT_LINES[sel] : null;
+  const nFixed = AUDIT_LINES.filter((l) => !l.ok && at.get(l.op)?.ok).length;
+  const falseAlarms = AUDIT_LINES.filter((l) => l.ok && at.get(l.op) && !at.get(l.op).ok).length;
+  const valid = at.passed;
   const pick = (i) => {
     setSel(i);
     const l = AUDIT_LINES[i];
-    if (l.ok) setFalseAlarms({ ...falseAlarms, [l.op]: true });
+    if (l.ok && !at.isLocked(l.op)) at.lock(l.op, { ok: false, q: `Ligne ${l.op} (conforme)`, choix: "Signalée comme fautive", bonne: "Ligne conforme : ne pas signaler" });
   };
   const choose = (k) => {
     const l = line;
-    if (l.options[k].ok) setFixed({ ...fixed, [l.op]: true });
-    setTries({ ...tries, [l.op]: k });
+    const good = l.options.findIndex((o) => o.ok);
+    at.lock(l.op, { k, ok: !!l.options[k].ok, q: `Ligne ${l.op} · ${l.err}`, choix: l.options[k].t, bonne: l.options[good].t });
   };
-  const reset = () => { setSel(null); setFixed({}); setTries({}); setFalseAlarms({}); };
+  const submit = () => {
+    AUDIT_LINES.forEach((l) => {
+      if (at.isLocked(l.op)) return;
+      if (l.ok) at.lock(l.op, { ok: true, q: `Ligne ${l.op} (conforme)`, choix: "Non signalée", bonne: "Non signalée" });
+      else at.lock(l.op, { ok: false, q: `Ligne ${l.op} · ${l.err}`, choix: "Écart non détecté", bonne: l.fixed });
+    });
+  };
 
   return (
     <div className="flex flex-col gap-6">
       <SectionHead icon={ClipboardCheck} kicker="Onglet 5 · Simulateur 1" title="Éditeur & auditeur de gamme SAP/MES">
-        Un collègue te soumet son brouillon de gamme : installation d'une servocommande hydraulique de rotor principal (ATA 67) sur H175. Il contient {AUDIT_ERRORS} erreurs graves de préparation. Clique sur les lignes fautives et choisis le correctif normatif.
+        Un collègue te soumet son brouillon de gamme : installation d'une servocommande hydraulique de rotor principal (ATA 67) sur H175. Il contient {AUDIT_ERRORS} erreurs graves de préparation. Clique sur les lignes fautives et choisis le correctif normatif. Chaque décision est définitive : une ligne saine signalée compte comme une fausse alerte, un correctif faux reste faux.
       </SectionHead>
+      <LockRule />
 
       <div className={cx("flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center", valid ? "border-ok/60 bg-ok/10" : "border-ko/60 bg-ko/10")}>
         {valid ? <ShieldCheck size={28} className="text-ok" /> : <ShieldAlert size={28} className="text-ko" />}
         <div className="min-w-0 flex-1">
           <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Statut de la gamme · GA-H175-67-0412</div>
-          <div className={cx("font-display text-2xl font-semibold", valid ? "text-ok" : "text-ko")}>{valid ? "VALIDÉ PRODUCTION" : "REJETÉ AUDIT EASA"}</div>
+          <div className={cx("font-display text-2xl font-semibold", valid ? "text-ok" : "text-ko")}>{valid ? "VALIDÉ PRODUCTION" : at.finished ? "REJETÉ AUDIT EASA" : "EN AUDIT"}</div>
         </div>
         <div className="grid grid-cols-2 gap-2 text-center">
           <div className="rounded-lg border border-line bg-bg px-3 py-1.5"><div className="font-mono text-lg font-semibold text-ink tabular-nums">{nFixed}/{AUDIT_ERRORS}</div><div className="font-mono text-[10px] uppercase text-muted">Écarts corrigés</div></div>
-          <div className="rounded-lg border border-line bg-bg px-3 py-1.5"><div className="font-mono text-lg font-semibold text-amber tabular-nums">{Object.keys(falseAlarms).length}</div><div className="font-mono text-[10px] uppercase text-muted">Fausses alertes</div></div>
+          <div className="rounded-lg border border-line bg-bg px-3 py-1.5"><div className="font-mono text-lg font-semibold text-amber tabular-nums">{falseAlarms}</div><div className="font-mono text-[10px] uppercase text-muted">Fausses alertes</div></div>
         </div>
       </div>
 
@@ -1134,18 +1091,21 @@ function TabAuditeur({ done, onComplete }) {
           </div>
           <div className="divide-y divide-line">
             {AUDIT_LINES.map((l, i) => {
-              const isFixed = fixed[l.op];
-              const isFalse = falseAlarms[l.op];
+              const a = at.get(l.op);
+              const isFixed = !l.ok && a?.ok;
+              const isWrongFix = !l.ok && a && !a.ok;
+              const isFalse = l.ok && a && !a.ok;
               return (
                 <button key={l.op} type="button" onClick={() => pick(i)}
                   className={cx("grid w-full grid-cols-[48px_1fr] gap-3 px-4 py-2.5 text-left text-[13px] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sky",
-                    sel === i ? "bg-sky/15" : "hover:bg-panel", isFixed && "bg-ok/5", l.stop && !isFixed && "bg-amber/5")}>
-                  <span className={cx("font-mono font-semibold", isFixed ? "text-ok" : l.stop ? "text-amber" : "text-sky")}>{l.op}</span>
+                    sel === i ? "bg-sky/15" : "hover:bg-panel", isFixed && "bg-ok/5", (isWrongFix || isFalse) && "bg-ko/10", l.stop && !isFixed && "bg-amber/5")}>
+                  <span className={cx("font-mono font-semibold", isFixed ? "text-ok" : isWrongFix || isFalse ? "text-ko" : l.stop ? "text-amber" : "text-sky")}>{l.op}</span>
                   <span className="leading-relaxed text-ink/90">
                     {l.stop && <span className="mr-2 rounded border border-amber/60 px-1.5 py-0.5 font-mono text-[10px] uppercase text-amber">Point d'arrêt</span>}
                     {isFixed ? <span className="text-ok">{l.fixed}</span> : l.t}
                     {isFixed && <span className="ml-2 inline-flex items-center gap-1 font-mono text-[10px] uppercase text-ok"><CheckCircle2 size={11} /> corrigé</span>}
-                    {isFalse && !l.err && <span className="ml-2 font-mono text-[10px] uppercase text-muted">conforme</span>}
+                    {isWrongFix && <span className="ml-2 font-mono text-[10px] uppercase text-ko">correctif faux / écart manqué</span>}
+                    {isFalse && <span className="ml-2 font-mono text-[10px] uppercase text-ko">fausse alerte</span>}
                   </span>
                 </button>
               );
@@ -1162,34 +1122,36 @@ function TabAuditeur({ done, onComplete }) {
           )}
           {line && line.ok && (
             <div className="flex flex-col gap-2">
-              <Eyebrow tone="green">Ligne {line.op} · conforme</Eyebrow>
+              <Eyebrow tone="red">Ligne {line.op} · conforme</Eyebrow>
               <p className="text-[14px] text-ink">{line.why}</p>
-              <p className="text-[13px] text-muted">Fausse alerte comptée : un auditeur qui rejette des lignes saines fait perdre du temps à la chaîne. Cherche ailleurs.</p>
+              <p className="text-[13px] text-ko">Fausse alerte enregistrée (définitive) : un auditeur qui rejette des lignes saines fait perdre du temps à la chaîne.</p>
             </div>
           )}
           {line && !line.ok && (
             <div className="flex flex-col gap-3">
-              <Eyebrow tone={fixed[line.op] ? "green" : "red"}>Ligne {line.op} · {line.err}</Eyebrow>
-              {fixed[line.op] ? (
-                <Feedback ok>Correctif appliqué : la ligne est maintenant conforme.</Feedback>
-              ) : (
-                <>
-                  <p className="text-[14px] text-ink">Écart détecté. Choisis le correctif normatif à écrire dans la gamme :</p>
-                  <ChoiceStep key={line.op} options={line.options} answer={line.options.findIndex((o) => o.ok)} picked={tries[line.op]} onPick={choose} locked={false} />
-                  {tries[line.op] !== undefined && !line.options[tries[line.op]].ok && <Feedback ok={false}>{line.options[tries[line.op]].why}</Feedback>}
-                </>
-              )}
+              <Eyebrow tone={at.get(line.op)?.ok ? "green" : at.get(line.op) ? "red" : "amber"}>Ligne {line.op} · {line.err}</Eyebrow>
+              <p className="text-[14px] text-ink">Écart détecté. Choisis le correctif normatif à écrire dans la gamme (un seul choix) :</p>
+              <ChoiceStep key={optKey + line.op} options={line.options} answer={line.options.findIndex((o) => o.ok)} picked={at.get(line.op)?.k} onPick={choose} />
+              {at.get(line.op) && (at.get(line.op).ok
+                ? <Feedback ok>Correctif appliqué : la ligne est maintenant conforme.</Feedback>
+                : <Feedback ok={false}>{line.options[at.get(line.op).k]?.why || "Écart non détecté."} Correctif attendu : {line.fixed}</Feedback>)}
             </div>
           )}
         </Panel>
       </div>
 
+      {!at.finished && (
+        <div className="flex flex-wrap items-center gap-3">
+          <PrimaryButton onClick={submit} tone="amber"><Lock size={16} /> Soumettre l'audit (définitif)</PrimaryButton>
+          <span className="text-[12px] text-muted">Les écarts non traités seront comptés comme manqués. Validation à 85 % des {AUDIT_LINES.length} lignes.</span>
+        </div>
+      )}
+      {at.finished && <AtelierResult at={at} okText="Audit validé (≥ 85 %) : la gamme part en production." />}
       {valid && (
         <ImpactBox title="Gamme libérée pour la production">
-          Les 5 écarts que tu as corrigés sont ceux que relève un audit EASA ou un audit client sur une POA : traçabilité S/N, péremption, couple chiffré, retrait des bouchons et double contrôle indépendant ATA 67. {Object.keys(falseAlarms).length === 0 ? "Et sans aucune fausse alerte." : "Travaille encore ton tri : " + Object.keys(falseAlarms).length + " ligne(s) saine(s) ont été suspectées."}
+          Les écarts que tu as corrigés sont ceux que relève un audit EASA ou un audit client sur une POA : traçabilité S/N, péremption, couple chiffré, retrait des bouchons et double contrôle indépendant ATA 67. {falseAlarms === 0 ? "Et sans aucune fausse alerte." : "Travaille encore ton tri : " + falseAlarms + " ligne(s) saine(s) ont été suspectées."}
         </ImpactBox>
       )}
-      <div><button type="button" onClick={reset} className="inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-wider text-muted hover:text-ink"><RotateCcw size={12} /> Recharger le brouillon</button></div>
       <ValidatedBanner done={done} label="Gamme servocommande H175 passée en VALIDÉ PRODUCTION." />
     </div>
   );
@@ -1283,32 +1245,33 @@ function TabEdge({ done, onComplete }) {
   const edOk = ed >= edMin - 1e-9;
   const pitchOk = pitch >= 4 * d - 1e-9 && pitch <= 6 * d + 1e-9;
 
+  /* 6 décisions notées, chacune verrouillée : calcul ED mini, verdict, puis 4 étapes de l'arbre QN */
+  const at = useAtelier({ id: "m3-edge-distance-qn", label: "Edge Distance & arbre de décision QN (6 décisions)", total: 2 + QN_TREE.length, onComplete });
   const [calc, setCalc] = useState("");
-  const [calcOk, setCalcOk] = useState(null);
-  const [verdict, setVerdict] = useState(null);
-  const [answers, setAnswers] = useState({});
-  const [tries, setTries] = useState({});
-
-  const calcStepOk = calcOk === true && verdict === "nc";
-  const solvedCount = QN_TREE.filter((s) => answers[s.id]).length;
-  const allSolved = calcStepOk && solvedCount === QN_TREE.length;
-  useEffect(() => { if (allSolved) onComplete(); }, [allSolved]);
+  useEffect(() => setCalc(""), [at.draw]);
+  const calcA = at.get("calc");
+  const calcOk = calcA ? calcA.ok : null;
+  const verdictA = at.get("verdict");
+  const verdict = verdictA ? verdictA.k : null;
+  const calcStepOk = !!verdictA;
+  const allSolved = at.passed;
 
   const loadCase = () => { setD(5); setEd(7.5); setPitch(25); setMat("alu"); };
   const checkCalc = () => {
     const v = parseFloat(String(calc).replace(",", "."));
-    setCalcOk(Math.abs(v - 10) < 0.01);
+    at.lock("calc", { ok: Math.abs(v - 10) < 0.01, q: "ED mini pour Ø 5 mm en aluminium (mm)", choix: String(calc), bonne: "10 mm (2 × D)" });
   };
+  const setVerdict = (v) => at.lock("verdict", { k: v, ok: v === "nc", q: "Verdict : trou à 7,5 mm du bord pour 10 mm requis", choix: v === "nc" ? "Non conforme" : "Conforme", bonne: "Non conforme" });
   const choose = (s, k2) => {
-    setTries({ ...tries, [s.id]: k2 });
-    if (s.options[k2].ok) setAnswers({ ...answers, [s.id]: true });
+    const good = s.options.findIndex((o) => o.ok);
+    at.lock(s.id, { k: k2, ok: !!s.options[k2].ok, q: s.title, choix: s.options[k2].t, bonne: s.options[good].t });
   };
-  const reset = () => { setCalc(""); setCalcOk(null); setVerdict(null); setAnswers({}); setTries({}); loadCase(); };
+  const reset = () => { at.relaunch(); loadCase(); };
   const visibleSteps = [];
   if (calcStepOk) {
     for (const s of QN_TREE) {
       visibleSteps.push(s);
-      if (!answers[s.id]) break;
+      if (!at.isLocked(s.id)) break;
     }
   }
 
@@ -1352,32 +1315,31 @@ function TabEdge({ done, onComplete }) {
         <Eyebrow tone="amber">Étape 1 · Vérification de la règle ED ≥ 2D</Eyebrow>
         <p className="mt-2 text-[14px] text-ink">Fixation Ø 5 mm dans une cornière en aluminium. Quelle est la distance au bord minimale requise, en mm ?</p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <input type="text" inputMode="decimal" value={calc} onChange={(e) => { setCalc(e.target.value); setCalcOk(null); }} disabled={calcOk === true}
+          <input type="text" inputMode="decimal" value={calcA ? calcA.choix : calc} onChange={(e) => setCalc(e.target.value)} disabled={!!calcA}
             className="w-28 rounded-lg border border-line bg-bg px-3 py-2 font-mono text-ink focus:border-sky focus:outline-none" placeholder="mm" aria-label="Distance au bord minimale en mm" />
-          <PrimaryButton onClick={checkCalc} disabled={!calc || calcOk === true}>Vérifier</PrimaryButton>
+          <PrimaryButton onClick={checkCalc} disabled={!calc || !!calcA}><Lock size={14} /> Valider (définitif)</PrimaryButton>
         </div>
-        {calcOk !== null && <div className="mt-2"><Feedback ok={calcOk}>{calcOk ? "2 × 5 = 10 mm." : "Applique ED ≥ 2 × D en métallique."}</Feedback></div>}
-        {calcOk && (
+        {calcOk !== null && <div className="mt-2"><Feedback ok={calcOk}>{calcOk ? "2 × 5 = 10 mm." : "Faux (verrouillé). En métallique, ED ≥ 2 × D : 2 × 5 = 10 mm."}</Feedback></div>}
+        {calcA && (
           <div className="mt-4 flex flex-col gap-2">
             <p className="text-[14px] text-ink">Le centre du trou est mesuré à 7,5 mm du bord. Ton verdict ?</p>
             <div className="flex flex-wrap gap-2">
-              <Chip active={verdict === "c"} tone={verdict === "c" ? "red" : "blue"} disabled={verdict === "nc"} onClick={() => verdict !== "nc" && setVerdict("c")}>Conforme</Chip>
-              <Chip active={verdict === "nc"} tone={verdict === "nc" ? "green" : "blue"} disabled={verdict === "nc"} onClick={() => setVerdict("nc")}>Non conforme</Chip>
+              <LockChip state={optState("c", verdict ?? undefined, "nc")} onClick={() => setVerdict("c")}>Conforme</LockChip>
+              <LockChip state={optState("nc", verdict ?? undefined, "nc")} onClick={() => setVerdict("nc")}>Non conforme</LockChip>
             </div>
-            {verdict && <Feedback ok={verdict === "nc"}>{verdict === "nc" ? "10 mm requis > 7,5 mm mesuré : non conforme. Il manque 2,5 mm de matière au bord, le risque est le cisaillement ou l'arrachement du bord sous charge." : "7,5 mm est inférieur aux 10 mm requis."}</Feedback>}
+            {verdict && <Feedback ok={verdict === "nc"}>{verdict === "nc" ? "10 mm requis > 7,5 mm mesuré : non conforme. Il manque 2,5 mm de matière au bord, le risque est le cisaillement ou l'arrachement du bord sous charge." : "Faux (verrouillé) : 7,5 mm est inférieur aux 10 mm requis, la fixation est non conforme."}</Feedback>}
           </div>
         )}
       </Panel>
 
       {visibleSteps.map((s, i) => {
-        const t = tries[s.id];
-        const solved = answers[s.id];
+        const t = at.get(s.id)?.k;
         return (
           <Panel key={s.id} className="p-5">
             <Eyebrow tone="amber">Étape {i + 2} · Arbre de décision QN</Eyebrow>
             <p className="mb-3 mt-2 font-display text-lg font-semibold text-ink">{s.title}</p>
-            <ChoiceStep options={s.options} answer={s.options.findIndex((o) => o.ok)} picked={t} onPick={(k2) => choose(s, k2)} locked={!!solved} />
-            {t !== undefined && <div className="mt-3"><Feedback ok={s.options[t].ok}>{s.options[t].why}</Feedback></div>}
+            <ChoiceStep key={at.draw + s.id} options={s.options} answer={s.options.findIndex((o) => o.ok)} picked={t} onPick={(k2) => choose(s, k2)} />
+            {t !== undefined && <div className="mt-3"><Feedback ok={!!s.options[t].ok}>{s.options[t].why}{!s.options[t].ok && <> Bonne décision : {s.options.find((o) => o.ok).t}</>}</Feedback></div>}
           </Panel>
         );
       })}
@@ -1387,7 +1349,7 @@ function TabEdge({ done, onComplete }) {
           Mesure, verdict, sécurisation, description cotée, vérification des conditions du standard, dérogation BE puis opération de réparation tracée : le préparateur n'a jamais décidé seul d'un écart à la définition.
         </ImpactBox>
       )}
-      <div><button type="button" onClick={reset} className="inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-wider text-muted hover:text-ink"><RotateCcw size={12} /> Rejouer le scénario</button></div>
+      {at.finished && <AtelierResult at={at} onRelaunch={reset} />}
       <ValidatedBanner done={done} label="Écart d'Edge Distance traité de la mesure à la réparation." />
     </div>
   );
@@ -1398,276 +1360,120 @@ function TabEdge({ done, onComplete }) {
    ============================================================ */
 const QUESTIONS = [
   {
-    tag: "E-BOM / M-BOM",
-    q: "Le kit du poste 30 arrive sans mastic ni fil à freiner, alors que toutes les pièces de la 3D sont là. Quelle nomenclature est incomplète ?",
-    options: ["L'E-BOM du Bureau d'Études", "La M-BOM construite par les Méthodes", "La liste de colisage du fournisseur", "Le certificat de type"],
-    answer: 1,
+    tag: "E-BOM / M-BOM", scenario: true,
+    q: "H160, FAL poste 30. Le kit arrive sans mastic ni fil à freiner, alors que toutes les pièces de la maquette 3D sont présentes. Quelle nomenclature est incomplète ?",
+    options: ["La M-BOM construite par les méthodes", "L'E-BOM livrée par le bureau d'études", "La liste de colisage du fournisseur", "La nomenclature du plan d'ensemble"],
+    answer: 0,
     why: "Les consommables ne figurent pas toujours dans la 3D. C'est au préparateur de les ajouter dans la M-BOM, rattachés au bon poste, pour que le kitting soit complet.",
-    risk: "Compagnon bloqué au poste, ou pire : utilisation d'un mastic « trouvé » sur un autre poste, sans traçabilité de lot ni de péremption.",
+    risk: "Compagnon bloqué, ou mastic « trouvé » sur un autre poste, sans traçabilité de lot ni de péremption.",
   },
   {
     tag: "Part-21G / Part-21J",
-    q: "Quelle organisation peut approuver une dérogation (concession) à la définition de type ?",
-    options: ["L'organisme de production Part-21G (POA)", "L'organisme de conception Part-21J (DOA), via le BE / Stress Office", "Le chef d'équipe de la FAL", "Le préparateur méthodes s'il a plus de 5 ans d'expérience"],
-    answer: 1,
+    q: "H145, écart de fabrication constaté en FAL. Quelle organisation peut approuver une dérogation (concession) à la définition de type ?",
+    options: ["L'organisme de conception Part-21J (DOA), via le BE", "L'organisme de production Part-21G (POA), via la qualité", "La direction de la FAL, après analyse de l'impact délai", "Le préparateur méthodes responsable de la gamme du poste"],
+    answer: 0,
     why: "Part-21G produit conformément à la définition approuvée. Seul le titulaire de l'approbation de conception (Part-21J) peut juger qu'un écart reste acceptable.",
-    risk: "Un écart accepté par la production seule rend l'appareil non conforme à son certificat de type : il ne peut pas recevoir de certificat de navigabilité.",
+    risk: "Un écart accepté par la production seule rend l'appareil non conforme à son certificat de type.",
   },
   {
     tag: "Configuration · RG.Aéro 000 23", scenario: true,
-    q: "Le plan indique : indice D effectif S/N 2105 à 2150, indice E à partir de 2151. Tu prépares la gamme de l'appareil S/N 2150. Quel indice ?",
-    options: ["Indice D", "Indice E", "Le plus récent par défaut", "Celui du dernier appareil sorti de la chaîne"],
+    q: "H145, préparation de la gamme du S/N 2150. Le plan indique : indice D effectif S/N 2105 à 2150, indice E à partir de 2151. Quel indice appelles-tu ?",
+    options: ["Indice D, la borne 2150 étant incluse dans sa tranche", "Indice E, l'indice le plus récent prévalant par défaut", "Indice E, la borne 2150 étant exclue de la tranche D", "Indice D ou E, au choix selon le stock disponible"],
     answer: 0,
-    why: "Les bornes de tranche sont incluses : 2150 est le dernier appareil de l'indice D. L'indice ne se choisit pas « au plus récent », il se lit dans l'effectivité.",
-    risk: "Montage d'une définition non applicable à ce MSN : non-conformité de configuration découverte à la livraison, avec démontage.",
+    why: "Les bornes de tranche sont incluses : 2150 est le dernier appareil de l'indice D. L'indice ne se choisit pas « au plus récent » ni selon le stock, il se lit dans l'effectivité.",
+    risk: "Montage d'une définition non applicable à ce numéro de série : non-conformité de configuration découverte à la livraison.",
   },
   {
     tag: "MOD / SB",
-    q: "Une modification est introduite à partir du S/N 2151. Un client veut l'appliquer sur son H145 S/N 2090, déjà livré. Par quel document ?",
-    options: ["Un MOD de production", "Un Service Bulletin (SB)", "Une QN", "Une nouvelle gamme de FAL"],
-    answer: 1,
-    why: "Le MOD agit en chaîne sur une tranche de production. Pour un appareil en service, la modification passe par un Service Bulletin appliqué en exploitation ou maintenance.",
-    risk: "Confusion entre documents de production et d'exploitation : modification appliquée sans le cadre approuvé pour la flotte en service.",
+    q: "H145. Une modification est introduite en production à partir du S/N 2151. Un client veut l'appliquer sur son appareil S/N 2090, déjà livré. Par quel document ?",
+    options: ["Un Service Bulletin (SB)", "Un MOD de production", "Une QN de dérogation", "Une gamme de FAL révisée"],
+    answer: 0,
+    why: "Le MOD agit en chaîne sur une tranche de production. Pour un appareil en service, la modification passe par un Service Bulletin appliqué en exploitation ou en maintenance.",
+    risk: "Modification appliquée sans le cadre approuvé pour la flotte en service.",
   },
   {
     tag: "Shelf Life", scenario: true,
-    q: "Au poste, le compagnon constate que la cartouche de PR 1776 B2 est périmée depuis 3 jours. Il n'y en a pas d'autre. Que prescrit la gamme ?",
-    options: ["L'utiliser, 3 jours ne changent rien", "Refuser la cartouche, l'isoler et en demander une conforme ; l'opération attend", "L'utiliser en doublant la quantité", "La réchauffer pour la rendre plus fluide"],
-    answer: 1,
-    why: "La date de péremption est un critère d'acceptation. Au-delà, la polymérisation et l'adhérence ne sont plus garanties par le fabricant. La gamme impose le contrôle avant mélange.",
-    risk: "Joint qui ne polymérise pas ou décolle : infiltration, corrosion à l'interface et étanchéité perdue, découvertes en service.",
+    q: "H160, poste étanchéité. La cartouche de PR 1776 B 2 est périmée depuis 3 jours et il n'y en a pas d'autre au poste. Que prescrit la gamme ?",
+    options: ["Refuser la cartouche, l'isoler, en obtenir une conforme ; l'opération attend", "L'utiliser : un dépassement de 3 jours reste dans la marge du fabricant", "L'utiliser en augmentant le temps de polymérisation prévu de 50 %", "La réchauffer à 40 °C pour retrouver sa fluidité, puis l'utiliser"],
+    answer: 0,
+    why: "La date de péremption est un critère d'acceptation : au-delà, la polymérisation et l'adhérence ne sont plus garanties. La gamme impose le contrôle avant mélange.",
+    risk: "Joint qui ne polymérise pas ou décolle : infiltration, corrosion et étanchéité perdue, découvertes en service.",
   },
   {
-    tag: "Rework / Repair / Use As Is / Scrap",
-    q: "Le BE accepte un alésage légèrement hors tolérance sans aucune intervention physique, après calcul de marge. Quelle décision ?",
-    options: ["REWORK", "REPAIR", "USE AS IS", "SCRAP"],
-    answer: 2,
+    tag: "Décision QN",
+    q: "H175, QN sur un alésage légèrement hors tolérance. Le BE l'accepte après calcul de marge, sans aucune intervention physique. Quelle est la décision ?",
+    options: ["USE AS IS (en l'état)", "REWORK (retouche)", "REPAIR (réparation)", "SCRAP (rebut)"],
+    answer: 0,
     why: "USE AS IS : la pièce reste en l'état, l'acceptation repose sur la démonstration par le calcul du BE. Elle est tracée dans la QN.",
-    risk: "Mauvaise décision tracée : un REPAIR noté sans travaux, ou un USE AS IS sans justification calculée, invalide le dossier de l'appareil.",
+    risk: "Un REPAIR noté sans travaux, ou un USE AS IS sans justification calculée, invalide le dossier de l'appareil.",
   },
   {
     tag: "Repair",
-    q: "Après une décision REPAIR du BE (pose d'un doubleur), qui rédige l'opération de réparation dans la gamme QN ?",
-    options: ["Le compagnon, à sa façon", "Le préparateur méthodes, à partir de l'instruction BE", "L'inspecteur Qualité", "Le client"],
-    answer: 1,
+    q: "H160, QN avec décision REPAIR du BE (pose d'un doubleur). Qui rédige l'opération de réparation exécutable dans la gamme QN ?",
+    options: ["Le préparateur méthodes, à partir de l'instruction BE", "Le compagnon qui réalisera la réparation au poste", "L'inspecteur qualité qui prononcera l'acceptation", "Le bureau d'études, directement dans le MES de la FAL"],
+    answer: 0,
     why: "Le BE décide et définit la réparation. Le préparateur la transforme en opération exécutable : outillage, consommables, couples, traçabilité, point d'arrêt.",
     risk: "Réparation réalisée sans instruction écrite : impossible à contrôler et à prouver, la QN ne peut pas être soldée.",
   },
   {
     tag: "Hold Point",
-    q: "Pourquoi un point d'arrêt qualité est-il placé juste avant la fermeture d'un caisson ?",
-    options: ["Pour laisser le temps au mastic de sécher", "Parce qu'après fermeture, la zone devient inaccessible au contrôle", "Pour compter les heures du compagnon", "Par habitude, il n'est pas obligatoire"],
-    answer: 1,
-    why: "Le Hold Point bloque la gamme dans le MES jusqu'à la validation de l'inspecteur. C'est la dernière occasion de vérifier fixations, propreté et FOD avant la perte d'accès.",
-    risk: "Défaut ou FOD enfermé dans un caisson : impossible à détecter ensuite sans dépose lourde, voire découvert en vol.",
+    q: "H145, gamme de caisson de plancher. Pourquoi un point d'arrêt qualité est-il placé juste avant la fermeture du caisson ?",
+    options: ["Après fermeture, la zone devient inaccessible au contrôle", "Le mastic d'interposition doit avoir atteint son état sec", "Le temps passé du poste doit être validé avant la suite", "Le client assiste systématiquement à cette opération"],
+    answer: 0,
+    why: "Le point d'arrêt bloque la gamme dans le MES jusqu'à la validation de l'inspecteur : dernière occasion de vérifier fixations, propreté et FOD avant la perte d'accès.",
+    risk: "Défaut ou FOD enfermé dans un caisson : indétectable ensuite sans dépose lourde.",
   },
   {
     tag: "Edge Distance · Métal", scenario: true,
-    q: "Fixation Ø 4,8 mm dans une tôle aluminium. Le centre du trou est à 9 mm du bord. Verdict ?",
-    options: ["Conforme : 9 mm ≥ 9,6 mm", "Non conforme : 2D = 9,6 mm > 9 mm", "Conforme : seule la règle du pas compte", "Conforme si on pose une rondelle"],
-    answer: 1,
+    q: "H160, tôle en alliage d'aluminium, fixation Ø 4,8 mm. Le centre du trou est à 9 mm du bord. Avec la règle ED ≥ 2D, quel est ton verdict ?",
+    options: ["Non conforme : 2D = 9,6 mm > 9 mm, QN", "Conforme : 9 mm ≥ 1,5D = 7,2 mm", "Conforme : seule la règle du pas s'applique", "Conforme : une rondelle large compense"],
+    answer: 0,
     why: "2 × 4,8 = 9,6 mm. 9 mm est en dessous : non conforme, QN obligatoire. Une rondelle n'ajoute aucune matière entre le trou et le bord.",
     risk: "Arrachement du bord sous charge, fissuration en fatigue à partir du trou.",
   },
   {
     tag: "Edge Distance · Composite", scenario: true,
-    q: "Fixation Ø 6 mm dans un panneau carbone, règle 2,5D. Quelle distance au bord minimale ?",
-    options: ["12 mm", "13 mm", "15 mm", "24 mm"],
-    answer: 2,
+    q: "H175, panneau carbone, fixation Ø 6 mm, règle ED ≥ 2,5D. Quelle distance au bord minimale vérifies-tu ?",
+    options: ["15 mm", "12 mm", "13 mm", "18 mm"],
+    answer: 0,
     why: "2,5 × 6 = 15 mm. Le composite supporte mal le matage et le délaminage en bord de trou, d'où une marge supérieure au métal.",
-    risk: "Délaminage et arrachement du bord du stratifié, endommagement souvent invisible en surface.",
+    risk: "Délaminage et arrachement du bord du stratifié, souvent invisible en surface.",
   },
   {
-    tag: "Double contrôle ATA 67",
-    q: "Le compagnon qui a accouplé une bielle de commande de vol rotor propose de faire lui-même le double contrôle pour gagner du temps. Ta réponse ?",
-    options: ["Accepté s'il signe deux fois", "Refusé : le double contrôle est fait par un second contrôleur habilité, indépendant du montage", "Accepté si le chef d'équipe est présent", "Accepté, l'ATA 67 n'en exige pas"],
-    answer: 1,
-    why: "Le Duplicate Inspection est indépendant par définition : un autre regard, une autre signature. Celui qui a monté reproduirait sa propre erreur.",
+    tag: "Double contrôle ATA 67", scenario: true,
+    q: "H160, poste commandes. Le compagnon qui a accouplé une bielle de commande rotor propose de faire lui-même le double contrôle pour gagner du temps. Ta réponse ?",
+    options: ["Refus : un second contrôleur habilité et indépendant du montage", "Accord s'il signe la gamme deux fois, à deux moments distincts", "Accord si le chef d'équipe assiste au contrôle et contresigne", "Accord si l'opération est filmée pour une revue ultérieure"],
+    answer: 0,
+    why: "Le double contrôle est indépendant par définition : un autre regard, une autre signature. Celui qui a monté reproduirait sa propre erreur.",
     risk: "Commande de vol mal goupillée ou inversée non détectée : perte de contrôle de l'appareil.",
   },
   {
     tag: "Oversize · Cas A ou B", scenario: true,
-    q: "Une QN montre qu'un trou dévié peut passer en oversize Ø 5,5 mm selon un standard pré-approuvé. Le trou est à 10,5 mm du bord, en aluminium. Applicable ?",
-    options: ["Oui : 2 × 5,5 = 11 mm, et 10,5 mm suffit", "Non : avec Ø 5,5 mm, ED mini = 11 mm > 10,5 mm, Cas B vers le BE", "Oui, l'oversize est toujours autorisé", "Oui, avec une rondelle large"],
-    answer: 1,
+    q: "H145, tôle aluminium. Une QN montre qu'un trou dévié peut passer en oversize Ø 5,5 mm selon un standard pré-approuvé. Le trou est à 10,5 mm du bord. Le standard est-il applicable ?",
+    options: ["Non : ED mini = 11 mm > 10,5 mm, la QN part au BE", "Oui : ED mini = 10 mm < 10,5 mm, standard appliqué", "Oui : un oversize pré-approuvé s'applique toujours", "Oui : à condition de poser une rondelle large"],
+    answer: 0,
     why: "Le standard n'est applicable que si l'ED reste ≥ 2D avec le nouveau diamètre. 10,5 < 11 : on sort du standard, la QN part au BE pour dérogation.",
-    risk: "Réparation standard appliquée hors de ses conditions : l'écart n'est couvert par aucune approbation de conception.",
+    risk: "Réparation standard appliquée hors de ses conditions : écart couvert par aucune approbation de conception.",
   },
 ];
-function TabSprint({ done, onComplete, onScore }) {
-  const [order, setOrder] = useState(() => shuffle(QUESTIONS.map((_, i) => i)));
-  const [perms, setPerms] = useState(() => QUESTIONS.map((q) => shuffle(q.options.map((_, k) => k))));
-  const [pos, setPos] = useState(0);
-  const [picked, setPicked] = useState(null);
-  const [history, setHistory] = useState([]);
-  const [streak, setStreak] = useState(0);
-  const [best, setBest] = useState(0);
-  const [started, setStarted] = useState(false);
-
-  const total = order.length;
-  const finished = pos >= total;
-  const correct = history.filter((h) => h.ok).length;
-  const reliability = history.length ? Math.round((correct / history.length) * 100) : 100;
-  const q = !finished ? QUESTIONS[order[pos]] : null;
-
-  useEffect(() => {
-    if (!finished) return;
-    /* Pont LMS : score brut tronqué au dixième (jamais arrondi vers le haut), statut calculé par le portail */
-    const raw = (correct / total) * 100;
-    if (onScore) onScore(Math.floor(raw * 10) / 10);
-    if (raw >= 85) onComplete();
-  }, [finished]);
-
-  const answer = (k) => {
-    if (picked !== null) return;
-    setPicked(k);
-    const ok = k === q.answer;
-    setHistory([...history, { qi: order[pos], picked: k, ok }]);
-    const s = ok ? streak + 1 : 0;
-    setStreak(s);
-    setBest(Math.max(best, s));
-  };
-  const next = () => { setPos(pos + 1); setPicked(null); };
-  const restart = () => {
-    setOrder(shuffle(QUESTIONS.map((_, i) => i)));
-    setPerms(QUESTIONS.map((q) => shuffle(q.options.map((_, k) => k))));
-    setPos(0); setPicked(null); setHistory([]); setStreak(0); setBest(0); setStarted(true);
-  };
-
-  const relTone = reliability >= 85 ? "text-ok" : reliability >= 65 ? "text-amber" : "text-ko";
-  const letters = ["A", "B", "C", "D"];
-
-  if (!started) {
-    return (
-      <div className="flex flex-col gap-6">
-        <SectionHead icon={Trophy} kicker="Onglet 7 · Évaluation" title="Sprint Préparateur Méthodes · Module 3">
-          {QUESTIONS.length} questions tirées au hasard, questions et mises en situation sur le bureau des méthodes et la FAL Airbus Helicopters (H145, H160, H175). Après chaque réponse, une explication technique te montre pourquoi c'est juste, et ce que l'erreur aurait provoqué sur chaîne ou en audit.
-        </SectionHead>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Panel className="p-4"><Flame size={18} className="text-amber" /><div className="mt-2 font-display text-lg font-semibold text-ink">Série</div><p className="text-[13px] text-muted">Enchaîne les bonnes réponses pour faire monter ta série.</p></Panel>
-          <Panel className="p-4"><Gauge size={18} className="text-ok" /><div className="mt-2 font-display text-lg font-semibold text-ink">Fiabilité industrielle</div><p className="text-[13px] text-muted">Ton taux de bonnes réponses. 85 % minimum pour valider le module.</p></Panel>
-          <Panel className="p-4"><AlertTriangle size={18} className="text-ko" /><div className="mt-2 font-display text-lg font-semibold text-ink">Conséquence terrain</div><p className="text-[13px] text-muted">Chaque erreur est reliée à la non-conformité qu'elle aurait causée.</p></Panel>
-        </div>
-        <div><PrimaryButton onClick={restart} tone="amber"><Zap size={16} /> Lancer le sprint</PrimaryButton></div>
-        <ValidatedBanner done={done} label="Sprint réussi avec au moins 85 % de fiabilité." />
-      </div>
-    );
-  }
-
-  if (finished) {
-    const pct = Math.round((correct / total) * 100);
-    const grade = pct >= 85 ? { t: "Valide", c: "text-ok", d: pct >= 90 ? "Ta gamme partirait en production sans retour du contrôle qualité." : "Bonne maîtrise. Revois les points ci-dessous avant le module suivant." }
-      : { t: "À revoir", c: "text-ko", d: "Score inférieur à 85 % : module non validé. Relis les points ci-dessous et les onglets concernés, puis relance le sprint." };
-    const errors = history.filter((h) => !h.ok);
-    return (
-      <div className="flex flex-col gap-6">
-        <Panel className="p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-            <Award size={44} className={grade.c} />
-            <div className="min-w-0 flex-1">
-              <Eyebrow tone="amber">Débriefing du sprint</Eyebrow>
-              <div className={cx("font-display text-3xl font-semibold", grade.c)}>{grade.t}</div>
-              <p className="text-[14px] text-ink/85">{grade.d}</p>
-            </div>
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-lg border border-line bg-bg px-3 py-2"><div className="font-mono text-2xl font-semibold text-ink tabular-nums">{correct}/{total}</div><div className="font-mono text-[10px] uppercase text-muted">Bonnes</div></div>
-              <div className="rounded-lg border border-line bg-bg px-3 py-2"><div className={cx("font-mono text-2xl font-semibold tabular-nums", grade.c)}>{pct}%</div><div className="font-mono text-[10px] uppercase text-muted">Fiabilité</div></div>
-              <div className="rounded-lg border border-line bg-bg px-3 py-2"><div className="font-mono text-2xl font-semibold text-amber tabular-nums">{best}</div><div className="font-mono text-[10px] uppercase text-muted">Meilleure série</div></div>
-            </div>
-          </div>
-        </Panel>
-        {errors.length > 0 && (
-          <div className="flex flex-col gap-2">
-            <Eyebrow tone="red">À revoir · {errors.length} point{errors.length > 1 ? "s" : ""}</Eyebrow>
-            {errors.map((h) => {
-              const qq = QUESTIONS[h.qi];
-              return (
-                <Panel key={h.qi} className="p-4">
-                  <div className="font-mono text-[11px] uppercase tracking-wider text-muted">{qq.tag}</div>
-                  <div className="text-[14px] font-semibold text-ink">{qq.q}</div>
-                  <div className="mt-1 text-[13px] text-ok">Bonne réponse : {qq.options[qq.answer]}</div>
-                  <div className="mt-1 text-[13px] text-ink/80">{qq.why}</div>
-                </Panel>
-              );
-            })}
-          </div>
-        )}
-        <div><PrimaryButton onClick={restart} tone="amber"><RotateCcw size={16} /> Relancer un sprint</PrimaryButton></div>
-        <ValidatedBanner done={done} label="Sprint réussi avec au moins 85 % de fiabilité." />
-      </div>
-    );
-  }
-
-  const ok = picked !== null && picked === q.answer;
+function TabPlan2({ done, onComplete }) {
   return (
-    <div className="flex flex-col gap-5">
-      <div className="grid grid-cols-3 gap-2">
-        <Panel className="p-3">
-          <div className="font-mono text-[10px] uppercase tracking-wider text-muted">Question</div>
-          <div className="font-mono text-xl font-semibold text-ink tabular-nums">{pos + 1}<span className="text-muted">/{total}</span></div>
-        </Panel>
-        <Panel className="p-3">
-          <div className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-wider text-muted"><Flame size={12} className={streak > 0 ? "text-amber" : "text-muted"} /> Série</div>
-          <div className={cx("font-mono text-xl font-semibold tabular-nums", streak >= 3 ? "text-amber" : "text-ink")}>{streak}{streak >= 3 && <span className="ml-1 text-sm">en feu</span>}</div>
-        </Panel>
-        <Panel className="p-3">
-          <div className="font-mono text-[10px] uppercase tracking-wider text-muted">Fiabilité industrielle</div>
-          <div className={cx("font-mono text-xl font-semibold tabular-nums", relTone)}>{reliability}%</div>
-        </Panel>
-      </div>
-      <div className="flex gap-1" aria-label="Progression du sprint">
-        {order.map((qi, i) => {
-          const h = history[i];
-          return <div key={qi} className={cx("h-1.5 flex-1 rounded-full", h ? (h.ok ? "bg-ok" : "bg-ko") : i === pos ? "bg-sky" : "bg-line")} />;
-        })}
-      </div>
-
-      <Panel className="p-5 sm:p-6">
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <span className="rounded-md border border-sky/50 bg-sky/10 px-2 py-0.5 font-mono text-[11px] text-sky">{q.tag}</span>
-          {q.scenario && <span className="rounded-md border border-amber/50 bg-amber/10 px-2 py-0.5 font-mono text-[11px] text-amber">Mise en situation</span>}
-        </div>
-        <h3 className="font-display text-xl font-semibold leading-snug text-ink sm:text-2xl" style={{ textWrap: "balance" }}>{q.q}</h3>
-        <div className="mt-5 flex flex-col gap-2">
-          {perms[order[pos]].map((k, slot) => [q.options[k], k, slot]).map(([o, k, slot]) => {
-            const isAns = k === q.answer;
-            const isPicked = k === picked;
-            const state = picked === null ? "idle" : isAns ? "good" : isPicked ? "bad" : "dim";
-            return (
-              <button key={k} type="button" onClick={() => answer(k)} disabled={picked !== null}
-                className={cx("flex items-start gap-3 rounded-lg border p-3 text-left text-[14px] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky",
-                  state === "idle" && "border-line bg-bg text-ink hover:border-sky/70",
-                  state === "good" && "border-ok bg-ok/10 text-ink",
-                  state === "bad" && "border-ko bg-ko/10 text-ink",
-                  state === "dim" && "border-line bg-bg text-muted")}>
-                <span className={cx("flex h-6 w-6 shrink-0 items-center justify-center rounded font-mono text-xs font-semibold", state === "good" ? "bg-ok text-bg" : state === "bad" ? "bg-ko text-bg" : "bg-line text-ink")}>{letters[slot]}</span>
-                <span className="min-w-0 flex-1">{o}</span>
-                {state === "good" && <CheckCircle2 size={18} className="shrink-0 text-ok" />}
-                {state === "bad" && <XCircle size={18} className="shrink-0 text-ko" />}
-              </button>
-            );
-          })}
-        </div>
-
-        {picked !== null && (
-          <div className="mt-5 flex flex-col gap-3">
-            <div className={cx("rounded-lg border p-4", ok ? "border-ok/50 bg-ok/10" : "border-ko/50 bg-ko/10")}>
-              <div className="mb-1 flex items-center gap-2">
-                {ok ? <CheckCircle2 size={18} className="text-ok" /> : <XCircle size={18} className="text-ko" />}
-                <span className={cx("font-display text-lg font-semibold", ok ? "text-ok" : "text-ko")}>{ok ? "Bonne réponse" : "Réponse incorrecte"}</span>
-              </div>
-              <div className="font-mono text-[10px] uppercase tracking-wider text-muted">Explication technique</div>
-              <p className="mt-1 text-[14px] leading-relaxed text-ink">{q.why}</p>
-            </div>
-            <div className="rounded-lg border border-amber/40 bg-amber/10 p-4">
-              <div className="mb-1 flex items-center gap-2"><AlertTriangle size={16} className="text-amber" /><span className="font-mono text-[11px] uppercase tracking-wider text-amber">{ok ? "Ce que tu viens d'éviter sur chaîne" : "Ce que ton erreur aurait provoqué sur chaîne"}</span></div>
-              <p className="text-[14px] leading-relaxed text-ink">{q.risk}</p>
-            </div>
-            <div><PrimaryButton onClick={next}>{pos + 1 === total ? "Voir le débriefing" : "Question suivante"} <ArrowRight size={16} /></PrimaryButton></div>
-          </div>
-        )}
-      </Panel>
+    <div className="flex flex-col gap-6">
+      <SectionHead icon={FileText} kicker="Onglet 7 · Du plan d'ensemble à la M-BOM" title="Lire un plan d'ensemble BE et en tirer la M-BOM par poste">
+        Le plan d'ensemble de la jonction cadre / plancher H160 porte l'empilage, la nomenclature E-BOM et les procédés spéciaux. Analyse chaque repère, puis découpe la nomenclature en kits de poste comme le fait le bureau des méthodes.
+      </SectionHead>
+      <NoteBox>Plan de formation : références réalistes mais fictives. Le même plan est audité en géométrie dans le Module 4A (Labo plans).</NoteBox>
+      <PlanLab plan={{ ...PLAN2_MBOM, onComplete }} />
+      <ValidatedBanner done={done} label="Tu sais transformer une E-BOM en M-BOM par poste à partir du plan." />
     </div>
+  );
+}
+function TabSprint({ done, onComplete, onScore }) {
+  return (
+    <SprintQCM questions={QUESTIONS} done={done} onComplete={onComplete} onScore={onScore}
+      SectionHead={SectionHead} ValidatedBanner={ValidatedBanner}
+      kicker="Onglet 8 · Évaluation" title="Sprint Préparateur Méthodes · Module 3"
+      intro={`${QUESTIONS.length} questions tirées au hasard, questions et mises en situation sur le bureau des méthodes et la FAL Airbus Helicopters (H145, H160, H175). Après chaque réponse, une explication technique te montre pourquoi c'est juste, et ce que l'erreur aurait provoqué sur chaîne ou en audit.`} />
   );
 }
 
@@ -1682,7 +1488,8 @@ const TABS = [
   { id: "lean", short: "Lean & ergonomie", n: "4", icon: Puzzle, rule: "Réussir le contrôle de fin d'onglet" },
   { id: "auditeur", short: "Auditeur de gamme", n: "5", icon: ClipboardCheck, rule: "Corriger les 5 écarts pour passer la gamme en VALIDÉ PRODUCTION" },
   { id: "edge", short: "Edge Distance & QN", n: "6", icon: Ruler, rule: "Traiter l'écart de la mesure jusqu'à la réparation" },
-  { id: "sprint", short: "Sprint", n: "7", icon: Trophy, rule: "Finir le sprint avec 85 % ou plus" },
+  { id: "plan2", short: "Plan → M-BOM", n: "7", icon: FileText, rule: "Réussir l'atelier E-BOM → M-BOM avec 85 % ou plus" },
+  { id: "sprint", short: "Sprint", n: "8", icon: Trophy, rule: "Finir le sprint avec 85 % ou plus" },
 ];
 export default function App({ onSaveScore, onBack, student } = {}) {
   const [tab, setTab] = useState("be");
@@ -1749,6 +1556,7 @@ export default function App({ onSaveScore, onBack, student } = {}) {
         {tab === "lean" && <TabLean done={progress.lean} onComplete={complete("lean")} />}
         {tab === "auditeur" && <TabAuditeur done={progress.auditeur} onComplete={complete("auditeur")} />}
         {tab === "edge" && <TabEdge done={progress.edge} onComplete={complete("edge")} />}
+        {tab === "plan2" && <TabPlan2 done={progress.plan2} onComplete={complete("plan2")} />}
         {tab === "sprint" && <TabSprint done={progress.sprint} onComplete={complete("sprint")} onScore={onSaveScore} />}
 
         <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">

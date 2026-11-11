@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import BackToPortal from "../lms/BackToPortal.jsx";
+import Quincaillerie from "./m2/Quincaillerie.jsx";
 import { scopedKey } from "../lms/session.js";
+import { shuffle, shuffleSpread, permutation, useAtelier, AtelierCounter, AtelierResult, LockRule, LockChip, OptionButton, optState, LETTERS, LockedQuickCheck, SprintQCM, useModuleSession } from "../lib/pedago.jsx";
 import {
   Layers, Hexagon, Wrench, Zap, ListOrdered, Eye, Trophy, Drill, ShieldCheck, ShieldAlert,
   CheckCircle2, XCircle, Flame, RotateCcw, ChevronRight, ArrowUp, ArrowDown, Play,
@@ -30,14 +32,6 @@ const saveProgress = (p) => {
   } catch (e) {
     /* stockage indisponible : la progression reste en mémoire */
   }
-};
-const shuffle = (arr) => {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
 };
 const cx = (...c) => c.filter(Boolean).join(" ");
 const fmt = (n) => (n > 0 ? "+" : "") + n.toLocaleString("fr-FR");
@@ -131,55 +125,9 @@ function ValidatedBanner({ done, label }) {
 }
 
 /* QCM court réutilisable pour valider un onglet */
-function QuickCheck({ title, questions, onComplete }) {
-  const [picked, setPicked] = useState({});
-  const [perms] = useState(() => questions.map((q) => shuffle(q.options.map((_, k) => k))));
-  const allGood = questions.every((q, i) => picked[i] === q.answer);
-  useEffect(() => {
-    if (allGood) onComplete();
-  }, [allGood]);
-  return (
-    <Panel className="p-5">
-      <div className="mb-4 flex items-center gap-2">
-        <ClipboardList size={18} className="text-sky" />
-        <h3 className="font-display text-xl font-semibold text-ink">{title}</h3>
-        <span className="ml-auto font-mono text-xs text-muted">
-          {questions.filter((q, i) => picked[i] === q.answer).length}/{questions.length} validées
-        </span>
-      </div>
-      <div className="flex flex-col gap-5">
-        {questions.map((q, i) => {
-          const p = picked[i];
-          const answered = p !== undefined;
-          const good = p === q.answer;
-          return (
-            <div key={i} className="flex flex-col gap-2">
-              <div className="text-[15px] font-medium text-ink">{i + 1}. {q.q}</div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {perms[i].map((k) => [q.options[k], k]).map(([o, k]) => (
-                  <Chip
-                    key={k}
-                    active={p === k}
-                    tone={p === k ? (good ? "green" : "red") : "blue"}
-                    disabled={good}
-                    onClick={() => !good && setPicked({ ...picked, [i]: k })}
-                  >
-                    {o}
-                  </Chip>
-                ))}
-              </div>
-              {answered && (
-                <div className={cx("rounded-lg border px-3 py-2 text-[13px] leading-relaxed", good ? "border-ok/40 bg-ok/10 text-ink" : "border-ko/40 bg-ko/10 text-ink")}>
-                  {good ? <strong className="text-ok">Exact. </strong> : <strong className="text-ko">Non, recommence. </strong>}
-                  {good ? q.why : q.hint}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </Panel>
-  );
+/* Contrôle de fin d'onglet : 1er clic verrouillé, questions et propositions mélangées, validation ≥ 85 % */
+function QuickCheck(props) {
+  return <LockedQuickCheck {...props} />;
 }
 
 /* ============================================================
@@ -365,10 +313,10 @@ function ShimCalculator() {
 }
 
 const Q_STRUCT = [
-  { q: "Après le contre-perçage et l'alésage d'un empilage, l'opérateur veut poser directement les Hi-Lok pour gagner du temps. Que prescrit la gamme ?", options: ["Pose directe si l'alésage est propre", "Démontage, ébavurage, nettoyage, puis pose", "Soufflage à l'air comprimé puis pose", "Pose directe avec mastic en excès"], answer: 1, why: "Le démontage est le seul moyen d'enlever les copeaux et bavures piégés entre les tôles. Un copeau coincé empêche le plaquage, concentre les contraintes et piège l'humidité.", hint: "Pense à ce qui se trouve entre les deux tôles, là où on ne voit rien." },
-  { q: "Tu perces un revêtement carbone dont la face de sortie est libre. Quelles prescriptions écris-tu ?", options: ["Foret acier rapide, avance forte", "Foret carbure ou diamant, appui arrière (martyr), aspiration", "Perçage à la main sans aspiration", "Poinçonnage puis alésage"], answer: 1, why: "Sans appui arrière, les derniers plis s'écartent sous la poussée du foret : c'est le délaminage de sortie. L'outil carbure ou diamant coupe la fibre proprement, l'aspiration capte la poussière conductrice.", hint: "Le défaut apparaît en sortie de trou, côté où rien ne retient les plis." },
-  { q: "Un support présente un jeu de 0,3 mm avec la structure. Le compagnon propose de « serrer un peu plus fort pour que ça plaque ». Ta réponse ?", options: ["D'accord si le couple reste dans la plage", "Refus : on cale, on ne tire jamais une structure au serrage", "D'accord avec une rondelle plus épaisse", "D'accord si la pièce est en titane"], answer: 1, why: "Tirer une pièce pour fermer un jeu crée des contraintes résiduelles. Avec les vibrations du rotor, elles se transforment en criques de fatigue. Le jeu se traite par une cale pelable ou liquide.", hint: "Pense à ce que deviennent les contraintes internes sous les vibrations du rotor." },
-  { q: "Pourquoi l'aspiration des poussières de carbone est-elle obligatoire, en plus de la protection de l'opérateur ?", options: ["Elles rayent la peinture", "Elles sont conductrices et peuvent créer des courts-circuits sur l'avionique", "Elles accélèrent la polymérisation du PR", "Elles faussent les cotes de l'alésage"], answer: 1, why: "La fibre de carbone conduit l'électricité. Dispersée dans la cellule, sa poussière se dépose dans les connecteurs et équipements : risque de courts-circuits et de pannes intermittentes.", hint: "Le carbone a une propriété électrique particulière." },
+  { q: "H160, poste jonction de cadre (zone 300). Après contre-perçage et alésage d'un empilage tôle / cornière, l'opérateur veut poser les Hi-Lok directement pour gagner du temps. Que prescrit la gamme ?", options: ["Démontage, ébavurage, nettoyage des faces, puis pose définitive", "Soufflage à l'air sec des alésages, puis pose définitive immédiate", "Pose directe avec un cordon de PR en excès pour noyer les copeaux", "Pose directe, puis contrôle de plaquage à la cale d'épaisseur"], answer: 0, why: "Le démontage est le seul moyen d'enlever les copeaux et bavures piégés entre les tôles. Un copeau coincé empêche le plaquage, concentre les contraintes et piège l'humidité.", hint: "Pense à ce qui se trouve entre les deux tôles, là où on ne voit rien." },
+  { q: "H175, poste panneau de plancher carbone. Tu perces un revêtement composite dont la face de sortie est libre. Quelles prescriptions écris-tu dans la gamme ?", options: ["Foret carbure ou diamant, appui arrière (martyr), aspiration à la source", "Foret acier rapide affûté à 118°, avance forte, soufflage des poussières", "Foret carbure, perçage sans appui arrière, nettoyage final par chiffon humide", "Poinçonnage de l'avant-trou, puis alésage acier rapide sans aspiration"], answer: 0, why: "Sans appui arrière, les derniers plis s'écartent sous la poussée du foret : délaminage de sortie. L'outil carbure ou diamant coupe la fibre proprement, l'aspiration capte une poussière conductrice.", hint: "Le défaut apparaît en sortie de trou, côté où rien ne retient les plis." },
+  { q: "H145, pose d'un support d'équipement sur cadre. Un jeu de 0,3 mm subsiste entre support et structure. Le compagnon propose de « serrer un peu plus pour que ça plaque ». Quelle est ta réponse ?", options: ["Refus : le jeu se traite par calage (pelable ou liquide), jamais au serrage", "Accord si le couple appliqué reste dans la plage du plan", "Accord en ajoutant une rondelle plus épaisse sous l'écrou", "Accord si la fixation est en titane, plus résistante"], answer: 0, why: "Tirer une pièce pour fermer un jeu crée des contraintes résiduelles. Sous les vibrations du rotor, elles deviennent des criques de fatigue. Le jeu se traite par une cale.", hint: "Pense à ce que deviennent les contraintes internes sous les vibrations du rotor." },
+  { q: "H160, perçage de panneaux carbone en cabine équipée. En plus de la protection de l'opérateur, pourquoi l'aspiration des poussières est-elle obligatoire ?", options: ["Les poussières de carbone sont conductrices : risque de courts-circuits avionique", "Les poussières de carbone accélèrent la polymérisation des mastics PR voisins", "Les poussières de carbone rayent les vitrages et faussent les cotes d'alésage", "Les poussières de carbone dégradent l'adhérence de la peinture de finition"], answer: 0, why: "La fibre de carbone conduit l'électricité. Dispersée dans la cellule, sa poussière se dépose dans les connecteurs et équipements : courts-circuits et pannes intermittentes.", hint: "Le carbone a une propriété électrique particulière." },
 ];
 
 function TabStructure({ done, onComplete }) {
@@ -615,10 +563,10 @@ function PotLifePlanner() {
 }
 
 const Q_FIX = [
-  { q: "Tu dois fermer le caisson d'une dérive de Fenestron : l'intérieur n'est plus accessible. Quelle famille de fixations prescris-tu ?", options: ["Rivets pleins", "Rivets aveugles structuraux (type CherryMax)", "Vis et écrous standard", "Collage seul"], answer: 1, why: "Le rivet plein exige un tas côté queue, donc l'accès aux deux faces. Le rivet aveugle structural se pose et se contrôle d'un seul côté.", hint: "Quelle fixation se pose en n'ayant accès qu'à une seule face ?" },
-  { q: "Que vérifie le contrôle qualité prescrit après la pose d'un Hi-Lok ?", options: ["Uniquement la rupture de collerette", "Rupture de collerette, dépassement de tige à la jauge, absence de jeu sous tête", "Le couple au torquemètre après rupture", "La couleur de la bague"], answer: 1, why: "La rupture prouve que le couple a été atteint, la jauge prouve que la longueur de serrage (grip) est la bonne, l'absence de jeu sous tête prouve le plaquage.", hint: "Il y a trois points à contrôler." },
-  { q: "Que signifie « PR 1422 B 2 » sur une gamme ?", options: ["2 couches à appliquer", "Durée de vie en pot de 2 heures", "Polymérisation en 2 jours", "Épaisseur 2 mm"], answer: 1, why: "Le code B donne la durée d'utilisation du mélange : B 1/2 = 30 min, B 2 = 2 heures. Le préparateur le choisit selon la quantité de travail à faire sur le poste.", hint: "Le chiffre derrière la lettre B est une durée." },
-  { q: "Un revêtement carbone est fixé sur un cadre en aluminium. Quelle configuration prescris-tu à l'interface ?", options: ["Contact direct, c'est plus rigide", "Pli de verre isolant, primaire sur l'alu et PR d'interposition", "Graisse entre les pièces", "Rondelles inox seulement"], answer: 1, why: "Le carbone et l'aluminium ont un fort écart de potentiel. Il faut couper le contact électrique (verre), protéger l'alu (primaire) et empêcher l'eau d'entrer (PR).", hint: "Il faut empêcher la pile galvanique de se former." },
+  { q: "H135, fermeture du caisson de dérive du Fenestron. L'intérieur n'est plus accessible une fois le revêtement posé. Quelle famille de fixations prescris-tu ?", options: ["Rivets aveugles structuraux type CherryMax", "Rivets pleins posés au pistolet et au tas", "Vis et écrous autofreinés standard", "Lockbolts sertis avec bouterolle"], answer: 0, why: "Le rivet plein et le lockbolt exigent un accès côté queue ou collier. Le rivet aveugle structural se pose et se contrôle d'un seul côté.", hint: "Quelle fixation se pose en n'ayant accès qu'à une seule face ?" },
+  { q: "H160, poste jonction poutre. Après pose d'une série de Hi-Lok, que doit vérifier le contrôle qualité prescrit par la gamme ?", options: ["Rupture de collerette, dépassement de tige à la jauge, absence de jeu sous tête", "Rupture de collerette, couple résiduel au torquemètre, couleur de la bague", "Dépassement de tige à la jauge, couple résiduel, marquage de la tête de tige", "Rupture de collerette seule, la jauge n'étant utile qu'en cas de doute"], answer: 0, why: "La rupture prouve que le couple de pose a été atteint, la jauge que la longueur de serrage (grip) est la bonne, l'absence de jeu sous tête que l'assemblage est plaqué.", hint: "Il y a trois points à contrôler." },
+  { q: "H175, poste étanchéité de caisson. La gamme appelle le mastic « PR 1422 B 2 ». Que signifie le code « B 2 » ?", options: ["Durée d'utilisation du mélange de 2 heures", "Application en 2 couches croisées", "Polymérisation complète en 2 jours", "Épaisseur de cordon de 2 mm"], answer: 0, why: "Le code B donne la durée d'utilisation (vie en pot) du mélange : B 1/2 = 30 min, B 2 = 2 heures. Le préparateur le choisit selon la quantité de travail du poste.", hint: "Le chiffre derrière la lettre B est une durée." },
+  { q: "H160, revêtement carbone fixé sur un cadre en alliage d'aluminium. Quelle configuration prescris-tu à l'interface ?", options: ["Pli de verre isolant, primaire sur l'aluminium, PR d'interposition", "Contact direct alu / carbone, PR en cordon extérieur seulement", "Graisse anticorrosion entre pièces, rondelles inox sous écrous", "Primaire sur le carbone seulement, montage à sec au couple"], answer: 0, why: "Carbone et aluminium ont un fort écart de potentiel. Il faut couper le contact électrique (verre), protéger l'aluminium (primaire) et empêcher l'eau d'entrer (PR).", hint: "Il faut empêcher la pile galvanique de se former." },
 ];
 
 function TabFixations({ done, onComplete }) {
@@ -668,6 +616,8 @@ function TabFixations({ done, onComplete }) {
         </ImpactBox>
         <PotLifePlanner />
       </div>
+
+      <Quincaillerie />
 
       <QuickCheck title="Contrôle de fin d'onglet · Fixations & PR" questions={Q_FIX} onComplete={onComplete} />
       <ValidatedBanner done={done} label="Familles de fixations, anticorrosion et mastics PR maîtrisés." />
@@ -856,10 +806,10 @@ function BNutSVG({ noBackup = false }) {
 }
 
 const Q_TORQUE = [
-  { q: "Un écrou auto-freiné a un couple nominal de 20 à 24 N·m. Le couple de freinage mesuré à l'approche est de 3 N·m et la norme demande l'addition. Que doit afficher l'opérateur ?", options: ["20 à 24 N·m", "23 à 27 N·m", "17 à 21 N·m", "24 N·m fixe"], answer: 1, why: "Le couple de freinage est consommé par le frottement de l'élément freineur, pas par la mise en tension de la vis. On l'ajoute pour obtenir la bonne précharge : 20 + 3 et 24 + 3.", hint: "Le freinage absorbe une partie du couple sans serrer la vis." },
-  { q: "Pourquoi une clé de contre-couple est-elle obligatoire sur un raccord B-nut de tuyauterie hydraulique ?", options: ["Pour aller plus vite", "Pour ne pas transmettre de torsion au tube, qui se vrillerait", "Pour mesurer le couple", "Pour remplacer le fil à freiner"], answer: 1, why: "Sans maintien du raccord fixe, l'effort de serrage fait tourner l'ensemble et vrille le tube : contrainte permanente, fissure par fatigue vibratoire et fuite.", hint: "Que subit le tube si le raccord tourne avec l'écrou ?" },
-  { q: "Quelle est la règle absolue du fil à freiner ?", options: ["Il doit être très tendu, peu importe le sens", "Il doit toujours tirer la fixation dans le sens du serrage", "Il doit faire au moins 20 torsades par pouce", "On peut réutiliser le fil d'un démontage"], answer: 1, why: "Si la fixation tente de se desserrer sous les vibrations du rotor, le fil se tend et la retient. Posé à l'envers, il l'aide au contraire à se dévisser.", hint: "Le fil doit s'opposer au desserrage." },
-  { q: "L'écrou à créneaux d'une bielle ATA 67 arrive au couple mini et le créneau ne tombe pas en face du trou de goupille. Que fait l'opérateur ?", options: ["Il desserre jusqu'au créneau précédent", "Il poursuit le serrage jusqu'au créneau suivant, sans dépasser le couple maxi", "Il goupille de travers", "Il remplace la goupille par du fil"], answer: 1, why: "On ne desserre jamais pour aligner, on ne force jamais au-delà du maxi. Si aucun créneau n'est accessible dans la plage, on change la rondelle ou l'écrou selon la norme.", hint: "Desserrer fait tomber sous le couple mini." },
+  { q: "H145, poste fixation de support. Écrou autofreiné, couple nominal 20 à 24 N·m. Le couple de freinage mesuré à l'approche est de 3 N·m et la norme demande de l'ajouter. Quelle plage l'opérateur doit-il afficher ?", options: ["23 à 27 N·m", "20 à 24 N·m", "17 à 21 N·m", "21,5 à 25,5 N·m"], answer: 0, why: "Le couple de freinage est consommé par le frottement de l'élément freineur, pas par la mise en tension de la vis. On l'ajoute : 20 + 3 et 24 + 3.", hint: "Le freinage absorbe une partie du couple sans serrer la vis." },
+  { q: "H160, plancher mécanique, serrage d'un raccord B-nut de tuyauterie hydraulique. Pourquoi la gamme impose-t-elle une clé de contre-couple ?", options: ["Pour ne pas transmettre de torsion au tube, qui se vrillerait", "Pour mesurer le couple appliqué sans torquemètre étalonné", "Pour remplacer le freinage au fil sur ce type de raccord", "Pour répartir l'effort et réduire la fatigue de l'opérateur"], answer: 0, why: "Sans maintien du raccord fixe, l'effort de serrage fait tourner l'ensemble et vrille le tube : contrainte permanente, fissure par fatigue vibratoire, fuite.", hint: "Que subit le tube si le raccord tourne avec l'écrou ?" },
+  { q: "H125, compartiment BTP, freinage au fil d'un bouchon de vidange. Quelle est la règle de pose du fil à freiner ?", options: ["Le fil doit tirer la fixation dans le sens du serrage", "Le fil doit être tendu au maximum, quel que soit le sens", "Le fil doit compter au moins 20 torsades par pouce", "Le fil d'un démontage peut être réutilisé s'il est intact"], answer: 0, why: "Si la fixation tente de se desserrer sous les vibrations, le fil se tend et la retient. Posé à l'envers, il l'aide au contraire à se dévisser. Le fil n'est jamais réutilisé.", hint: "Le fil doit s'opposer au desserrage." },
+  { q: "H160, bielle de commande ATA 67. L'écrou à créneaux atteint le couple mini et aucun créneau n'est en face du trou de goupille. Que fait l'opérateur ?", options: ["Il poursuit jusqu'au créneau suivant sans dépasser le couple maxi", "Il desserre jusqu'au créneau précédent pour aligner le trou", "Il pose la goupille en biais dans le créneau le plus proche", "Il remplace la goupille par un freinage au fil à freiner"], answer: 0, why: "On ne desserre jamais pour aligner, on ne force jamais au-delà du maxi. Si aucun créneau n'est accessible dans la plage, on change la rondelle ou l'écrou selon la norme.", hint: "Desserrer fait tomber sous le couple mini." },
 ];
 
 function TabTorque({ done, onComplete }) {
@@ -984,9 +934,14 @@ const FOD_ITEMS = [
   { id: "embout", x: 104, y: 70, n: "Embout de visseuse", draw: <polygon points="-3,-3 3,-3 4,0 3,3 -3,3 -4,0" fill="#9fb0c8" /> },
 ];
 
+const FOD_MAX_MISS = 2; /* 2 clics dans le vide tolérés, au 3e la zone est déclarée fermée */
 function FodHunt() {
-  const [found, setFound] = useState([]);
+  const at = useAtelier({ id: "m2-chasse-fod", label: "Chasse au FOD avant fermeture du plancher mécanique", total: FOD_ITEMS.length });
+  /* Nouveau tirage : les 6 objets sont redistribués au hasard sur les 6 emplacements */
+  const pos = useMemo(() => { const slots = shuffle(FOD_ITEMS.map((f) => [f.x, f.y])); return Object.fromEntries(FOD_ITEMS.map((f, i) => [f.id, slots[i]])); }, [at.draw]);
   const [miss, setMiss] = useState(0);
+  useEffect(() => setMiss(0), [at.draw]);
+  const found = FOD_ITEMS.filter((f) => at.get(f.id)?.ok).map((f) => f.id);
   const svgRef = useRef(null);
   const click = (e) => {
     const svg = svgRef.current;
@@ -994,8 +949,12 @@ function FodHunt() {
     const pt = svg.createSVGPoint();
     pt.x = e.clientX; pt.y = e.clientY;
     const p = pt.matrixTransform(svg.getScreenCTM().inverse());
-    const hit = FOD_ITEMS.find((f) => !found.includes(f.id) && Math.hypot(f.x - p.x, f.y - p.y) < 14);
-    if (hit) setFound([...found, hit.id]); else setMiss(miss + 1);
+    if (at.finished) return;
+    const hit = FOD_ITEMS.find((f) => !at.isLocked(f.id) && Math.hypot(pos[f.id][0] - p.x, pos[f.id][1] - p.y) < 14);
+    if (hit) { at.lock(hit.id, { ok: true, q: hit.n, choix: "Trouvé", bonne: "Trouvé" }); return; }
+    const m = miss + 1;
+    setMiss(m);
+    if (m > FOD_MAX_MISS) FOD_ITEMS.forEach((f) => at.lock(f.id, { ok: false, q: f.n, choix: "Non trouvé (zone fermée)", bonne: "Trouvé" }));
   };
   const all = found.length === FOD_ITEMS.length;
   return (
@@ -1003,9 +962,9 @@ function FodHunt() {
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <Search size={18} className="text-amber" />
         <h3 className="font-display text-xl font-semibold text-ink">Chasse au FOD avant fermeture du plancher mécanique</h3>
-        <span className="ml-auto font-mono text-[12px] text-ink tabular-nums">{found.length}/{FOD_ITEMS.length} trouvés</span>
+        <span className="ml-auto font-mono text-[12px] text-ink tabular-nums">{found.length}/{FOD_ITEMS.length} trouvés · {Math.max(0, FOD_MAX_MISS - miss)} clic(s) dans le vide restant(s)</span>
       </div>
-      <p className="mb-3 text-[13px] text-muted">Zone sous la BTP, au-dessus de la timonerie de commandes de vol. Clique sur chaque corps étranger avant de signer le point d'arrêt.</p>
+      <p className="mb-3 text-[13px] text-muted">Zone sous la BTP, au-dessus de la timonerie de commandes de vol. Clique sur chaque corps étranger avant de signer le point d'arrêt. Au 3e clic dans le vide, la zone est déclarée fermée et les objets restants sont comptés oubliés. Les objets changent de place à chaque tirage.</p>
       <svg ref={svgRef} viewBox="0 0 360 200" onClick={click} className="w-full cursor-crosshair rounded-lg border border-line bg-[#101827]" role="img" aria-label="Vue de dessus du plancher mécanique, corps étrangers à trouver">
         {[40, 120, 200, 280].map((x) => <rect key={x} x={x} y="10" width="6" height="180" fill="#22304d" />)}
         <rect x="10" y="94" width="340" height="6" fill="#22304d" />
@@ -1018,16 +977,17 @@ function FodHunt() {
         <text x="24" y="30" fontSize="9" fill="#8fa0bd" fontFamily="JetBrains Mono">BIELLES ATA 67</text>
         <text x="24" y="124" fontSize="9" fill="#8fa0bd" fontFamily="JetBrains Mono">HARNAIS</text>
         {FOD_ITEMS.map((f) => (
-          <g key={f.id} transform={`translate(${f.x} ${f.y})`}>
+          <g key={f.id} transform={`translate(${pos[f.id][0]} ${pos[f.id][1]})`}>
             {f.draw}
             {found.includes(f.id) && <circle r="11" fill="none" stroke="#3ddc97" strokeWidth="2" />}
+            {at.finished && !found.includes(f.id) && <circle r="11" fill="none" stroke="#ff5d6c" strokeWidth="2" strokeDasharray="3 2" />}
           </g>
         ))}
       </svg>
       <div className="mt-3 flex flex-wrap gap-2">
         {FOD_ITEMS.map((f) => (
-          <span key={f.id} className={cx("rounded-md border px-2 py-1 font-mono text-[11px]", found.includes(f.id) ? "border-ok/60 bg-ok/10 text-ok" : "border-line text-muted")}>
-            {found.includes(f.id) ? f.n : "?"}
+          <span key={f.id} className={cx("rounded-md border px-2 py-1 font-mono text-[11px]", found.includes(f.id) ? "border-ok/60 bg-ok/10 text-ok" : at.finished ? "border-ko/60 bg-ko/10 text-ko" : "border-line text-muted")}>
+            {found.includes(f.id) || at.finished ? f.n : "?"}
           </span>
         ))}
         {miss > 0 && <span className="ml-auto font-mono text-[11px] text-muted">{miss} clic{miss > 1 ? "s" : ""} dans le vide</span>}
@@ -1035,18 +995,18 @@ function FodHunt() {
       {all && (
         <div className="mt-3 rounded-lg border border-ok/50 bg-ok/10 p-3 text-[13px] text-ink">
           <strong className="text-ok">Zone propre. </strong>Chacun de ces objets aurait pu bloquer une bielle ou un guignol, ou être aspiré par une turbine. Sans point d'arrêt écrit, personne n'aurait été chargé de les chercher.
-          <button type="button" onClick={() => { setFound([]); setMiss(0); }} className="ml-2 font-mono text-[11px] uppercase text-muted underline hover:text-ink">Recommencer</button>
         </div>
       )}
+      {at.finished && <div className="mt-3"><AtelierResult at={at} koText="Au moins un corps étranger est resté dans la zone : sur avion réel, la fermeture du plancher serait refusée. Relance la chasse (nouvelles positions)." /></div>}
     </Panel>
   );
 }
 
 const Q_BOND = [
-  { q: "Quelle est la séquence correcte d'une métallisation de tresse de masse ?", options: ["Montage, mesure, décapage", "Décapage, montage au couple, mesure, re-protection", "Mesure, décapage, montage", "Montage sur peinture, mesure"], answer: 1, why: "La peinture isole : on décape d'abord, on monte au couple, on mesure au milliohmmètre, et on referme la zone à nu par une re-protection anticorrosion.", hint: "La mesure n'a de sens qu'une fois le contact établi, et la zone à nu doit être refermée." },
-  { q: "Pourquoi la métallisation est-elle critique sur un hélicoptère en particulier ?", options: ["Pour l'esthétique", "Les pales qui frottent l'air chargent la cellule en électricité statique, en plus du retour de masse et de la foudre", "Pour réduire la masse", "Pour isoler les harnais"], answer: 1, why: "La rotation des pales génère des charges électrostatiques importantes. Sans continuité électrique de la cellule, elles se déchargent de façon incontrôlée et perturbent l'avionique.", hint: "Pense à ce que provoque le frottement des pales dans l'air." },
-  { q: "Un harnais électrique frotte sur une tuyauterie hydraulique sous l'effet des vibrations. Comment s'appelle ce défaut et comment le prévient-on ?", options: ["Fretting ; on graisse le harnais", "Chafing ; respect des jeux minimums et colliers à garniture élastomère", "Crazing ; on peint le tube", "Pitting ; on ajoute du PR"], answer: 1, why: "Le chafing est l'usure par frottement vibratoire. Il perce l'isolant puis le tube : court-circuit et fuite. Ségrégation, jeux minimums et colliers garnis l'évitent.", hint: "C'est un terme EWIS courant, lié au frottement." },
-  { q: "Où le préparateur place-t-il le point d'arrêt « Contrôle FOD & aspiration » ?", options: ["À la livraison client", "Avant toute fermeture de zone ou de caisson", "Après le premier vol", "Uniquement en fin de chaîne FAL"], answer: 1, why: "Une fois la zone fermée, un objet oublié est invisible et inaccessible. Le contrôle doit avoir lieu juste avant la fermeture, signé dans la gamme.", hint: "Après, il est trop tard pour voir." },
+  { q: "H160, poste équipements électriques. Quelle est la séquence correcte de métallisation d'une tresse de masse sur structure peinte ?", options: ["Décapage local, montage au couple, mesure, re-protection", "Montage au couple, mesure, décapage local, re-protection", "Mesure, décapage local, montage au couple, re-protection", "Montage sur peinture, mesure, re-protection si hors limite"], answer: 0, why: "La peinture isole : on décape d'abord, on monte au couple, on mesure au milliohmmètre, puis on referme la zone à nu par une re-protection anticorrosion.", hint: "La mesure n'a de sens qu'une fois le contact établi." },
+  { q: "H145, cellule en cours d'équipement. Pourquoi la continuité électrique (métallisation) est-elle particulièrement critique sur un hélicoptère ?", options: ["Les pales chargent la cellule en électricité statique, en plus du retour de masse et de la foudre", "La cellule non pressurisée laisse entrer l'humidité qui isole les jonctions entre panneaux", "Les moteurs à turbine produisent un courant parasite qui doit s'écouler par la structure", "La métallisation remplace le harnais de masse et réduit ainsi la masse de l'appareil"], answer: 0, why: "La rotation des pales génère d'importantes charges électrostatiques. Sans continuité électrique de la cellule, elles se déchargent de façon incontrôlée et perturbent l'avionique.", hint: "Pense à ce que provoque le frottement des pales dans l'air." },
+  { q: "H160, plancher mécanique. Un harnais électrique frotte sur une tuyauterie hydraulique sous l'effet des vibrations. Comment s'appelle ce défaut et comment le prévient-on ?", options: ["Chafing ; jeux minimums et colliers à garniture élastomère", "Fretting ; graissage du harnais au point de contact", "Crazing ; gaine thermorétractable sur le tube", "Pitting ; cordon de PR entre harnais et tube"], answer: 0, why: "Le chafing est l'usure par frottement vibratoire. Il perce l'isolant puis le tube : court-circuit et fuite. Ségrégation, jeux minimums et colliers garnis l'évitent.", hint: "C'est un terme EWIS courant, lié au frottement." },
+  { q: "H175, gamme d'un caisson de plancher. Où le préparateur place-t-il le point d'arrêt « Contrôle FOD & aspiration » ?", options: ["Juste avant toute fermeture de zone ou de caisson", "En fin de poste, une fois tous les caissons fermés", "Au contrôle final, avant la livraison au client", "Après le premier vol, lors de la visite de réception"], answer: 0, why: "Une fois la zone fermée, un objet oublié est invisible et inaccessible. Le contrôle a lieu juste avant la fermeture et il est signé dans la gamme.", hint: "Après la fermeture, il est trop tard pour voir." },
 ];
 
 function TabBonding({ done, onComplete }) {
@@ -1202,40 +1162,48 @@ function AssemblySimSVG({ fx, ok, stage }) {
 }
 
 function TabGamme({ done, onComplete }) {
+  /* Une seule simulation par tirage : la gamme lancée est définitive (8 positions notées) */
+  const at = useAtelier({ id: "m2-ordonnanceur-gamme", label: "Ordonnanceur de gamme : jonction hybride carbone / alu (8 opérations)", total: 8, onComplete });
   const [pool, setPool] = useState(() => shuffle(G_ALL.map((s) => s.id)));
   const [seq, setSeq] = useState([]);
   const [stage, setStage] = useState(-1);
   const [result, setResult] = useState(null);
-  const [tries, setTries] = useState(0);
+  const tries = at.draw + 1;
   const timer = useRef(null);
   useEffect(() => () => clearInterval(timer.current), []);
+  const frozen = stage >= 0;
 
-  const reset = () => { setStage(-1); setResult(null); };
-  const add = (id) => { if (seq.length >= 8) return; reset(); setSeq([...seq, id]); setPool(pool.filter((p) => p !== id)); };
-  const remove = (id) => { reset(); setSeq(seq.filter((s) => s !== id)); setPool([...pool, id]); };
+  const add = (id) => { if (frozen || seq.length >= 8) return; setSeq([...seq, id]); setPool(pool.filter((p) => p !== id)); };
+  const remove = (id) => { if (frozen) return; setSeq(seq.filter((s) => s !== id)); setPool([...pool, id]); };
   const move = (i, d) => {
+    if (frozen) return;
     const j = i + d; if (j < 0 || j >= seq.length) return;
-    reset(); const s = [...seq]; [s[i], s[j]] = [s[j], s[i]]; setSeq(s);
+    const s = [...seq]; [s[i], s[j]] = [s[j], s[i]]; setSeq(s);
   };
   const simulate = () => {
+    if (frozen) return;
     const r = evaluateGamme(seq);
-    setResult(r); setTries(tries + 1); setStage(0);
+    setResult(r); setStage(0);
     clearInterval(timer.current);
     let k = 0;
     timer.current = setInterval(() => {
       k += 1; setStage(k);
-      if (k >= 8) { clearInterval(timer.current); if (r.ok) onComplete(); }
+      if (k >= 8) {
+        clearInterval(timer.current);
+        seq.forEach((id, i) => at.lock(i, { ok: id === G_ORDER[i], q: `OP ${String((i + 1) * 10).padStart(3, "0")}`, choix: gLabel(id), bonne: gLabel(G_ORDER[i]) }));
+      }
     }, 380);
   };
-  const restart = () => { clearInterval(timer.current); setPool(shuffle(G_ALL.map((s) => s.id))); setSeq([]); reset(); };
+  const restart = () => { clearInterval(timer.current); setPool(shuffle(G_ALL.map((s) => s.id))); setSeq([]); setStage(-1); setResult(null); at.relaunch(); };
   const finished = stage >= 8 && result;
   const simFx = finished ? result.fx : new Set();
 
   return (
     <div className="flex flex-col gap-6">
       <SectionHead icon={ListOrdered} kicker="Atelier 1 · Ordonnanceur de gamme structure" title="Écris la gamme d'une jonction hybride carbone / alu sur la poutre de queue du H160">
-        Choisis 8 opérations parmi les 11 proposées et mets-les dans l'ordre. Trois sont des pièges vus sur poste. Lance ensuite la simulation : elle exécute ta gamme telle quelle, comme le ferait l'opérateur.
+        Choisis 8 opérations parmi les 11 proposées et mets-les dans l'ordre. Trois sont des pièges vus sur poste. Tu peux réorganiser tant que tu n'as pas lancé la simulation. Le lancement est définitif : l'opérateur exécute ta gamme telle quelle, chaque position est notée, et sous 85 % il faut relancer l'atelier avec un nouveau tirage.
       </SectionHead>
+      <LockRule />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel className="p-4">
@@ -1246,8 +1214,8 @@ function TabGamme({ done, onComplete }) {
           </div>
           <div className="flex flex-col gap-2">
             {pool.map((id) => (
-              <button key={id} type="button" onClick={() => add(id)} disabled={seq.length >= 8}
-                className={cx("rounded-lg border border-line bg-panel2 px-3 py-2 text-left text-[13px] text-ink/90 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky", seq.length >= 8 ? "cursor-not-allowed opacity-50" : "hover:border-sky/60 hover:text-ink")}>
+              <button key={id} type="button" onClick={() => add(id)} disabled={frozen || seq.length >= 8}
+                className={cx("rounded-lg border border-line bg-panel2 px-3 py-2 text-left text-[13px] text-ink/90 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky", frozen || seq.length >= 8 ? "cursor-not-allowed opacity-50" : "hover:border-sky/60 hover:text-ink")}>
                 {gLabel(id)}
               </button>
             ))}
@@ -1268,7 +1236,12 @@ function TabGamme({ done, onComplete }) {
               return (
                 <li key={i} className={cx("flex items-center gap-2 rounded-lg border px-2 py-1.5", id ? (running ? "border-sky bg-sky/15" : passed ? "border-line bg-bg" : "border-line bg-panel2") : "border-dashed border-line")}>
                   <span className="w-12 shrink-0 font-mono text-[11px] font-semibold text-sky">OP {String((i + 1) * 10).padStart(3, "0")}</span>
-                  {id ? (
+                  {id && frozen ? (
+                    <>
+                      <span className="min-w-0 flex-1 text-[13px] text-ink/90">{gLabel(id)}{at.get(i) && !at.get(i).ok && <span className="block text-[11px] text-ko">Attendu : {gLabel(G_ORDER[i])}</span>}</span>
+                      {at.get(i) && (at.get(i).ok ? <CheckCircle2 size={15} className="text-ok" /> : <XCircle size={15} className="text-ko" />)}
+                    </>
+                  ) : id ? (
                     <>
                       <span className="min-w-0 flex-1 text-[13px] text-ink/90">{gLabel(id)}</span>
                       <button type="button" aria-label="Monter" onClick={() => move(i, -1)} className="rounded p-1 text-muted hover:bg-line hover:text-ink"><ArrowUp size={14} /></button>
@@ -1281,8 +1254,8 @@ function TabGamme({ done, onComplete }) {
             })}
           </ol>
           <div className="mt-4 flex flex-wrap gap-2">
-            <PrimaryButton onClick={simulate} disabled={seq.length < 8 || (stage >= 0 && stage < 8)} tone="amber"><Play size={16} /> Simuler la gamme</PrimaryButton>
-            <button type="button" onClick={restart} className="inline-flex items-center gap-1 rounded-lg border border-line px-3 py-2 text-sm font-semibold text-muted hover:text-ink"><RotateCcw size={14} /> Vider</button>
+            <PrimaryButton onClick={simulate} disabled={seq.length < 8 || frozen} tone="amber"><Play size={16} /> Lancer la gamme (définitif)</PrimaryButton>
+            {!frozen && <button type="button" onClick={() => { setPool(shuffle(G_ALL.map((s) => s.id))); setSeq([]); }} className="inline-flex items-center gap-1 rounded-lg border border-line px-3 py-2 text-sm font-semibold text-muted hover:text-ink"><RotateCcw size={14} /> Vider</button>}
           </div>
         </Panel>
       </div>
@@ -1316,7 +1289,8 @@ function TabGamme({ done, onComplete }) {
           </div>
         </div>
       </Panel>
-      <ValidatedBanner done={done} label="Gamme structure hybride ordonnée sans erreur." />
+      {at.finished && <AtelierResult at={at} onRelaunch={restart} />}
+      <ValidatedBanner done={done} label="Gamme structure hybride ordonnée à 85 % minimum." />
     </div>
   );
 }
@@ -1366,21 +1340,23 @@ function TorqueSheet({ data }) {
 }
 
 function TabAudit({ done, onComplete }) {
-  const [order] = useState(() => AUDITS.map((_, i) => i));
+  const at = useAtelier({ id: "m2-audit-freinage", label: "Audit freinage & couple : 8 montages à accepter ou refuser", total: AUDITS.length, onComplete });
+  const order = useMemo(() => permutation(AUDITS.length), [at.draw]);
   const [pos, setPos] = useState(0);
-  const [picked, setPicked] = useState(null);
-  const [score, setScore] = useState([]);
-  const finished = pos >= order.length;
-  const good = score.filter(Boolean).length;
-  const c = !finished ? AUDITS[order[pos]] : null;
-  useEffect(() => { if (finished && good >= 7) onComplete(); }, [finished]);
-  const judge = (accept) => { if (picked !== null) return; setPicked(accept); setScore([...score, accept === c.accept]); };
-  const next = () => { setPos(pos + 1); setPicked(null); };
-  const restart = () => { setPos(0); setPicked(null); setScore([]); };
+  useEffect(() => setPos(0), [at.draw]);
+  const finished = at.finished && pos >= order.length;
+  const score = order.slice(0, Math.min(pos + 1, order.length)).map((i) => at.get(i)).filter(Boolean).map((a) => a.ok);
+  const good = at.good;
+  const c = !finished ? AUDITS[order[Math.min(pos, order.length - 1)]] : null;
+  const ci = order[Math.min(pos, order.length - 1)];
+  const picked = at.get(ci) ? at.get(ci).k : null;
+  const judge = (accept) => { if (at.isLocked(ci)) return; at.lock(ci, { k: accept, ok: accept === c.accept, q: c.zone, choix: accept ? "Accepter" : "Refuser", bonne: c.accept ? "Accepter" : "Refuser" }); };
+  const next = () => setPos(pos + 1);
+  const restart = () => at.relaunch();
 
   const head = (
     <SectionHead icon={Eye} kicker="Atelier 2 · Inspecteur freinage & couple" title="Audit sur le poste d'assemblage : tu acceptes ou tu refuses ?">
-      8 montages relevés en FAL, spécial vibrations hélico : 4 freinages au fil, 2 fiches de couple, un raccord hydraulique et une fixation Hi-Lok. 7 bonnes décisions sur 8 pour valider l'atelier.
+      8 montages relevés en FAL, présentés dans un ordre aléatoire : 4 freinages au fil, 2 fiches de couple, un raccord hydraulique et une fixation Hi-Lok. Ta décision est définitive dès le clic. 7 bonnes décisions sur 8 (87,5 %) pour valider l'atelier.
     </SectionHead>
   );
 
@@ -1395,9 +1371,9 @@ function TabAudit({ done, onComplete }) {
               <div className={cx("font-display text-3xl font-semibold", good >= 7 ? "text-ok" : "text-amber")}>{good}/{AUDITS.length} décisions justes</div>
               <p className="text-[14px] text-ink/85">{good >= 7 ? "Ton œil d'auditeur est fiable : les montages non conformes ne passent pas." : "Un montage non conforme accepté, c'est un hélicoptère qui vole avec. Relis l'onglet 3 et recommence."}</p>
             </div>
-            <PrimaryButton onClick={restart} tone="amber"><RotateCcw size={16} /> Refaire l'audit</PrimaryButton>
           </div>
         </Panel>
+        <AtelierResult at={at} />
         <ValidatedBanner done={done} label="Audit freinage & couple réussi (7/8 minimum)." />
       </div>
     );
@@ -1408,7 +1384,7 @@ function TabAudit({ done, onComplete }) {
     <div className="flex flex-col gap-6">
       {head}
       <div className="flex gap-1" aria-label="Progression de l'audit">
-        {AUDITS.map((_, i) => <div key={i} className={cx("h-1.5 flex-1 rounded-full", i < score.length ? (score[i] ? "bg-ok" : "bg-ko") : i === pos ? "bg-sky" : "bg-line")} />)}
+        {order.map((oi, i) => { const a = at.get(oi); return <div key={i} className={cx("h-1.5 flex-1 rounded-full", a ? (a.ok ? "bg-ok" : "bg-ko") : i === pos ? "bg-sky" : "bg-line")} />; })}
       </div>
       <Panel className="p-5">
         <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -1471,275 +1447,107 @@ function TabAudit({ done, onComplete }) {
 const QUESTIONS = [
   {
     tag: "Mastic PR · Pot life", scenario: true,
-    q: "Tu prépares la gamme de pose de 150 fixations en montage humide sur un caisson de H175, à environ 40 s par fixation. Quel mastic prescris-tu ?",
-    options: ["PR 1422 B 1/2, il polymérise plus vite", "PR 1422 B 2", "PR 1422 B 1/2 en un seul mélange, en demandant à l'opérateur d'accélérer", "Aucun mastic, la pose humide est facultative"],
-    answer: 1,
-    why: "150 × 40 s = 100 min, soit environ 2 h avec la marge. Un B 1/2 (30 min) serait hors durée de vie bien avant la fin. Le B 2 couvre le travail. Le préparateur choisit toujours la classe d'après la charge réelle du poste.",
-    risk: "Avec un B 1/2, le mastic devient pâteux dès la 45e fixation environ : film discontinu, fixations mal plaquées, interface non étanche et rejet de tout le lot.",
+    q: "H175, poste caisson structural. Tu prépares la pose de 150 fixations en montage humide, à environ 40 s par fixation. Quel mastic prescris-tu ?",
+    options: ["PR 1422 B 2, dont la vie en pot couvre la durée du poste", "PR 1422 B 1/2, plus rapide à polymériser, en un seul mélange", "PR 1422 B 1/2 en un seul mélange, cadence opérateur accélérée", "PR 1422 B 2 appliqué à sec après pose, en cordon de finition"],
+    answer: 0,
+    why: "150 × 40 s = 100 min, environ 2 h avec la marge. Un B 1/2 (30 min) serait hors durée de vie bien avant la fin. Le préparateur choisit la classe d'après la charge réelle du poste.",
+    risk: "Avec un B 1/2, le mastic devient pâteux vers la 45e fixation : film discontinu, fixations mal plaquées, interface non étanche, rejet du lot.",
   },
   {
     tag: "Hi-Lok · Contrôle", scenario: true,
-    q: "Sur la poutre de queue, un opérateur signale qu'une collerette Hi-Lok a cassé alors que la tête n'est pas encore plaquée (jeu visible sous tête). Que prescris-tu ?",
-    options: ["Accepter : la collerette a cassé, donc le couple est atteint", "Fixation non conforme : dépose, contrôle de l'alésage et de la longueur de serrage, pose d'une fixation neuve", "Resserrer la bague restante à la clé", "Ajouter du PR sous la tête pour combler le jeu"],
-    answer: 1,
-    why: "Une rupture anticipée signifie que le couple a été absorbé par autre chose que la mise en tension : grippage de filet, bavure, mauvais grip. La preuve de serrage est fausse. On dépose, on cherche la cause, on repose une fixation neuve.",
-    risk: "Une fixation sans précharge travaille en cisaillement alterné sous les vibrations du rotor : ovalisation du trou, puis crique dans le cadre.",
+    q: "H160, poutre de queue. Une collerette Hi-Lok a cassé alors que la tête de tige n'est pas plaquée (jeu visible sous tête). Que prescris-tu ?",
+    options: ["Dépose, contrôle de l'alésage et du grip, pose d'une fixation neuve", "Acceptation : la rupture de collerette prouve que le couple est atteint", "Resserrage de la bague restante à la clé jusqu'au plaquage de la tête", "Injection de PR sous la tête pour combler le jeu et étancher"],
+    answer: 0,
+    why: "Une rupture anticipée signifie que le couple a été absorbé par autre chose que la mise en tension : grippage, bavure, mauvais grip. La preuve de serrage est fausse.",
+    risk: "Une fixation sans précharge travaille en cisaillement alterné sous les vibrations : ovalisation du trou, puis crique dans le cadre.",
   },
   {
     tag: "ATA 20 · Métallisation", scenario: true,
-    q: "Contrôle d'une tresse de masse sur la BTP : mesure 1,8 mΩ pour un seuil de 2,5 mΩ, mais la zone décapée autour de la cosse est restée nue. Ta décision ?",
-    options: ["Conforme, la mesure est bonne", "Non conforme tant que la re-protection anticorrosion n'est pas faite", "Refaire la mesure avec un autre appareil", "Peindre par-dessus la cosse sans autre précaution"],
-    answer: 1,
+    q: "H145, compartiment BTP. Tresse de masse mesurée à 1,8 mΩ pour un seuil de 2,5 mΩ, mais la zone décapée autour de la cosse est restée nue. Quelle est ta décision ?",
+    options: ["Non conforme tant que la re-protection anticorrosion n'est pas faite", "Conforme : la mesure est sous le seuil, le dossier peut être signé", "À refaire : nouvelle mesure avec un second milliohmmètre étalonné", "Conforme sous réserve : peinture de finition posée par-dessus la cosse"],
+    answer: 0,
     why: "La séquence complète est : décapage, montage au couple, mesure, puis re-protection. La mesure valide le contact aujourd'hui, la re-protection le garantit dans la durée.",
-    risk: "Le métal nu s'oxyde sous la cosse, la résistance remonte en service, et la liaison de masse ne remplit plus sa fonction face à la foudre et à l'électricité statique.",
+    risk: "Le métal nu s'oxyde sous la cosse, la résistance remonte en service et la liaison ne protège plus contre la foudre et l'électricité statique.",
   },
   {
     tag: "Calage · BTP", scenario: true,
-    q: "Un support de BTP présente un jeu régulier de 0,4 mm avec le plancher mécanique. Que doit dire la gamme ?",
-    options: ["Serrer jusqu'au plaquage, le couple suffira", "Cale pelable pelée à 0,40 mm, contrôle de l'épaisseur puis du plaquage", "Deux rondelles sous chaque vis", "Remplir le jeu au mastic PR"],
-    answer: 1,
-    why: "Un jeu régulier se traite par une cale pelable, pelée feuillet par feuillet jusqu'à l'épaisseur mesurée. Le PR n'est pas une cale structurale, et on ne tire jamais une structure au serrage.",
-    risk: "Tirer le support crée des contraintes résiduelles juste sous la boîte de transmission principale, la zone la plus sollicitée en vibrations : criques de fatigue sur le support ou le plancher.",
+    q: "H160, plancher mécanique. Un support de BTP présente un jeu régulier de 0,4 mm avec le plancher. Que doit prescrire la gamme ?",
+    options: ["Cale pelable pelée à 0,40 mm, contrôle de l'épaisseur puis du plaquage", "Serrage au couple maxi du plan pour fermer le jeu par déformation", "Deux rondelles plates sous chaque vis pour rattraper l'épaisseur", "Remplissage du jeu au mastic PR, puis serrage après polymérisation"],
+    answer: 0,
+    why: "Un jeu régulier se traite par une cale pelable, pelée jusqu'à l'épaisseur mesurée. Le PR n'est pas une cale structurale et on ne tire jamais une structure au serrage.",
+    risk: "Tirer le support crée des contraintes résiduelles sous la BTP, zone la plus sollicitée en vibrations : criques de fatigue.",
   },
   {
     tag: "ATA 67 · Commandes de vol", scenario: true,
-    q: "Une bielle de commande de vol vient d'être posée : écrou à créneaux au couple, goupille neuve. Quelle étape la gamme doit-elle imposer avant de continuer ?",
-    options: ["Aucune, l'auto-contrôle de l'opérateur suffit", "Un double contrôle indépendant par une seconde personne, en point d'arrêt signé", "Un vernis témoin seulement", "Un essai en vol immédiat"],
-    answer: 1,
-    why: "Les commandes de vol sont un point vital : une erreur n'a pas de redondance. Le double contrôle est fait par une personne qui n'a pas réalisé le travail, et il bloque la suite de la gamme tant qu'il n'est pas signé.",
-    risk: "Une goupille oubliée ou un écrou non serré sur une bielle ATA 67, et c'est la perte de contrôle de l'hélicoptère.",
+    q: "H145, poste commandes. Une bielle de commande de vol vient d'être posée : écrou à créneaux au couple, goupille neuve. Quelle étape la gamme doit-elle imposer avant de poursuivre ?",
+    options: ["Double contrôle indépendant par une seconde personne, en point d'arrêt signé", "Autocontrôle de l'opérateur, tracé par son tampon sur la gamme", "Vernis témoin sur l'écrou, vérifié au contrôle final de l'appareil", "Contrôle différé lors de l'essai des commandes au point fixe"],
+    answer: 0,
+    why: "Les commandes de vol n'ont pas de redondance. Le double contrôle est fait par une personne qui n'a pas réalisé le travail, et il bloque la suite de la gamme tant qu'il n'est pas signé.",
+    risk: "Une goupille oubliée ou un écrou non serré sur une bielle ATA 67 peut mener à la perte de contrôle de l'appareil.",
   },
   {
     tag: "Perçage CFRP", scenario: true,
-    q: "Au premier perçage d'un revêtement carbone de H160, les trous présentent des fibres arrachées et des plis écartés en sortie. Quelle correction écris-tu ?",
-    options: ["Augmenter l'avance pour finir plus vite", "Foret carbure ou diamant, appui arrière (martyr) et paramètres adaptés", "Percer depuis l'autre face sans changer d'outil", "Ajouter du PR dans le trou"],
-    answer: 1,
+    q: "H160, premier perçage d'un revêtement carbone. Les trous présentent des fibres arrachées et des plis écartés en sortie. Quelle correction écris-tu ?",
+    options: ["Foret carbure ou diamant, appui arrière (martyr), paramètres adaptés", "Avance augmentée pour réduire le temps de contact foret / fibre", "Perçage depuis l'autre face avec le même foret acier rapide", "Foret neuf identique et injection de PR dans les trous délaminés"],
+    answer: 0,
     why: "C'est du délaminage de sortie. L'appui arrière retient les derniers plis, l'outil carbure ou diamant coupe la fibre au lieu de l'arracher.",
-    risk: "Un délaminage réduit la tenue de la jonction autour de la fixation. Selon son étendue, la pièce part en réparation ou au rebut.",
+    risk: "Le délaminage réduit la tenue de la jonction autour de la fixation : réparation ou rebut selon son étendue.",
   },
   {
     tag: "Séquence structure", scenario: true,
-    q: "Pour tenir le délai, un chef d'équipe propose de supprimer l'opération de démontage après alésage et de « bien souffler les trous ». Ta réponse ?",
-    options: ["D'accord si on souffle fort", "Refus : le démontage, l'ébavurage et le nettoyage restent obligatoires", "D'accord pour les zones alu seulement", "D'accord si le contrôle final est renforcé"],
-    answer: 1,
+    q: "H175, poste jonction. Pour tenir le délai, un chef d'équipe propose de supprimer le démontage après alésage et de « bien souffler les trous ». Quelle est ta réponse ?",
+    options: ["Refus : démontage, ébavurage et nettoyage restent obligatoires", "Accord si le soufflage est fait à l'air sec filtré et sous pression", "Accord limité aux empilages alu, refus sur les empilages carbone", "Accord si le contrôle final ajoute une inspection endoscopique"],
+    answer: 0,
     why: "Le soufflage ne sort pas les copeaux d'entre les tôles, il les pousse plus loin. Seul le démontage permet de voir et de traiter l'interface.",
-    risk: "Copeaux piégés : défaut de plaquage, concentration de contraintes et corrosion au cœur de l'assemblage. En prime, la poussière de carbone soufflée se dépose dans l'avionique.",
+    risk: "Copeaux piégés : défaut de plaquage, concentration de contraintes et corrosion au cœur de l'assemblage.",
   },
   {
     tag: "Fil à freiner", scenario: true,
-    q: "En audit, tu constates qu'un fil à freiner tire une vis de couvercle de BTA dans le sens anti-horaire (filetage à droite). Que fais-tu ?",
-    options: ["Accepter si le fil est bien tendu", "Refuser : dépose du fil, contrôle du couple, refreinage avec un fil neuf dans le sens du serrage", "Ajouter une torsade supplémentaire", "Retendre le même fil dans l'autre sens"],
-    answer: 1,
-    why: "Un fil qui tire dans le sens du desserrage aide la vis à se dévisser. On refait le freinage avec un fil neuf, après avoir vérifié que la vis est toujours au couple.",
-    risk: "Sous les vibrations du rotor, la vis se desserre en quelques heures de vol : fuite d'huile de la boîte arrière et perte de l'anticouple à terme.",
+    q: "H160, audit du compartiment BTA. Un fil à freiner tire une vis de couvercle (filetage à droite) dans le sens anti-horaire. Que fais-tu ?",
+    options: ["Dépose du fil, contrôle du couple, refreinage au fil neuf dans le sens du serrage", "Acceptation si le fil est bien tendu et les torsades régulières", "Ajout d'une torsade supplémentaire pour augmenter la tension du fil", "Retente du même fil dans l'autre sens, sans contrôle du couple"],
+    answer: 0,
+    why: "Un fil qui tire dans le sens du desserrage aide la vis à se dévisser. On refait le freinage avec un fil neuf, après avoir vérifié que la vis est au couple.",
+    risk: "Sous vibrations, la vis se desserre : fuite d'huile de la boîte arrière et, à terme, perte de l'anticouple.",
   },
   {
     tag: "Hydraulique · B-nut", scenario: true,
-    q: "Sur une tuyauterie hydraulique, l'opérateur doit serrer un raccord B-nut. Que doit préciser la gamme en plus du couple ?",
-    options: ["Rien de plus", "L'emploi obligatoire d'une clé de contre-couple sur le raccord fixe", "Un serrage à la main uniquement", "Un graissage du tube"],
-    answer: 1,
+    q: "H145, plancher mécanique, tuyauterie hydraulique. L'opérateur doit serrer un raccord B-nut. Que doit préciser la gamme en plus du couple ?",
+    options: ["Une clé de contre-couple sur le raccord fixe pendant le serrage", "Un graissage du filetage et du cône avec la graisse de montage", "Un serrage à la main suivi d'un quart de tour à la clé plate", "Un freinage au fil systématique de l'écrou après serrage"],
+    answer: 0,
     why: "La clé de contre-couple maintient le raccord fixe et empêche l'effort de serrage de se transmettre au tube.",
-    risk: "Tube vrillé : contrainte permanente qui, sous vibrations, mène à la fissure et à la fuite hydraulique en vol.",
+    risk: "Tube vrillé : contrainte permanente qui, sous vibrations, mène à la fissure et à la fuite hydraulique.",
   },
   {
-    tag: "Couple · Running torque", scenario: false,
-    q: "Écrou auto-freiné : couple nominal de 8 à 10 N·m, couple de freinage mesuré de 2 N·m, addition exigée par la norme. Quelle plage l'opérateur affiche-t-il ?",
-    options: ["8 à 10 N·m", "10 à 12 N·m", "6 à 8 N·m", "12 N·m"],
-    answer: 1,
+    tag: "Couple · Running torque",
+    q: "H125, fixation d'un support. Écrou autofreiné : couple nominal 8 à 10 N·m, couple de freinage mesuré 2 N·m, addition exigée par la norme. Quelle plage l'opérateur affiche-t-il ?",
+    options: ["10 à 12 N·m", "8 à 10 N·m", "6 à 8 N·m", "9 à 11 N·m"],
+    answer: 0,
     why: "On ajoute le couple de freinage aux deux bornes : 8 + 2 = 10 et 10 + 2 = 12 N·m.",
-    risk: "En affichant 8 à 10 N·m, une partie du couple est absorbée par le freinage : la vis est sous-serrée et se desserre sous vibrations.",
+    risk: "En affichant 8 à 10 N·m, une partie du couple est absorbée par le freinage : vis sous-serrée qui se desserre sous vibrations.",
   },
   {
     tag: "Fenestron · FOD", scenario: true,
-    q: "Tu écris la gamme de fermeture du caisson de dérive Fenestron d'un H160. L'intérieur ne sera plus accessible. Que doit-elle contenir ?",
-    options: ["Rivets pleins, puis fermeture", "Point d'arrêt « Contrôle FOD & aspiration » avant fermeture, puis rivets aveugles structuraux", "Rivets aveugles, puis inspection FOD par les trous de rivets", "Fermeture puis secouage du caisson"],
-    answer: 1,
-    why: "Le contrôle FOD se fait tant que l'intérieur est visible et accessible. Ensuite, l'arrière étant inaccessible, seuls des rivets aveugles structuraux permettent de fermer.",
-    risk: "Une queue de rivet ou un bout de fil oublié dans le caisson vibre pendant des années, use la structure ou migre vers les commandes du rotor arrière.",
+    q: "H160, fermeture du caisson de dérive Fenestron. L'intérieur ne sera plus accessible. Quelle séquence la gamme doit-elle contenir ?",
+    options: ["Contrôle FOD & aspiration en point d'arrêt, puis rivets aveugles structuraux", "Rivets aveugles structuraux, puis inspection FOD par les trous de visite", "Contrôle FOD & aspiration en point d'arrêt, puis rivets pleins au tas", "Rivets pleins au tas, puis secouage du caisson pour détecter les objets"],
+    answer: 0,
+    why: "Le contrôle FOD se fait tant que l'intérieur est visible. Ensuite, l'arrière étant inaccessible, seuls des rivets aveugles structuraux permettent de fermer.",
+    risk: "Un objet oublié dans le caisson vibre pendant des années, use la structure ou migre vers la commande du rotor arrière.",
   },
   {
     tag: "Anticorrosion · Hybride", scenario: true,
-    q: "Un plan de H160 prévoit un cadre aluminium sous un revêtement carbone. Le compagnon demande s'il peut monter « à sec » pour gagner du temps. Ta réponse ?",
-    options: ["Oui, le carbone ne rouille pas", "Non : pli de verre, primaire sur l'alu et PR d'interposition sont obligatoires", "Oui si on peint après assemblage", "Oui si les fixations sont en titane"],
-    answer: 1,
-    why: "Carbone et aluminium ont un fort écart de potentiel. Il faut l'isolation électrique, la protection de surface et l'étanchéité, sans exception.",
+    q: "H160, cadre aluminium sous revêtement carbone. Le compagnon demande s'il peut monter à sec pour gagner du temps. Quelle est ta réponse ?",
+    options: ["Non : pli de verre, primaire sur l'alu et PR d'interposition obligatoires", "Oui, à condition de peindre la jonction après assemblage complet", "Oui, à condition que les fixations de la jonction soient en titane", "Oui, le carbone étant inerte, seul un cordon extérieur est requis"],
+    answer: 0,
+    why: "Carbone et aluminium ont un fort écart de potentiel : isolation électrique, protection de surface et étanchéité sont obligatoires.",
     risk: "Corrosion galvanique rapide de l'aluminium à l'interface, invisible sous le revêtement jusqu'à la perte de tenue de la jonction.",
   },
 ];
 function TabSprint({ done, onComplete, onScore }) {
-  const [order, setOrder] = useState(() => shuffle(QUESTIONS.map((_, i) => i)));
-  const [perms, setPerms] = useState(() => QUESTIONS.map((q) => shuffle(q.options.map((_, k) => k))));
-  const [pos, setPos] = useState(0);
-  const [picked, setPicked] = useState(null);
-  const [history, setHistory] = useState([]);
-  const [streak, setStreak] = useState(0);
-  const [best, setBest] = useState(0);
-  const [started, setStarted] = useState(false);
-
-  const total = order.length;
-  const finished = pos >= total;
-  const correct = history.filter((h) => h.ok).length;
-  const reliability = history.length ? Math.round((correct / history.length) * 100) : 100;
-  const q = !finished ? QUESTIONS[order[pos]] : null;
-
-  useEffect(() => {
-    if (!finished) return;
-    /* Pont LMS : score brut tronqué au dixième (jamais arrondi vers le haut), statut calculé par le portail */
-    const raw = (correct / total) * 100;
-    if (onScore) onScore(Math.floor(raw * 10) / 10);
-    if (raw >= 85) onComplete();
-  }, [finished]);
-
-  const answer = (k) => {
-    if (picked !== null) return;
-    setPicked(k);
-    const ok = k === q.answer;
-    setHistory([...history, { qi: order[pos], picked: k, ok }]);
-    const s = ok ? streak + 1 : 0;
-    setStreak(s);
-    setBest(Math.max(best, s));
-  };
-  const next = () => { setPos(pos + 1); setPicked(null); };
-  const restart = () => {
-    setOrder(shuffle(QUESTIONS.map((_, i) => i)));
-    setPerms(QUESTIONS.map((q) => shuffle(q.options.map((_, k) => k))));
-    setPos(0); setPicked(null); setHistory([]); setStreak(0); setBest(0); setStarted(true);
-  };
-
-  const relTone = reliability >= 85 ? "text-ok" : reliability >= 65 ? "text-amber" : "text-ko";
-  const letters = ["A", "B", "C", "D"];
-
-  if (!started) {
-    return (
-      <div className="flex flex-col gap-6">
-        <SectionHead icon={Trophy} kicker="Onglet 7 · Évaluation" title="Sprint Méthodes Assemblage · Module 2">
-          {QUESTIONS.length} questions tirées au hasard, mises en situation terrain sur les chaînes Airbus Helicopters (H160, H175, FAL). Après chaque réponse, une explication technique te montre pourquoi c'est juste, et ce que l'erreur aurait provoqué sur chaîne.
-        </SectionHead>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Panel className="p-4"><Flame size={18} className="text-amber" /><div className="mt-2 font-display text-lg font-semibold text-ink">Série</div><p className="text-[13px] text-muted">Enchaîne les bonnes réponses pour faire monter ta série.</p></Panel>
-          <Panel className="p-4"><Gauge size={18} className="text-ok" /><div className="mt-2 font-display text-lg font-semibold text-ink">Fiabilité industrielle</div><p className="text-[13px] text-muted">Ton taux de bonnes réponses. 85 % minimum pour valider le module.</p></Panel>
-          <Panel className="p-4"><AlertTriangle size={18} className="text-ko" /><div className="mt-2 font-display text-lg font-semibold text-ink">Conséquence terrain</div><p className="text-[13px] text-muted">Chaque erreur est reliée à la non-conformité qu'elle aurait causée.</p></Panel>
-        </div>
-        <div><PrimaryButton onClick={restart} tone="amber"><Zap size={16} /> Lancer le sprint</PrimaryButton></div>
-        <ValidatedBanner done={done} label="Sprint réussi avec au moins 85 % de fiabilité." />
-      </div>
-    );
-  }
-
-  if (finished) {
-    const pct = Math.round((correct / total) * 100);
-    const grade = pct >= 85 ? { t: "Valide", c: "text-ok", d: pct >= 90 ? "Ta gamme partirait en production sans retour du contrôle qualité." : "Bonne maîtrise. Revois les points ci-dessous avant le module suivant." }
-      : { t: "À revoir", c: "text-ko", d: "Score inférieur à 85 % : module non validé. Relis les points ci-dessous et les onglets concernés, puis relance le sprint." };
-    const errors = history.filter((h) => !h.ok);
-    return (
-      <div className="flex flex-col gap-6">
-        <Panel className="p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-            <Award size={44} className={grade.c} />
-            <div className="min-w-0 flex-1">
-              <Eyebrow tone="amber">Débriefing du sprint</Eyebrow>
-              <div className={cx("font-display text-3xl font-semibold", grade.c)}>{grade.t}</div>
-              <p className="text-[14px] text-ink/85">{grade.d}</p>
-            </div>
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-lg border border-line bg-bg px-3 py-2"><div className="font-mono text-2xl font-semibold text-ink tabular-nums">{correct}/{total}</div><div className="font-mono text-[10px] uppercase text-muted">Bonnes</div></div>
-              <div className="rounded-lg border border-line bg-bg px-3 py-2"><div className={cx("font-mono text-2xl font-semibold tabular-nums", grade.c)}>{pct}%</div><div className="font-mono text-[10px] uppercase text-muted">Fiabilité</div></div>
-              <div className="rounded-lg border border-line bg-bg px-3 py-2"><div className="font-mono text-2xl font-semibold text-amber tabular-nums">{best}</div><div className="font-mono text-[10px] uppercase text-muted">Meilleure série</div></div>
-            </div>
-          </div>
-        </Panel>
-        {errors.length > 0 && (
-          <div className="flex flex-col gap-2">
-            <Eyebrow tone="red">À revoir · {errors.length} point{errors.length > 1 ? "s" : ""}</Eyebrow>
-            {errors.map((h) => {
-              const qq = QUESTIONS[h.qi];
-              return (
-                <Panel key={h.qi} className="p-4">
-                  <div className="font-mono text-[11px] uppercase tracking-wider text-muted">{qq.tag}</div>
-                  <div className="text-[14px] font-semibold text-ink">{qq.q}</div>
-                  <div className="mt-1 text-[13px] text-ok">Bonne réponse : {qq.options[qq.answer]}</div>
-                  <div className="mt-1 text-[13px] text-ink/80">{qq.why}</div>
-                </Panel>
-              );
-            })}
-          </div>
-        )}
-        <div><PrimaryButton onClick={restart} tone="amber"><RotateCcw size={16} /> Relancer un sprint</PrimaryButton></div>
-        <ValidatedBanner done={done} label="Sprint réussi avec au moins 85 % de fiabilité." />
-      </div>
-    );
-  }
-
-  const ok = picked !== null && picked === q.answer;
   return (
-    <div className="flex flex-col gap-5">
-      <div className="grid grid-cols-3 gap-2">
-        <Panel className="p-3">
-          <div className="font-mono text-[10px] uppercase tracking-wider text-muted">Question</div>
-          <div className="font-mono text-xl font-semibold text-ink tabular-nums">{pos + 1}<span className="text-muted">/{total}</span></div>
-        </Panel>
-        <Panel className="p-3">
-          <div className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-wider text-muted"><Flame size={12} className={streak > 0 ? "text-amber" : "text-muted"} /> Série</div>
-          <div className={cx("font-mono text-xl font-semibold tabular-nums", streak >= 3 ? "text-amber" : "text-ink")}>{streak}{streak >= 3 && <span className="ml-1 text-sm">en feu</span>}</div>
-        </Panel>
-        <Panel className="p-3">
-          <div className="font-mono text-[10px] uppercase tracking-wider text-muted">Fiabilité industrielle</div>
-          <div className={cx("font-mono text-xl font-semibold tabular-nums", relTone)}>{reliability}%</div>
-        </Panel>
-      </div>
-      <div className="flex gap-1" aria-label="Progression du sprint">
-        {order.map((qi, i) => {
-          const h = history[i];
-          return <div key={qi} className={cx("h-1.5 flex-1 rounded-full", h ? (h.ok ? "bg-ok" : "bg-ko") : i === pos ? "bg-sky" : "bg-line")} />;
-        })}
-      </div>
-
-      <Panel className="p-5 sm:p-6">
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <span className="rounded-md border border-sky/50 bg-sky/10 px-2 py-0.5 font-mono text-[11px] text-sky">{q.tag}</span>
-          {q.scenario && <span className="rounded-md border border-amber/50 bg-amber/10 px-2 py-0.5 font-mono text-[11px] text-amber">Mise en situation</span>}
-        </div>
-        <h3 className="font-display text-xl font-semibold leading-snug text-ink sm:text-2xl" style={{ textWrap: "balance" }}>{q.q}</h3>
-        <div className="mt-5 flex flex-col gap-2">
-          {perms[order[pos]].map((k, slot) => [q.options[k], k, slot]).map(([o, k, slot]) => {
-            const isAns = k === q.answer;
-            const isPicked = k === picked;
-            const state = picked === null ? "idle" : isAns ? "good" : isPicked ? "bad" : "dim";
-            return (
-              <button key={k} type="button" onClick={() => answer(k)} disabled={picked !== null}
-                className={cx("flex items-start gap-3 rounded-lg border p-3 text-left text-[14px] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky",
-                  state === "idle" && "border-line bg-bg text-ink hover:border-sky/70",
-                  state === "good" && "border-ok bg-ok/10 text-ink",
-                  state === "bad" && "border-ko bg-ko/10 text-ink",
-                  state === "dim" && "border-line bg-bg text-muted")}>
-                <span className={cx("flex h-6 w-6 shrink-0 items-center justify-center rounded font-mono text-xs font-semibold", state === "good" ? "bg-ok text-bg" : state === "bad" ? "bg-ko text-bg" : "bg-line text-ink")}>{letters[slot]}</span>
-                <span className="min-w-0 flex-1">{o}</span>
-                {state === "good" && <CheckCircle2 size={18} className="shrink-0 text-ok" />}
-                {state === "bad" && <XCircle size={18} className="shrink-0 text-ko" />}
-              </button>
-            );
-          })}
-        </div>
-
-        {picked !== null && (
-          <div className="mt-5 flex flex-col gap-3">
-            <div className={cx("rounded-lg border p-4", ok ? "border-ok/50 bg-ok/10" : "border-ko/50 bg-ko/10")}>
-              <div className="mb-1 flex items-center gap-2">
-                {ok ? <CheckCircle2 size={18} className="text-ok" /> : <XCircle size={18} className="text-ko" />}
-                <span className={cx("font-display text-lg font-semibold", ok ? "text-ok" : "text-ko")}>{ok ? "Bonne réponse" : "Réponse incorrecte"}</span>
-              </div>
-              <div className="font-mono text-[10px] uppercase tracking-wider text-muted">Explication technique</div>
-              <p className="mt-1 text-[14px] leading-relaxed text-ink">{q.why}</p>
-            </div>
-            <div className="rounded-lg border border-amber/40 bg-amber/10 p-4">
-              <div className="mb-1 flex items-center gap-2"><AlertTriangle size={16} className="text-amber" /><span className="font-mono text-[11px] uppercase tracking-wider text-amber">{ok ? "Ce que tu viens d'éviter sur chaîne" : "Ce que ton erreur aurait provoqué sur chaîne"}</span></div>
-              <p className="text-[14px] leading-relaxed text-ink">{q.risk}</p>
-            </div>
-            <div><PrimaryButton onClick={next}>{pos + 1 === total ? "Voir le débriefing" : "Question suivante"} <ArrowRight size={16} /></PrimaryButton></div>
-          </div>
-        )}
-      </Panel>
-    </div>
+    <SprintQCM questions={QUESTIONS} done={done} onComplete={onComplete} onScore={onScore}
+      SectionHead={SectionHead} ValidatedBanner={ValidatedBanner}
+      kicker="Onglet 7 · Évaluation" title="Sprint Méthodes Assemblage · Module 2"
+      intro={`${QUESTIONS.length} questions tirées au hasard, mises en situation terrain sur les chaînes Airbus Helicopters (H160, H175, FAL). Après chaque réponse, une explication technique te montre pourquoi c'est juste, et ce que l'erreur aurait provoqué sur chaîne.`} />
   );
 }
 

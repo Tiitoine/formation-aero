@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, createContext, useContext, useMemo } from "react";
 import BackToPortal from "../lms/BackToPortal.jsx";
 import { scopedKey } from "../lms/session.js";
+import { shuffle, permutation, OptionButton, optState, LETTERS, useModuleSession, trunc1 } from "../lib/pedago.jsx";
 import {
   Wrench, ShieldCheck, ShieldAlert, CheckCircle2, XCircle, RotateCcw, ChevronRight, Gauge, AlertTriangle, Info,
   ClipboardList, FileText, Ruler, Award, ArrowRight, Lock, Target, Stamp, Boxes, FileWarning, Calculator, Crosshair,
@@ -33,14 +34,6 @@ const saveState = (s) => {
   } catch (e) {
     /* stockage indisponible : la progression reste en mémoire */
   }
-};
-const shuffle = (arr) => {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
 };
 const cx = (...c) => c.filter(Boolean).join(" ");
 const mm = (n, d = 2) => n.toLocaleString("fr-FR", { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -202,18 +195,20 @@ function AxisTag({ axis }) {
 /* Carte d'étape : numéro, titre, axe évalué, verrouillage séquentiel */
 function StepCard({ n, title, axis, id, locked, children }) {
   const { done } = useSim();
-  const ok = !!done[id];
+  const ok = done[id] === true;
+  const ko = !!done[id] && done[id] !== true; /* étape close sur une erreur verrouillée */
   return (
-    <Panel className={cx("p-4 sm:p-5", ok && "border-ok/40")}>
+    <Panel className={cx("p-4 sm:p-5", ok && "border-ok/40", ko && "border-ko/50")}>
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <span className={cx("flex h-7 min-w-[38px] items-center justify-center rounded-md border px-1.5 font-mono text-[12px] font-semibold", ok ? "border-ok/50 bg-ok/10 text-ok" : locked ? "border-line bg-bg text-muted" : "border-sky/40 bg-sky/10 text-sky")}>{n}</span>
         <h3 className="min-w-0 flex-1 font-display text-xl font-semibold leading-tight text-ink">{title}</h3>
         <AxisTag axis={axis} />
         {ok && <CheckCircle2 size={18} className="text-ok" />}
+        {ko && <span className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-wider text-ko"><XCircle size={16} />Erreur verrouillée</span>}
       </div>
       {locked ? (
         <div className="flex items-center gap-2 rounded-lg border border-dashed border-line px-3 py-3 text-[13px] text-muted">
-          <Lock size={14} /> Étape verrouillée : validez l'étape précédente pour la débloquer.
+          <Lock size={14} /> Étape verrouillée : répondez à l'étape précédente pour la débloquer.
         </div>
       ) : (
         children
@@ -226,42 +221,31 @@ function StepCard({ n, title, axis, id, locked, children }) {
    MÉCANIQUES DE QUESTIONS GÉNÉRIQUES
    ============================================================ */
 
-/* Choix unique : chaque mauvaise réponse coûte des points (une seule fois) */
+/* Choix unique verrouillé au 1er clic : une mauvaise réponse coûte des points, reste affichée en rouge
+   et la bonne réponse est révélée ; l'étape est close et la mission continue. */
 function SingleChoice({ id, axis, label, prompt, options, columns = 1 }) {
   const { done, solve, penalize } = useSim();
-  const isDone = !!done[id];
   const answer = options.findIndex((o) => o.ok);
-  const [picked, setPicked] = useState(isDone ? answer : null);
-  const [tried, setTried] = useState({});
-  const [perm] = useState(() => shuffle(options.map((_, k) => k)));
+  const prev = done[id];
+  const [picked, setPicked] = useState(prev === true ? answer : prev && typeof prev.k === "number" ? prev.k : null);
+  const [perm] = useState(() => permutation(options.length));
   const pick = (k) => {
-    if (isDone) return;
+    if (picked !== null || prev) return;
     setPicked(k);
-    setTried((t) => ({ ...t, [k]: true }));
     const o = options[k];
     if (o.ok) solve(id);
-    else penalize(`${id}:${k}`, axis, o.pts ?? (o.grave ? 12 : 5), label, o.t, o.why, !!o.grave);
+    else { penalize(`${id}:${k}`, axis, o.pts ?? (o.grave ? 12 : 5), label, o.t, o.why, !!o.grave); solve(id, false, k); }
   };
   const cur = picked !== null ? options[picked] : null;
   return (
     <div className="flex flex-col gap-3">
       {prompt && <p className="text-[14px] leading-relaxed text-ink/90">{prompt}</p>}
       <div className={cx("grid gap-2", columns === 2 && "sm:grid-cols-2")}>
-        {perm.map((k) => {
-          const isPicked = picked === k;
-          const good = options[k].ok;
-          const wasTried = tried[k] && !good;
-          return (
-            <button key={k} type="button" disabled={isDone && !isPicked} onClick={() => pick(k)}
-              className={cx("flex items-start gap-3 rounded-lg border p-3 text-left text-[14px] leading-snug transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky",
-                isPicked ? (good ? "border-ok bg-ok/10 text-ink" : "border-ko bg-ko/10 text-ink") : wasTried ? "border-ko/30 bg-bg text-muted line-through decoration-ko/50" : isDone ? "border-line bg-bg text-muted" : "border-line bg-bg text-ink hover:border-sky/70")}>
-              <span className="min-w-0 flex-1">{options[k].t}</span>
-              {isPicked && (good ? <CheckCircle2 size={18} className="shrink-0 text-ok" /> : <XCircle size={18} className="shrink-0 text-ko" />)}
-            </button>
-          );
-        })}
+        {perm.map((k, i) => (
+          <OptionButton key={k} letter={LETTERS[i]} state={optState(k, picked === null ? (prev ? -1 : undefined) : picked, answer)} onClick={() => pick(k)}>{options[k].t}</OptionButton>
+        ))}
       </div>
-      {cur && <Feedback ok={cur.ok} label={cur.ok ? "Exact." : cur.grave ? "Erreur grave." : "Non."}>{cur.why}</Feedback>}
+      {cur && <Feedback ok={!!cur.ok} label={cur.ok ? "Exact." : cur.grave ? "Erreur grave (verrouillée)." : "Non (verrouillé)."}>{cur.why}{!cur.ok && <> Bonne réponse : {options[answer].t}.</>}</Feedback>}
     </div>
   );
 }
@@ -270,17 +254,18 @@ function SingleChoice({ id, axis, label, prompt, options, columns = 1 }) {
 function NumericStep({ id, axis, label, prompt, answer, tol = 0.01, unit, digits = 3, diagnose, explain, pts = 5, children }) {
   const { done, solve, penalize } = useSim();
   const isDone = !!done[id];
-  const [val, setVal] = useState(isDone ? mm(answer, digits) : "");
-  const [res, setRes] = useState(isDone ? "ok" : null);
-  const [msg, setMsg] = useState("");
+  const [val, setVal] = useState(done[id] === true ? mm(answer, digits) : done[id]?.v ?? "");
+  const [res, setRes] = useState(done[id] === true ? "ok" : isDone ? "ko" : null);
+  const [msg, setMsg] = useState(done[id]?.msg || "");
   const check = () => {
     const v = parseNum(val);
-    if (!isFinite(v)) { setRes("nan"); return; }
+    if (!isFinite(v)) { setRes("nan"); return; } /* saisie illisible : pas une réponse, on redemande */
     if (Math.abs(v - answer) <= tol) { setRes("ok"); solve(id); return; }
     const why = (diagnose && diagnose(v)) || "Reprenez le calcul pas à pas avec les données du dossier.";
     setRes("ko");
     setMsg(why);
     penalize(`${id}:${Math.round(v * 1000)}`, axis, pts, label, `Valeur saisie : ${mm(v, digits)} ${unit}`, why);
+    solve(id, false, { v: val, msg: why });
   };
   return (
     <div className="flex flex-col gap-3">
@@ -301,7 +286,7 @@ function NumericStep({ id, axis, label, prompt, answer, tol = 0.01, unit, digits
         {!isDone && <PrimaryButton onClick={check} disabled={!val.trim()}><Calculator size={16} /> Valider</PrimaryButton>}
       </div>
       {res === "nan" && <Feedback ok={false}>Saisissez un nombre (virgule ou point acceptés).</Feedback>}
-      {res === "ko" && <Feedback ok={false}>{msg}</Feedback>}
+      {res === "ko" && <Feedback ok={false} label="Faux (verrouillé).">{msg} Valeur attendue : {mm(answer, digits)} {unit}. {explain}</Feedback>}
       {res === "ok" && <Feedback ok>{explain}</Feedback>}
     </div>
   );
@@ -312,24 +297,24 @@ function MultiSelect({ id, axis, label, items, prompt, columns = 2, render }) {
   const { done, solve, penalize } = useSim();
   const isDone = !!done[id];
   const [order] = useState(() => shuffle(items.map((_, i) => i)));
-  const [sel, setSel] = useState(() => (isDone ? Object.fromEntries(items.map((it, i) => [i, !!it.ok])) : {}));
+  const [sel, setSel] = useState(() => (done[id] === true ? Object.fromEntries(items.map((it, i) => [i, !!it.ok])) : done[id]?.sel || {}));
   const [checked, setChecked] = useState(isDone);
-  const [attempts, setAttempts] = useState(0);
   const toggle = (i) => {
-    if (isDone) return;
-    setChecked(false);
+    if (isDone || checked) return;
     setSel((s) => ({ ...s, [i]: !s[i] }));
   };
   const missing = items.map((it, i) => (it.ok && !sel[i] ? i : -1)).filter((i) => i >= 0);
   const traps = items.map((it, i) => (!it.ok && sel[i] ? i : -1)).filter((i) => i >= 0);
+  /* Une seule validation : la sélection est verrouillée, oublis et pièges sont révélés et pénalisés */
   const validate = () => {
+    if (checked) return;
     setChecked(true);
-    setAttempts((a) => a + 1);
     missing.forEach((i) => penalize(`${id}:miss:${i}`, axis, items[i].pts ?? 4, label, `Oubli : ${items[i].t}`, items[i].why));
     traps.forEach((i) => penalize(`${id}:trap:${i}`, axis, items[i].pts ?? 5, label, `Sélection à tort : ${items[i].t}`, items[i].why, !!items[i].grave));
     if (missing.length === 0 && traps.length === 0) solve(id);
+    else solve(id, false, { sel });
   };
-  const reveal = attempts >= 2;
+  const reveal = checked;
   return (
     <div className="flex flex-col gap-3">
       {prompt && <p className="text-[14px] leading-relaxed text-ink/90">{prompt}</p>}
@@ -351,25 +336,25 @@ function MultiSelect({ id, axis, label, items, prompt, columns = 2, render }) {
                 {render ? render(it) : <span className="text-ink">{it.t}</span>}
                 {isTrap && <span className="mt-1 block text-[12px] text-ko">{it.why}</span>}
                 {isMissing && <span className="mt-1 block text-[12px] text-amber">Obligatoire : {it.why}</span>}
-                {isDone && it.ok && <span className="mt-1 block text-[12px] text-muted">{it.why}</span>}
+                {checked && it.ok && on && <span className="mt-1 block text-[12px] text-muted">{it.why}</span>}
               </span>
             </button>
           );
         })}
       </div>
-      {!isDone && (
+      {!checked && (
         <div className="flex flex-wrap items-center gap-3">
-          <PrimaryButton onClick={validate}><ClipboardList size={16} /> Valider la sélection</PrimaryButton>
-          {checked && (missing.length > 0 || traps.length > 0) && (
-            <span className="text-[13px] text-ko">
-              {traps.length > 0 && `${traps.length} sélection${traps.length > 1 ? "s" : ""} à tort. `}
-              {missing.length > 0 && `${missing.length} élément${missing.length > 1 ? "s" : ""} obligatoire${missing.length > 1 ? "s" : ""} manquant${missing.length > 1 ? "s" : ""}.`}
-              {missing.length > 0 && !reveal && " Corrigez et revalidez (les manquants seront signalés au 2e essai)."}
-            </span>
-          )}
+          <PrimaryButton onClick={validate}><Lock size={16} /> Valider la sélection (définitif)</PrimaryButton>
         </div>
       )}
-      {isDone && <Feedback ok>Sélection conforme. Chaque article validé apparaît avec sa justification.</Feedback>}
+      {checked && (missing.length > 0 || traps.length > 0) && (
+        <Feedback ok={false} label="Sélection verrouillée.">
+          {traps.length > 0 && `${traps.length} sélection${traps.length > 1 ? "s" : ""} à tort (en rouge). `}
+          {missing.length > 0 && `${missing.length} élément${missing.length > 1 ? "s" : ""} obligatoire${missing.length > 1 ? "s" : ""} oublié${missing.length > 1 ? "s" : ""} (en orange).`}
+          {" "}Les erreurs sont décomptées de la jauge ; la mission continue.
+        </Feedback>
+      )}
+      {checked && missing.length === 0 && traps.length === 0 && <Feedback ok>Sélection conforme. Chaque article validé apparaît avec sa justification.</Feedback>}
     </div>
   );
 }
@@ -384,11 +369,11 @@ function SequenceStep({ id, axis, label, correct, distractors, pts = 5, prompt }
   ], []);
   const byKey = (k) => all.find((a) => a.key === k);
   const [pool] = useState(() => shuffle(all.map((a) => a.key)));
-  const [seq, setSeq] = useState(isDone ? correct.map((_, i) => "c" + i) : []);
+  const [seq, setSeq] = useState(done[id] === true ? correct.map((_, i) => "c" + i) : done[id]?.seq || []);
   const [rejected, setRejected] = useState({});
   const [lastTrap, setLastTrap] = useState(null);
-  const [status, setStatus] = useState(isDone ? "ok" : null);
-  const locked = isDone || status === "ok";
+  const [status, setStatus] = useState(done[id] === true ? "ok" : isDone ? "order" : null);
+  const locked = isDone || status === "ok" || status === "order";
   const add = (k) => {
     if (locked || seq.includes(k)) return;
     const it = byKey(k);
@@ -410,6 +395,7 @@ function SequenceStep({ id, axis, label, correct, distractors, pts = 5, prompt }
     else {
       setStatus("order");
       penalize(`${id}:order:${seq.join("")}`, axis, pts, label, "Séquence construite dans le mauvais ordre", correctText);
+      solve(id, false, { seq });
     }
   };
   const remaining = pool.filter((k) => !seq.includes(k));
@@ -454,14 +440,14 @@ function SequenceStep({ id, axis, label, correct, distractors, pts = 5, prompt }
           </div>
           {!locked && (
             <div className="flex flex-wrap gap-2">
-              <PrimaryButton onClick={validate} disabled={seq.length !== correct.length}><ListChecks size={16} /> Valider la séquence</PrimaryButton>
+              <PrimaryButton onClick={validate} disabled={seq.length !== correct.length}><Lock size={16} /> Valider la séquence (définitif)</PrimaryButton>
               {seq.length > 0 && <GhostButton onClick={() => { setSeq([]); setStatus(null); }}><Undo2 size={14} /> Vider</GhostButton>}
             </div>
           )}
         </div>
       </div>
       {lastTrap && !locked && <Feedback ok={false} label={lastTrap.grave ? "Carte rejetée, erreur grave." : "Carte rejetée."}>{lastTrap.why}</Feedback>}
-      {status === "order" && <Feedback ok={false}>L'ordre n'est pas bon : les cartes en rouge ne sont pas à leur place. Cliquez sur une carte de la séquence pour la retirer, puis réessayez.</Feedback>}
+      {status === "order" && <Feedback ok={false} label="Séquence verrouillée.">L'ordre n'est pas bon : les cartes en rouge ne sont pas à leur place. Séquence attendue : {correctText}.</Feedback>}
       {status === "ok" && <Feedback ok>Séquence conforme. {correct[correct.length - 1].why || ""}</Feedback>}
     </div>
   );
@@ -886,28 +872,28 @@ function Briefing({ onStart, started }) {
    MISSION 1 · DOSSIER BE, ZONAGE & M-BOM
    ============================================================ */
 const LOC_OPTS = [
-  { k: "L", t: "À GAUCHE du plancher mécanique (côté place gauche)", ok: true, why: "Trièdre direct avec X vers l'arrière et Z vers le haut : Y positif pointe vers la droite. Y = −420 place donc la ferrure à 420 mm à gauche du plan de symétrie, vu du siège pilote. Sur H160 le commandant de bord est à droite : la ferrure est du côté de la place gauche." },
-  { k: "R", t: "À DROITE du plancher mécanique (côté commandant de bord)", why: "Avec X vers l'arrière et Z vers le haut, le trièdre direct impose Y positif vers la droite. Un Y négatif est donc à gauche. Une ferrure montée du mauvais côté est une erreur d'industrialisation complète (outillage, gamme, accès).", pts: 10 },
-  { k: "0", t: "Sur l'axe de symétrie (Y = 0)", why: "Y = 0 est le plan de symétrie. Ici Y vaut −420 mm : la pièce est décalée latéralement de 420 mm.", pts: 6 },
-  { k: "Z", t: "Impossible à dire sans connaître Z", why: "Z donne la hauteur (1850 mm), pas le côté. Le côté se lit uniquement sur le signe de Y.", pts: 6 },
+  { k: "L", t: "À gauche du plancher méca., côté place copilote", ok: true, why: "Trièdre direct avec X vers l'arrière et Z vers le haut : Y positif pointe vers la droite. Y = −420 place donc la ferrure à 420 mm à gauche du plan de symétrie, vu du siège pilote. Sur H160 le commandant de bord est à droite : la ferrure est du côté de la place copilote." },
+  { k: "R", t: "À droite du plancher méca., côté commandant de bord", why: "Avec X vers l'arrière et Z vers le haut, le trièdre direct impose Y positif vers la droite. Un Y négatif est donc à gauche. Une ferrure montée du mauvais côté est une erreur d'industrialisation complète (outillage, gamme, accès).", pts: 10 },
+  { k: "0", t: "Sur le plan de symétrie, à cheval sur Y = 0", why: "Y = 0 est le plan de symétrie. Ici Y vaut −420 mm : la pièce est décalée latéralement de 420 mm.", pts: 6 },
+  { k: "Z", t: "Côté indéterminé : il dépend de la hauteur Z", why: "Z donne la hauteur (1850 mm), pas le côté. Le côté se lit uniquement sur le signe de Y.", pts: 6 },
 ];
 
 function LocStep() {
   const { done, solve, penalize } = useSim();
   const id = "m1.loc";
   const isDone = !!done[id];
-  const [picked, setPicked] = useState(isDone ? "L" : null);
+  const [picked, setPicked] = useState(done[id] === true ? "L" : done[id]?.k ?? null);
   const pick = (k) => {
-    if (isDone) return;
+    if (isDone || picked !== null) return;
     setPicked(k);
     const o = LOC_OPTS.find((x) => x.k === k);
     if (o.ok) solve(id);
-    else penalize(`${id}:${k}`, "a3", o.pts, "1.1 Localisation spatiale", o.t, o.why);
+    else { penalize(`${id}:${k}`, "a3", o.pts, "1.1 Localisation spatiale", o.t, o.why); solve(id, false, { k }); }
   };
   const cur = LOC_OPTS.find((x) => x.k === picked);
   return (
     <div className="grid gap-4 lg:grid-cols-[auto_1fr]">
-      <HeliTopSVG pick={isDone ? null : pick} highlight={picked === "L" || picked === "R" ? picked : null} solved={isDone} />
+      <HeliTopSVG pick={isDone || picked !== null ? null : pick} highlight={picked === "L" || picked === "R" ? picked : null} solved={isDone} />
       <div className="flex flex-col gap-3">
         <p className="text-[14px] leading-relaxed text-ink/90">
           Le plan donne <span className="font-mono text-sky">X = 3450, Y = −420, Z = 1850</span>. Vu du siège pilote, de quel côté du plancher mécanique la ferrure est-elle montée ? Cliquez sur une moitié du plancher ou choisissez une réponse.
@@ -916,8 +902,8 @@ function LocStep() {
           {LOC_OPTS.map((o) => {
             const isP = picked === o.k;
             return (
-              <button key={o.k} type="button" disabled={isDone && !isP} onClick={() => pick(o.k)}
-                className={cx("flex items-start gap-3 rounded-lg border p-3 text-left text-[14px] transition", isP ? (o.ok ? "border-ok bg-ok/10" : "border-ko bg-ko/10") : isDone ? "border-line bg-bg text-muted" : "border-line bg-bg text-ink hover:border-sky/70")}>
+              <button key={o.k} type="button" disabled={isDone || picked !== null} onClick={() => pick(o.k)}
+                className={cx("flex items-start gap-3 rounded-lg border p-3 text-left text-[14px] transition", isP ? (o.ok ? "border-ok bg-ok/10" : "border-ko bg-ko/10") : picked !== null && o.ok ? "border-dashed border-ok/70 bg-ok/5" : isDone || picked !== null ? "border-line bg-bg text-muted" : "border-line bg-bg text-ink hover:border-sky/70")}>
                 <MapPin size={16} className={cx("mt-0.5 shrink-0", isP ? (o.ok ? "text-ok" : "text-ko") : "text-muted")} />
                 <span className="flex-1">{o.t}</span>
               </button>
@@ -943,10 +929,10 @@ const ATA_ITEMS = [
 ];
 
 const CRIT_OPTS = [
-  { t: "Liaison critique sécurité vol (commande de vol rotor) : traçabilité au MSN, double contrôle indépendant, aucune décision d'écart au niveau atelier", ok: true, why: "Une rupture ou un desserrage de cette liaison peut entraîner la perte de contrôle de l'appareil. La criticité pilote tout le reste : contrôles, freinage, gestion des écarts." },
-  { t: "Liaison structurale standard : l'autocontrôle du compagnon suffit", grave: true, pts: 15, why: "La ferrure porte un guignol de commande de vol. L'autocontrôle seul est interdit sur une liaison de commande de vol." },
-  { t: "Liaison secondaire non structurale : contrôle par échantillonnage", grave: true, pts: 15, why: "L'échantillonnage n'est jamais admis sur une liaison commande de vol : chaque appareil est contrôlé à 100 %." },
-  { t: "Critique seulement pour la métallisation (protection foudre)", pts: 6, why: "La métallisation est une exigence importante, mais la criticité vient d'abord de la fonction commande de vol." },
+  { t: "Critique sécurité vol (commande rotor) : traçabilité MSN, double contrôle indépendant", ok: true, why: "Une rupture ou un desserrage de cette liaison peut entraîner la perte de contrôle de l'appareil. La criticité pilote tout le reste : contrôles, freinage, gestion des écarts." },
+  { t: "Structurale standard : autocontrôle du compagnon tracé par son tampon sur la gamme", grave: true, pts: 15, why: "La ferrure porte un guignol de commande de vol. L'autocontrôle seul est interdit sur une liaison de commande de vol." },
+  { t: "Secondaire non structurale : contrôle par échantillonnage sur un appareil sur cinq", grave: true, pts: 15, why: "L'échantillonnage n'est jamais admis sur une liaison commande de vol : chaque appareil est contrôlé à 100 %." },
+  { t: "Critique pour la seule métallisation : mesure 4 fils tracée, contrôle visuel du reste", pts: 6, why: "La métallisation est une exigence importante, mais la criticité vient d'abord de la fonction commande de vol." },
 ];
 
 const BOM_ITEMS = [
@@ -976,7 +962,7 @@ function Mission1({ goNext }) {
         <MultiSelect id="m1.ata" axis="a1" label="1.2 Chapitres ATA" items={ATA_ITEMS} prompt="Cochez tous les chapitres ATA concernés par ce dossier, puis validez." />
       </StepCard>
       <StepCard n="1.3" id="m1.crit" axis="a1" title="Criticité de la liaison" locked={!done["m1.ata"]}>
-        <SingleChoice id="m1.crit" axis="a1" label="1.3 Criticité" prompt="Quel niveau de criticité retenez-vous pour cette liaison, et qu'implique-t-il ?" options={CRIT_OPTS} />
+        <SingleChoice id="m1.crit" axis="a1" label="1.3 Criticité" prompt="H160, liaison ferrure support de guignol / plancher mécanique (ATA 67). Quel niveau de criticité retenez-vous pour cette liaison, et qu'implique-t-il ?" options={CRIT_OPTS} />
       </StepCard>
       <StepCard n="1.4" id="m1.bom" axis="a2" title="Transformation E-BOM → M-BOM : catalogue ERP" locked={!done["m1.crit"]}>
         <MultiSelect id="m1.bom" axis="a2" label="1.4 M-BOM consommables" items={BOM_ITEMS} columns={3}
@@ -1000,10 +986,10 @@ const FIT_OPTS = [
   { t: "Ajustement INCERTAIN", pts: 5, why: "Les écarts ne se chevauchent pas : p6 mini (+0,022) > H7 maxi (+0,021). C'est toujours du serrage, même faible." },
 ];
 const BAGUE_OPTS = [
-  { t: "Emmanchement thermique : bague refroidie à l'azote liquide (−196 °C), mise en place immédiate, EPI cryogéniques", ok: true, why: "La bague se contracte (de l'ordre de 0,06 à 0,08 mm sur Ø20) : elle entre sans effort, puis se dilate pour créer le serrage sans arracher de matière ni marquer l'alésage." },
-  { t: "Frapper la bague au maillet acier", grave: true, pts: 20, why: "Erreur grave : marquage, matage et arrachement de matière dans l'alésage aluminium, bague déformée, serrage réel inconnu. Interdit sur une pièce de commande de vol." },
-  { t: "Emmancher à la presse à froid, à sec", pts: 8, why: "Sans procédé thermique, le serrage provoque un grippage et un arrachement de l'alésage aluminium. Le dossier prescrit l'emmanchement thermique." },
-  { t: "Chauffer la ferrure au chalumeau", grave: true, pts: 15, why: "Erreur grave : une chauffe non maîtrisée détruit le traitement thermique de l'alliage d'aluminium et l'anodisation." },
+  { t: "Bague refroidie à l'azote liquide (−196 °C), posée sans effort, EPI cryogéniques", ok: true, why: "La bague se contracte (de l'ordre de 0,06 à 0,08 mm sur Ø20) : elle entre sans effort, puis se dilate pour créer le serrage sans arracher de matière ni marquer l'alésage." },
+  { t: "Bague graissée, posée au maillet acier par frappes croisées jusqu'à l'épaulement", grave: true, pts: 20, why: "Erreur grave : marquage, matage et arrachement de matière dans l'alésage aluminium, bague déformée, serrage réel inconnu. Interdit sur une pièce de commande de vol." },
+  { t: "Bague emmanchée à la presse hydraulique, à froid et à sec, effort enregistré", pts: 8, why: "Sans procédé thermique, le serrage provoque un grippage et un arrachement de l'alésage aluminium. Le dossier prescrit l'emmanchement thermique." },
+  { t: "Ferrure chauffée au chalumeau pour dilater l'alésage, bague posée à la main", grave: true, pts: 15, why: "Erreur grave : une chauffe non maîtrisée détruit le traitement thermique de l'alliage d'aluminium et l'anodisation." },
 ];
 const SEQ_CORRECT = [
   { t: "Positionner la ferrure sur le plancher (pions de positionnement) et la brider" },
@@ -1050,14 +1036,14 @@ function Mission2({ goNext }) {
       </MissionHead>
       <StepCard n="2.1" id="m2.fit" axis="a3" title="Lecture de l'ajustement 20 H7/p6">
         <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
-          <SingleChoice id="m2.fit" axis="a3" label="2.1 Ajustement 20 H7/p6" prompt="Quel type d'ajustement le plan impose-t-il entre l'alésage de la ferrure et la bague bronze-acier ?" options={FIT_OPTS} />
+          <SingleChoice id="m2.fit" axis="a3" label="2.1 Ajustement 20 H7/p6" prompt="H160, plan de la ferrure support de guignol, appel Ø20 H7/p6. Quel type d'ajustement le plan impose-t-il entre l'alésage de la ferrure et la bague bronze-acier ?" options={FIT_OPTS} />
           {done["m2.fit"] ? <FitTable /> : <NoteBox>Rappel ISO 286 : la lettre majuscule désigne l'alésage, la minuscule l'arbre. Comparez les écarts de p6 à l'intervalle de H7.</NoteBox>}
         </div>
       </StepCard>
       <StepCard n="2.2" id="m2.bague" axis="a2" title="Procédé de montage de la bague" locked={!done["m2.fit"]}>
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2 text-[13px] text-sky"><Snowflake size={16} /> Procédé spécial : emmanchement d'une bague avec serrage</div>
-          <SingleChoice id="m2.bague" axis="a2" label="2.2 Montage de la bague" prompt="Quel procédé inscrivez-vous dans la gamme pour monter la bague ?" options={BAGUE_OPTS} />
+          <SingleChoice id="m2.bague" axis="a2" label="2.2 Montage de la bague" prompt="H160, gamme de pré-assemblage de la ferrure (poste 10). Quel procédé inscrivez-vous dans la gamme pour monter la bague ?" options={BAGUE_OPTS} />
         </div>
       </StepCard>
       <StepCard n="2.3" id="m2.seq" axis="a2" title="Perçage / alésage du couple hybride aluminium / CFRP" locked={!done["m2.bague"]}>
@@ -1071,7 +1057,7 @@ function Mission2({ goNext }) {
           explain="ED mini = 2,5 × 6,35 = 15,875 mm, mesurée de l'axe du trou au bord du plancher." />
       </StepCard>
       <StepCard n="2.5" id="m2.edchk" axis="a3" title="Vérification sur le plan" locked={!done["m2.ed"]}>
-        <SingleChoice id="m2.edchk" axis="a3" label="2.5 Vérification ED" prompt="Le plan positionne l'axe des Hi-Lok côté bord à 17,0 mm du bord du plancher. Votre conclusion ?" options={EDCHK_OPTS} />
+        <SingleChoice id="m2.edchk" axis="a3" label="2.5 Vérification ED" prompt="H160, plancher mécanique CFRP, Hi-Lok Ø6,35 (extrait de plan). Le plan positionne l'axe des Hi-Lok côté bord à 17,0 mm du bord du plancher. Votre conclusion ?" options={EDCHK_OPTS} />
       </StepCard>
       <DangerBox title="Le carbone ne pardonne ni la chaleur, ni la poussière, ni le raccourci">
         Délaminage en sortie, poussière conductrice, couple galvanique avec l'aluminium : chaque paramètre de la séquence protège la tenue structurale du plancher mécanique qui porte la BTP.
@@ -1085,9 +1071,9 @@ function Mission2({ goNext }) {
    MISSION 3 · GAMME SAP/MES
    ============================================================ */
 const CREN_OPTS = [
-  { t: "Poursuivre le serrage jusqu'au créneau suivant, sans dépasser le couple maxi autorisé ; sinon changer de rondelle ou d'écrou selon la gamme", ok: true, why: "On aligne toujours en serrant, jamais en desserrant, et dans la plage de couple prescrite. Si l'alignement est impossible dans la plage, on change de rondelle ou d'écrou, comme prévu par la gamme." },
-  { t: "Desserrer légèrement jusqu'au créneau précédent", grave: true, pts: 15, why: "Erreur grave : desserrer fait chuter la tension de l'assemblage sous le couple nominal sur une liaison commande de vol." },
-  { t: "Percer un nouveau trou de goupille dans le boulon", grave: true, pts: 15, why: "Erreur grave : modifier une pièce de définition sans approbation BE est interdit, et affaiblit le boulon." },
+  { t: "Serrer jusqu'au créneau suivant dans la plage, sinon changer de rondelle", ok: true, why: "On aligne toujours en serrant, jamais en desserrant, et dans la plage de couple prescrite. Si l'alignement est impossible dans la plage, on change de rondelle ou d'écrou, comme prévu par la gamme." },
+  { t: "Desserrer légèrement jusqu'au créneau précédent, puis goupiller", grave: true, pts: 15, why: "Erreur grave : desserrer fait chuter la tension de l'assemblage sous le couple nominal sur une liaison commande de vol." },
+  { t: "Percer un second trou de goupille dans le boulon face au créneau", grave: true, pts: 15, why: "Erreur grave : modifier une pièce de définition sans approbation BE est interdit, et affaiblit le boulon." },
   { t: "Poser la goupille en biais dans le créneau partiellement aligné", pts: 8, why: "Une goupille mal engagée ne freine pas : elle peut se cisailler ou sortir sous vibrations." },
 ];
 const METAL_CORRECT = [
@@ -1102,10 +1088,10 @@ const METAL_TRAPS = [
   { t: "Poncer largement toute la ferrure pour être sûr", why: "Le décapage est calibré : au-delà de la zone de contact, on détruit l'anodisation et on crée de la corrosion." },
 ];
 const MES_OPTS = [
-  { t: "Refaire : démonter la cosse, contrôler décapage et propreté, resserrer au couple, remesurer ; si l'écart persiste, ouvrir une QN", ok: true, why: "3,1 mΩ dépasse le seuil de 2,5 mΩ : la liaison n'est pas conforme. On reprend le procédé, puis on trace l'écart s'il persiste." },
-  { t: "Accepter : 3,1 mΩ reste très faible", grave: true, pts: 12, why: "Erreur grave : le seuil est 2,5 mΩ. Accepter hors tolérance, c'est livrer une protection foudre et CEM non démontrée." },
-  { t: "Ajouter une deuxième tresse en parallèle", pts: 8, why: "Ajouter une tresse non prévue au plan est une modification de définition, réservée au BE." },
-  { t: "Vernir la zone puis remesurer", pts: 6, why: "Le vernis est isolant : la résistance ne peut qu'augmenter." },
+  { t: "Refaire : démonter, décaper, resserrer, remesurer, QN si l'écart persiste", ok: true, why: "3,1 mΩ dépasse le seuil de 2,5 mΩ : la liaison n'est pas conforme. On reprend le procédé, puis on trace l'écart s'il persiste." },
+  { t: "Accepter : 3,1 mΩ reste très faible devant la résistance d'un harnais", grave: true, pts: 12, why: "Erreur grave : le seuil est 2,5 mΩ. Accepter hors tolérance, c'est livrer une protection foudre et CEM non démontrée." },
+  { t: "Ajouter une deuxième tresse en parallèle pour diviser la résistance", pts: 8, why: "Ajouter une tresse non prévue au plan est une modification de définition, réservée au BE." },
+  { t: "Vernir la zone de contact, puis remesurer après séchage complet", pts: 6, why: "Le vernis est isolant : la résistance ne peut qu'augmenter." },
 ];
 const QC_OPS = [
   { op: "0010", t: "Contrôle du kit au poste (M-BOM, péremption PR 1776 B2)" },
@@ -1130,8 +1116,9 @@ function QcStep() {
   const id = "m3.qc";
   const isDone = !!done[id];
   const [marks, setMarks] = useState(() => (isDone ? { "0090:PA": true, "0070:DI": true, "0080:FOD": true } : {}));
-  const [issues, setIssues] = useState([]);
+  const [issues, setIssues] = useState(done["m3.qc"]?.issues || []);
   const toggle = (op, k) => { if (!isDone) { setIssues([]); setMarks((m) => ({ ...m, [`${op}:${k}`]: !m[`${op}:${k}`] })); } };
+  /* Soumission unique à la Qualité : les écarts sont verrouillés et décomptés */
   const validate = () => {
     const out = [];
     const L = "3.3 Contrôles qualité";
@@ -1146,6 +1133,7 @@ function QcStep() {
     out.forEach((e) => penalize(`${id}:${e.key}`, "a4", e.pts, L, e.w, e.why, !!e.grave));
     setIssues(out);
     if (out.length === 0) solve(id);
+    else solve(id, false, { issues: out });
   };
   return (
     <div className="flex flex-col gap-3">
@@ -1173,13 +1161,14 @@ function QcStep() {
           ))}
         </div>
       </div>
-      {!isDone && <div><PrimaryButton onClick={validate}><Stamp size={16} /> Soumettre la gamme à la Qualité</PrimaryButton></div>}
+      {!isDone && <div><PrimaryButton onClick={validate}><Stamp size={16} /> Soumettre la gamme à la Qualité (définitif)</PrimaryButton></div>}
+      {isDone && done[id] !== true && <Feedback ok={false} label="Soumission verrouillée.">Placement attendu : DI sur l'op. 0070 (liaison commande de vol), FOD final sur l'op. 0080, point d'arrêt sur l'op. 0090 avant fermeture du capot.</Feedback>}
       {issues.length > 0 && (
         <div className="flex flex-col gap-2">
           {issues.map((e) => <Feedback key={e.key} ok={false} label={e.grave ? "Erreur grave." : "Non."}>{e.w}. {e.why}</Feedback>)}
         </div>
       )}
-      {isDone && <Feedback ok>Gamme acceptée par la Qualité : DI sur la liaison commande de vol, FOD final, point d'arrêt avant fermeture.</Feedback>}
+      {done[id] === true && <Feedback ok>Gamme acceptée par la Qualité : DI sur la liaison commande de vol, FOD final, point d'arrêt avant fermeture.</Feedback>}
     </div>
   );
 }
@@ -1235,7 +1224,7 @@ function Mission3({ goNext }) {
           explain="15 + 2,5 = 17,5 N.m. Puis goupille fendue neuve et vernis témoin, inscrits dans la même opération." />
       </StepCard>
       <StepCard n="3.2" id="m3.cren" axis="a2" title="Alignement créneau / trou de goupille" locked={!done["m3.couple"]}>
-        <SingleChoice id="m3.cren" axis="a2" label="3.2 Alignement créneau" prompt="À 17,5 N.m, aucun créneau de l'écrou n'est aligné avec le trou de goupille du boulon. Que prescrit la gamme ?" options={CREN_OPTS} />
+        <SingleChoice id="m3.cren" axis="a2" label="3.2 Alignement créneau" prompt="H160, axe de guignol ATA 67, écrou à créneaux. À 17,5 N.m, aucun créneau de l'écrou n'est aligné avec le trou de goupille du boulon. Que prescrit la gamme ?" options={CREN_OPTS} />
       </StepCard>
       <StepCard n="3.3" id="m3.metal" axis="a2" title="Séquence de métallisation (bonding)" locked={!done["m3.cren"]}>
         <SequenceStep id="m3.metal" axis="a2" label="3.3 Séquence de métallisation" correct={METAL_CORRECT} distractors={METAL_TRAPS}
@@ -1249,7 +1238,7 @@ function Mission3({ goNext }) {
             <span className="ml-auto font-mono text-2xl font-semibold text-ko tabular-nums">3,1 mΩ</span>
             <span className="font-mono text-[12px] text-muted">exigence &lt; 2,5 mΩ</span>
           </div>
-          <SingleChoice id="m3.mes" axis="a2" label="3.4 Mesure métallisation" prompt="Lors de la première pose de validation de la gamme, le compagnon relève 3,1 mΩ. Quelle consigne écrivez-vous ?" options={MES_OPTS} />
+          <SingleChoice id="m3.mes" axis="a2" label="3.4 Mesure métallisation" prompt="H160, métallisation de la ferrure support de guignol, mesure 4 fils (seuil 2,5 mΩ). Lors de la première pose de validation de la gamme, le compagnon relève 3,1 mΩ. Quelle consigne écrivez-vous ?" options={MES_OPTS} />
         </div>
       </StepCard>
       <StepCard n="3.5" id="m3.qc" axis="a4" title="Placement des contrôles qualité" locked={!done["m3.mes"]}><QcStep /></StepCard>
@@ -1268,8 +1257,8 @@ function ShimStep() {
   const { done, solve, penalize } = useSim();
   const id = "m4.A";
   const isDone = !!done[id];
-  const [peel, setPeel] = useState(isDone ? 9 : 0);
-  const [res, setRes] = useState(isDone ? "ok" : null);
+  const [peel, setPeel] = useState(done[id] === true ? 9 : done[id]?.peel ?? 0);
+  const [res, setRes] = useState(done[id] === true ? "ok" : done[id]?.why ?? null);
   const thick = +(SHIM - peel * LEAF).toFixed(2);
   const resid = +(GAP - thick).toFixed(2);
   const check = () => {
@@ -1279,6 +1268,7 @@ function ShimStep() {
     else why = `Cale de ${mm(thick)} mm : il reste un jeu de ${mm(resid)} mm, qui n'est pas strictement inférieur à 0,05 mm. Le serrage fléchirait la ferrure pour fermer ce jeu.`;
     setRes(why);
     penalize(`${id}:${peel}`, "a3", 8, "4A Calage pelable", `${peel} feuillet${peel > 1 ? "s" : ""} pelé${peel > 1 ? "s" : ""}`, why);
+    solve(id, false, { peel, why });
   };
   return (
     <div className="grid gap-4 lg:grid-cols-[auto_1fr]">
@@ -1290,8 +1280,8 @@ function ShimStep() {
           <Stat label="Épaisseur de cale" value={`${mm(thick)} mm`} />
           <Stat label="Jeu résiduel" value={resid >= 0 ? `${mm(resid)} mm` : `−${mm(-resid)} mm`} tone={resid < 0 ? "text-ko" : resid < 0.05 ? "text-ok" : "text-amber"} sub={resid < 0 ? "interférence" : "exigence < 0,05"} />
         </div>
-        {!isDone && <div><PrimaryButton onClick={check}><Layers size={16} /> Valider le calage</PrimaryButton></div>}
-        {res && res !== "ok" && <Feedback ok={false}>{res}</Feedback>}
+        {!isDone && <div><PrimaryButton onClick={check}><Lock size={16} /> Valider le calage (définitif)</PrimaryButton></div>}
+        {res && res !== "ok" && <Feedback ok={false} label="Faux (verrouillé).">{res} Réponse attendue : (0,80 − 0,35) / 0,05 = 9 feuillets.</Feedback>}
         {res === "ok" && <Feedback ok>(0,80 − 0,35) / 0,05 = 9 feuillets. Cale finale 0,35 mm, jeu résiduel nul. On pèle les feuillets un à un sur toute la surface, puis on remesure avant interposition.</Feedback>}
       </div>
     </div>
@@ -1299,21 +1289,21 @@ function ShimStep() {
 }
 
 const B1_OPTS = [
-  { t: "Interdire la pose du Hi-Lok nominal, identifier la pièce (étiquette bloquée), ouvrir une QN dans SAP", ok: true, why: "6,48 mm dépasse le maxi de 6,365 mm : la pièce est non conforme. On bloque, on identifie, on trace. Rien n'est posé tant que l'écart n'a pas de disposition." },
-  { t: "Poser le Hi-Lok nominal quand même : le collet serti compensera le jeu", grave: true, pts: 20, why: "Erreur grave : un Hi-Lok dans un trou trop grand travaille en matage et en cisaillement dégradé. C'est une liaison structurale qui porte une commande de vol." },
-  { t: "Reprendre directement à la cote réparation, sans rien déclarer", grave: true, pts: 20, why: "Erreur grave : toute reprise doit être tracée. Une réparation non déclarée rend l'appareil non conforme à sa définition approuvée." },
-  { t: "Combler le jeu avec du mastic PR avant de poser le Hi-Lok", grave: true, pts: 15, why: "Erreur grave : le mastic n'a aucune tenue mécanique et ne rattrape pas un défaut d'alésage." },
+  { t: "Bloquer la pièce (étiquette), ne rien poser, ouvrir une QN dans SAP", ok: true, why: "6,48 mm dépasse le maxi de 6,365 mm : la pièce est non conforme. On bloque, on identifie, on trace. Rien n'est posé tant que l'écart n'a pas de disposition." },
+  { t: "Poser le Hi-Lok nominal : le collier serti compensera le jeu", grave: true, pts: 20, why: "Erreur grave : un Hi-Lok dans un trou trop grand travaille en matage et en cisaillement dégradé. C'est une liaison structurale qui porte une commande de vol." },
+  { t: "Reprendre directement à la cote réparation sans rien déclarer", grave: true, pts: 20, why: "Erreur grave : toute reprise doit être tracée. Une réparation non déclarée rend l'appareil non conforme à sa définition approuvée." },
+  { t: "Combler le jeu au mastic PR puis poser le Hi-Lok nominal", grave: true, pts: 15, why: "Erreur grave : le mastic n'a aucune tenue mécanique et ne rattrape pas un défaut d'alésage." },
 ];
 const B3_OPTS = [
-  { t: "Oversize non applicable : 16,4 mm < 16,875 mm. La cote réparation standard ne respecte plus 2,5D", ok: true, why: "Le désaxage a rapproché l'axe du bord. Avec la cote réparation, la distance au bord n'est plus garantie : la solution standard est exclue." },
-  { t: "Oversize applicable : 16,4 mm reste supérieur à 15,875 mm", pts: 10, why: "15,875 mm est l'exigence pour le Ø6,35 nominal. Avec un Ø6,75 en cote réparation, l'exigence devient 2,5 × 6,75 = 16,875 mm." },
-  { t: "Oversize applicable : l'écart de 0,475 mm est négligeable", grave: true, pts: 12, why: "Erreur grave : une exigence de plan n'a pas de « négligeable ». 16,4 mm < 16,875 mm, c'est non conforme." },
+  { t: "Non applicable : 16,4 mm < 2,5 × 6,75 = 16,875 mm", ok: true, why: "Le désaxage a rapproché l'axe du bord. Avec la cote réparation, la distance au bord n'est plus garantie : la solution standard est exclue." },
+  { t: "Applicable : 16,4 mm > 2,5 × 6,35 = 15,875 mm", pts: 10, why: "15,875 mm est l'exigence pour le Ø6,35 nominal. Avec un Ø6,75 en cote réparation, l'exigence devient 2,5 × 6,75 = 16,875 mm." },
+  { t: "Applicable : l'écart de 0,475 mm reste négligeable", grave: true, pts: 12, why: "Erreur grave : une exigence de plan n'a pas de « négligeable ». 16,4 mm < 16,875 mm, c'est non conforme." },
 ];
 const B4_OPTS = [
-  { t: "Transmettre la QN au Bureau d'Études (DOA Part-21J) pour une solution de réparation ou une concession ; poste bloqué en attendant", ok: true, why: "L'organisme de production (POA Part-21G) fabrique selon des données approuvées : il ne peut pas approuver un écart de définition. Seul le BE agréé Part-21J statue." },
-  { t: "Le préparateur rédige une dérogation et l'applique", grave: true, pts: 20, why: "Erreur grave : le préparateur n'a aucune autorité de conception. Une dérogation signée au niveau méthodes n'a aucune valeur de navigabilité." },
-  { t: "Le chef d'équipe FAL valide une solution d'atelier", grave: true, pts: 18, why: "Erreur grave : l'atelier (Part-21G) ne dispose pas d'une non-conformité de définition. Il trace et transmet." },
-  { t: "Rebuter le plancher et recommencer sans laisser de trace", pts: 12, why: "Rebuter sans QN fait disparaître l'information : pas d'analyse de cause, pas de traçabilité MSN, et un plancher CFRP peut souvent être réparé par le BE." },
+  { t: "QN au BE (DOA Part-21J) : réparation ou concession, poste bloqué", ok: true, why: "L'organisme de production (POA Part-21G) fabrique selon des données approuvées : il ne peut pas approuver un écart de définition. Seul le BE agréé Part-21J statue." },
+  { t: "Le préparateur rédige une dérogation et l'applique au poste", grave: true, pts: 20, why: "Erreur grave : le préparateur n'a aucune autorité de conception. Une dérogation signée au niveau méthodes n'a aucune valeur de navigabilité." },
+  { t: "Le chef d'équipe FAL valide une solution d'atelier tracée", grave: true, pts: 18, why: "Erreur grave : l'atelier (Part-21G) ne dispose pas d'une non-conformité de définition. Il trace et transmet." },
+  { t: "Rebuter le plancher et recommencer sans ouvrir de QN", pts: 12, why: "Rebuter sans QN fait disparaître l'information : pas d'analyse de cause, pas de traçabilité MSN, et un plancher CFRP peut souvent être réparé par le BE." },
 ];
 
 function QnForm() {
@@ -1375,7 +1365,7 @@ function Mission4({ goNext }) {
           <Stat label="ED réelle relevée" value="16,4" tone="text-amber" sub="mm (plan : 17,0)" />
         </div>
         <StepCard n="B1" id="m4.B1" axis="a4" title="Action immédiate au poste">
-          <SingleChoice id="m4.B1" axis="a4" label="4B1 Action immédiate" prompt="Le trou n°3 mesure 6,48 mm. Que faites-vous en premier ?" options={B1_OPTS} />
+          <SingleChoice id="m4.B1" axis="a4" label="4B1 Action immédiate" prompt="H160, FAL, poste jonction plancher, alésage Ø6,35 H7 (maxi 6,365 mm). Le trou n°3 mesure 6,48 mm. Que faites-vous en premier ?" options={B1_OPTS} />
         </StepCard>
         <StepCard n="B2" id="m4.B2" axis="a3" title="Cote réparation (oversize) : distance au bord exigée" locked={!done["m4.B1"]}>
           <NumericStep id="m4.B2" axis="a3" label="4B2 ED oversize" unit="mm" digits={3} answer={16.875} tol={0.006}
@@ -1384,10 +1374,10 @@ function Mission4({ goNext }) {
             explain="2,5 × 6,75 = 16,875 mm. À comparer avec la distance au bord réellement relevée sur le trou désaxé." />
         </StepCard>
         <StepCard n="B3" id="m4.B3" axis="a4" title="Verdict sur la solution standard" locked={!done["m4.B2"]}>
-          <SingleChoice id="m4.B3" axis="a4" label="4B3 Verdict oversize" prompt="L'axe du trou désaxé est relevé à 16,4 mm du bord. La cote réparation standard est-elle applicable ?" options={B3_OPTS} />
+          <SingleChoice id="m4.B3" axis="a4" label="4B3 Verdict oversize" prompt="H160, plancher CFRP, reprise standard en Ø6,75 (ED ≥ 2,5D). L'axe du trou désaxé est relevé à 16,4 mm du bord. La cote réparation standard est-elle applicable ?" options={B3_OPTS} />
         </StepCard>
         <StepCard n="B4" id="m4.B4" axis="a4" title="Disposition réglementaire (EASA Part-21)" locked={!done["m4.B3"]}>
-          <SingleChoice id="m4.B4" axis="a4" label="4B4 Disposition Part-21" prompt="La solution standard est exclue. Qui peut statuer, et comment ?" options={B4_OPTS} />
+          <SingleChoice id="m4.B4" axis="a4" label="4B4 Disposition Part-21" prompt="H160, QN ouverte sur le plancher CFRP, réparation standard exclue. Qui peut statuer, et comment ?" options={B4_OPTS} />
         </StepCard>
         {done["m4.B4"] && <QnForm />}
       </Panel>
@@ -1458,7 +1448,7 @@ function Certificate({ name, gauge, axes, errors }) {
   );
 }
 
-function Debrief({ gauge, axes, errorsList, onRestart }) {
+function Debrief({ gauge, axes, errorsList, onRestart, blockReason }) {
   const { st, setName, showCard } = useSim();
   const { defaultName } = useSim();
   const [draft, setDraft] = useState(st.name || defaultName || "");
@@ -1539,8 +1529,10 @@ function Debrief({ gauge, axes, errorsList, onRestart }) {
       </Panel>
 
       <div className="flex flex-wrap items-center gap-3">
-        {!confirmReset ? (
-          <PrimaryButton tone="amber" onClick={() => setConfirmReset(true)}><RotateCcw size={16} /> Recommencer l'entraînement</PrimaryButton>
+        {!onRestart ? (
+          <div className="flex items-center gap-2 rounded-lg border border-amber/50 bg-amber/10 px-3 py-2 text-[13px] text-ink"><Lock size={16} className="text-amber" />{blockReason || "Nouvelle tentative non autorisée."}</div>
+        ) : !confirmReset ? (
+          <PrimaryButton tone="amber" onClick={() => setConfirmReset(true)}><RotateCcw size={16} /> Nouvelle tentative (tout recommencer)</PrimaryButton>
         ) : (
           <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber/50 bg-amber/10 px-3 py-2 text-[13px] text-ink">
             <AlertTriangle size={16} className="text-amber" />
@@ -1574,7 +1566,9 @@ export default function App({ onSaveScore, onBack, student } = {}) {
   const timer = useRef(null);
   useEffect(() => saveState(st), [st]);
 
-  const solve = (id) => setSt((s) => (s.done[id] ? s : { ...s, done: { ...s.done, [id]: true } }));
+  /* solve(id) : étape réussie ; solve(id, false, détail) : étape close sur une erreur verrouillée */
+  const solve = (id, ok = true, detail = {}) => setSt((s) => (s.done[id] ? s : { ...s, done: { ...s.done, [id]: ok ? true : { ko: true, ...detail } } }));
+  const session = useModuleSession();
   const penalize = (key, axis, pts, step, wrong, fix, grave = false) => {
     if (errRef.current[key]) return;
     errRef.current = { ...errRef.current, [key]: true };
@@ -1619,7 +1613,14 @@ export default function App({ onSaveScore, onBack, student } = {}) {
   const allMissionsDone = MISSIONS.every((m) => missionDone(m, st.done));
   useEffect(() => {
     if (!allMissionsDone || st.scoreSent) return;
-    if (onSaveScore) onSaveScore(gauge);
+    const s100 = trunc1(gauge);
+    if (onSaveScore) onSaveScore(s100, {
+      kind: "sprint", atelierId: "simulateur-final", label: "Simulateur final H160 : jauge de crédibilité", score: s100,
+      total: MISSIONS.reduce((n, m) => n + m.steps.length, 0),
+      good: MISSIONS.reduce((n, m) => n + m.steps.filter((x) => st.done[x] === true).length, 0),
+      statut: s100 >= 85 ? "VALIDE" : "À REVOIR",
+      answers: errorsList.map((e) => ({ q: e.step, choix: e.wrong, bonne: e.fix, ok: false, detail: `−${e.pts} pts${e.grave ? " (erreur grave)" : ""}` })),
+    });
     setSt((s) => ({ ...s, scoreSent: true }));
   }, [allMissionsDone, st.scoreSent]);
 
@@ -1671,7 +1672,7 @@ export default function App({ onSaveScore, onBack, student } = {}) {
           {stage === "m2" && <Mission2 goNext={() => go("m3")} />}
           {stage === "m3" && <Mission3 goNext={() => go("m4")} />}
           {stage === "m4" && <Mission4 goNext={() => go("debrief")} />}
-          {stage === "debrief" && <Debrief gauge={gauge} axes={axes} errorsList={errorsList} onRestart={restart} />}
+          {stage === "debrief" && <Debrief gauge={gauge} axes={axes} errorsList={errorsList} onRestart={session.canAttempt ? restart : null} blockReason={session.blockReason} />}
 
           <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
             <button type="button" onClick={() => setDossier(true)} className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted hover:text-ink">
