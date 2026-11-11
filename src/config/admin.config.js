@@ -11,7 +11,7 @@
    ============================================================ */
 export const DEFAULT_ADMIN = {
   login: "Antoine",
-  salt: "a3f1c2d94b7e60185d2c9f0e7b4a1c36",
+  salt: "099e1d293e5befdb122b66a1d0c32fe4",
   iterations: 100000,
-  hash: "61393008b309ade3eaeed5e2eb494880f9e4f975f521451bc162f2ec36bb8f98",
+  hash: "67c3453fa1f4b3476b1880d19a8049ab0689233039daf3ec924fc9d9c927f28a",
 };
