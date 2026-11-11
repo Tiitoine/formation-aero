@@ -68,7 +68,7 @@ src/
   lms/ui.jsx                     briques d'interface
   lib/pedago.jsx                 moteur commun : verrouillage, mélange, ateliers, sprints
   modules/Module1.jsx … Module4B.jsx
-  modules/m1/            écorché de la cellule (Cutaway) + tables de normes (NormesTables)
+  modules/m1/            écorché pleine largeur (Cutaway), silhouettes partagées (HeliViews), simulateur rotor (RotorLab), freinages, mastic PR, tables de normes
   modules/m2/            catalogue visuel de la quincaillerie (Quincaillerie)
   modules/m3/            écran de gamme SAP / MES (GammeMES) + workflow QN Part-21G / 21J (QnWorkflow)
   modules/plans/         laboratoire de plans : PlanKit (feuille, cartouche, cotes, ISO GPS),

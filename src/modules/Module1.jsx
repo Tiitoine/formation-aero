@@ -5,6 +5,7 @@ import NormesTables from "./m1/NormesTables.jsx";
 import RotorSim from "./m1/RotorLab.jsx";
 import Freinages from "./m1/Freinages.jsx";
 import MasticPR from "./m1/MasticPR.jsx";
+import { HeliSide, HeliTop, HX, HY, HZ } from "./m1/HeliViews.jsx";
 import { scopedKey } from "../lms/session.js";
 import { shuffle, shuffleSpread, permutation, useAtelier, AtelierCounter, AtelierResult, LockRule, LockChip, OptionButton, optState, LETTERS, LockedQuickCheck, SprintQCM, useModuleSession } from "../lib/pedago.jsx";
 import {
@@ -132,91 +133,6 @@ function QuickCheck(props) {
 
 
 
-
-/* ============================================================
-   SILHOUETTE HÉLICOPTÈRE PARTAGÉE (type H145 / H160, cotes en mm)
-   X0 en avant du nez · X vers le Fenestron · Z de la barque vers la tête rotor
-   ============================================================ */
-const HX = 14000, HY = 2000, HZ = 4000;
-const C = { base: "#1d2a45", body: "#24365a", stroke: "#5b7299", hl: "#2b5c99", hlStroke: "#3b9eff" };
-
-function HeliSide({ sx, sz, hl = [], overlay = [] }) {
-  const f = (k, d = C.base) => (hl.includes(k) ? C.hl : d);
-  const s = (k) => (hl.includes(k) ? C.hlStroke : C.stroke);
-  return (
-    <g>
-      {/* pales rotor principal */}
-      <line x1={sx(-2000)} y1={sz(3350)} x2={sx(9000)} y2={sz(3350)} stroke={hl.includes("rotor") ? C.hlStroke : "#3b9eff"} strokeOpacity={hl.includes("rotor") ? 1 : 0.6} strokeWidth="3" />
-      {/* mât et tête */}
-      <rect x={sx(3350)} y={sz(3300)} width={sx(3650) - sx(3350)} height={sz(3000) - sz(3300)} fill={f("rotor")} stroke={s("rotor")} />
-      <ellipse cx={sx(3500)} cy={sz(3330)} rx={sx(4100) - sx(3500)} ry="5" fill={f("rotor", "#2f4570")} stroke={s("rotor")} />
-      {/* BTP sur plancher mécanique */}
-      <rect x={sx(2800)} y={sz(3000)} width={sx(4600) - sx(2800)} height={sz(2300) - sz(3000)} rx="4" fill={f("pm")} stroke={s("pm")} />
-      {/* turbomoteurs */}
-      <rect x={sx(4600)} y={sz(2900)} width={sx(6600) - sx(4600)} height={sz(2300) - sz(2900)} rx="6" fill={f("eng")} stroke={s("eng")} />
-      {/* dérive + Fenestron */}
-      <polygon points={`${sx(11800)},${sz(1500)} ${sx(13200)},${sz(1600)} ${sx(13300)},${sz(3800)} ${sx(12700)},${sz(3800)} ${sx(11800)},${sz(2450)}`} fill={f("fen")} stroke={s("fen")} />
-      <circle cx={sx(12450)} cy={sz(2200)} r={(sx(12950) - sx(12450))} fill="#0b1220" stroke={hl.includes("fen") ? C.hlStroke : "#ffb020"} strokeWidth="1.5" />
-      {/* poutre de queue */}
-      <polygon points={`${sx(6200)},${sz(1500)} ${sx(11800)},${sz(1900)} ${sx(11800)},${sz(2350)} ${sx(6200)},${sz(2450)}`} fill={f("boom", C.body)} stroke={s("boom")} />
-      <rect x={sx(10200)} y={sz(2100)} width={sx(10800) - sx(10200)} height={sz(1950) - sz(2100)} fill={f("boom")} stroke={s("boom")} />
-      {/* cabine + barque */}
-      <path d={`M${sx(500)},${sz(1400)} C${sx(500)},${sz(2100)} ${sx(1400)},${sz(2300)} ${sx(2600)},${sz(2300)} L${sx(6200)},${sz(2300)} L${sx(6200)},${sz(1000)} L${sx(900)},${sz(1000)} C${sx(650)},${sz(1050)} ${sx(500)},${sz(1200)} ${sx(500)},${sz(1400)} Z`} fill={f("cabine", C.body)} stroke={s("cabine")} />
-      <path d={`M${sx(900)},${sz(1000)} L${sx(6200)},${sz(1000)} L${sx(6200)},${sz(600)} L${sx(1600)},${sz(600)} C${sx(1200)},${sz(650)} ${sx(950)},${sz(800)} ${sx(900)},${sz(1000)} Z`} fill={f("barque")} stroke={s("barque")} />
-      {/* verrière */}
-      <path d={`M${sx(650)},${sz(1450)} C${sx(700)},${sz(2000)} ${sx(1400)},${sz(2200)} ${sx(2400)},${sz(2200)} L${sx(2400)},${sz(1450)} Z`} fill="#17304f" stroke={C.stroke} strokeOpacity="0.7" />
-      {/* plancher mécanique */}
-      <line x1={sx(2600)} y1={sz(2300)} x2={sx(6600)} y2={sz(2300)} stroke={hl.includes("pm") ? C.hlStroke : "#8fa0bd"} strokeWidth={hl.includes("pm") ? 4 : 2} />
-      {/* patins */}
-      <line x1={sx(1200)} y1={sz(150)} x2={sx(5800)} y2={sz(150)} stroke={hl.includes("skid") ? C.hlStroke : C.stroke} strokeWidth="3" />
-      <line x1={sx(2200)} y1={sz(150)} x2={sx(2400)} y2={sz(600)} stroke={C.stroke} strokeWidth="2" />
-      <line x1={sx(4800)} y1={sz(150)} x2={sx(4600)} y2={sz(600)} stroke={C.stroke} strokeWidth="2" />
-      {/* surcouches structurales */}
-      {overlay.includes("couples") && [1500, 2600, 3500, 5200, 6200, 7400, 8600, 9800, 11000].map((x) => (
-        <line key={"c" + x} x1={sx(x)} y1={sz(x < 6200 ? 650 : 1550 + (x - 6200) * 0.07)} x2={sx(x)} y2={sz(x < 6200 ? 2300 : 2440 - (x - 6200) * 0.016)} stroke="#3ddc97" strokeWidth="1.5" strokeDasharray="4 3" />
-      ))}
-      {overlay.includes("lisses") && [1300, 1700, 2100].map((z) => (
-        <line key={"l" + z} x1={sx(z === 2100 ? 2400 : 1000)} y1={sz(z)} x2={sx(6200)} y2={sz(z)} stroke="#ffb020" strokeWidth="1.2" strokeDasharray="6 3" />
-      ))}
-      {overlay.includes("lisses") && [1750, 2150].map((z) => (
-        <line key={"lb" + z} x1={sx(6200)} y1={sz(z)} x2={sx(11800)} y2={sz(z + (z === 1750 ? 250 : 120))} stroke="#ffb020" strokeWidth="1.2" strokeDasharray="6 3" />
-      ))}
-      {overlay.includes("anneaux") && [2900, 4500].map((x) => (
-        <g key={"a" + x}>
-          <line x1={sx(x)} y1={sz(650)} x2={sx(x)} y2={sz(2300)} stroke="#ff5d6c" strokeWidth="4" />
-          <line x1={sx(x)} y1={sz(2300)} x2={sx(3500)} y2={sz(2950)} stroke="#ff5d6c" strokeWidth="2" />
-        </g>
-      ))}
-    </g>
-  );
-}
-
-function HeliTop({ sx, sy, hl = [] }) {
-  const f = (k, d = C.base) => (hl.includes(k) ? C.hl : d);
-  const s = (k) => (hl.includes(k) ? C.hlStroke : C.stroke);
-  return (
-    <g>
-      <circle cx={sx(3500)} cy={sy(0)} r={Math.abs(sx(5500) - sx(0))} fill="none" stroke="#3b9eff" strokeOpacity={hl.includes("rotor") ? 0.9 : 0.3} strokeDasharray="5 5" />
-      {/* patins */}
-      <rect x={sx(1200)} y={sy(1400)} width={sx(5800) - sx(1200)} height={sy(1000) - sy(1400)} fill={f("700")} stroke={s("700")} />
-      <rect x={sx(1200)} y={sy(-1000)} width={sx(5800) - sx(1200)} height={sy(-1400) - sy(-1000)} fill={f("700")} stroke={s("700")} />
-      {/* stabilisateur + poutre + dérive */}
-      <rect x={sx(10200)} y={sy(1600)} width={sx(10800) - sx(10200)} height={sy(-1600) - sy(1600)} fill={f("300")} stroke={s("300")} />
-      <polygon points={`${sx(6200)},${sy(400)} ${sx(11800)},${sy(250)} ${sx(11800)},${sy(-250)} ${sx(6200)},${sy(-400)}`} fill={f("300", C.body)} stroke={s("300")} />
-      <rect x={sx(11800)} y={sy(250)} width={sx(13200) - sx(11800)} height={sy(-250) - sy(250)} fill={f("fen")} stroke={s("fen")} />
-      {/* cabine */}
-      <path d={`M${sx(500)},${sy(0)} C${sx(500)},${sy(900)} ${sx(1400)},${sy(1100)} ${sx(2400)},${sy(1100)} L${sx(6200)},${sy(1100)} L${sx(6200)},${sy(-1100)} L${sx(2400)},${sy(-1100)} C${sx(1400)},${sy(-1100)} ${sx(500)},${sy(-900)} ${sx(500)},${sy(0)} Z`} fill={f("cab", C.body)} stroke={s("cab")} />
-      {/* portes latérales */}
-      <rect x={sx(2700)} y={sy(1150)} width={sx(4700) - sx(2700)} height="5" fill={f("800", "#5b7299")} />
-      <rect x={sx(2700)} y={sy(-1150) - 5} width={sx(4700) - sx(2700)} height="5" fill={f("800", "#5b7299")} />
-      {/* BTP et moteurs */}
-      <rect x={sx(2800)} y={sy(700)} width={sx(4600) - sx(2800)} height={sy(-700) - sy(700)} rx="4" fill={f("pm", "#2f4570")} stroke={s("pm")} />
-      <rect x={sx(4600)} y={sy(900)} width={sx(6600) - sx(4600)} height={sy(100) - sy(900)} rx="5" fill={f("400")} stroke={s("400")} />
-      <rect x={sx(4600)} y={sy(-100)} width={sx(6600) - sx(4600)} height={sy(-900) - sy(-100)} rx="5" fill={f("400")} stroke={s("400")} />
-      <circle cx={sx(3500)} cy={sy(0)} r="5" fill={hl.includes("rotor") ? "#3b9eff" : "#8fa0bd"} />
-    </g>
-  );
-}
 
 /* ============================================================
    ONGLET 1 : MÉCANIQUE DU VOL HÉLICOPTÈRE
@@ -369,62 +285,6 @@ function TabFlight({ done, onComplete }) {
 /* ============================================================
    ONGLET 2 : SE REPÉRER DANS LA CELLULE
    ============================================================ */
-const SECTIONS = [
-  { id: "barque", hl: ["barque", "cabine"], name: "Barque / pointe avant", sub: "Cockpit & canopy", desc: "Structure vitrée (verrière), palonniers, manche cyclique, levier de pas collectif. En bas, la barque : structure inférieure qui reçoit souvent les réservoirs." },
-  { id: "cabine", hl: ["cabine", "pm"], name: "Cabine / fuselage central", sub: "Entre barque et plancher mécanique", desc: "Délimitée par la barque en bas et le plancher mécanique en haut. Le plancher mécanique est la zone vitale de l'hélicoptère : il supporte la BTP et les moteurs." },
-  { id: "boom", hl: ["boom", "fen"], name: "Poutre de queue", sub: "Tail boom", desc: "Structure travaillante, composite ou métallique à couples et lisses. Elle reprend les efforts de l'anticouple et se prolonge par la dérive et le Fenestron (ou le rotor arrière)." },
-];
-const STRUCT_ELEMS = [
-  { id: "couples", name: "Couples / cadres", color: "text-ok", desc: "Positionnés en X (stations). Ils donnent la forme et reprennent les efforts transverses." },
-  { id: "lisses", name: "Lisses", color: "text-amber", desc: "Raidisseurs longitudinaux positionnés en Y et Z. Ils stabilisent les panneaux de peau." },
-  { id: "anneaux", name: "Anneaux principaux", color: "text-ko", desc: "Cadres renforcés qui reprennent les efforts des barres de suspension BTP, donc la portance du rotor." },
-  { id: "pm", name: "Plancher mécanique", color: "text-sky", desc: "Toit de la cabine qui porte la BTP et les turbomoteurs. Il intègre des drains et des cloisons pare-feu." },
-];
-
-function CelluleExplorer() {
-  const [sec, setSec] = useState("cabine");
-  const [ov, setOv] = useState(["anneaux"]);
-  const sx = (x) => 20 + (x / HX) * 480;
-  const sz = (z) => 210 - (z / HZ) * 190;
-  const S = SECTIONS.find((s) => s.id === sec);
-  const toggle = (id) => setOv(ov.includes(id) ? ov.filter((o) => o !== id) : [...ov, id]);
-  return (
-    <Panel className="p-5">
-      <div className="mb-3 flex items-center gap-2"><Layers size={18} className="text-sky" /><h3 className="font-display text-xl font-semibold text-ink">Découpage de la cellule (airframe)</h3></div>
-      <div className="grid gap-5 lg:grid-cols-[1.3fr_1fr]">
-        <div className="flex min-w-0 flex-col gap-2">
-          <div className="rounded-lg border border-line bg-bg p-2">
-            <svg viewBox="0 0 520 225" className="h-auto w-full" role="img" aria-label="Hélicoptère de profil avec découpage de la cellule">
-              <text x="8" y="16" fill="#8fa0bd" fontSize="10" fontFamily="JetBrains Mono, monospace">Vue de côté gauche · nez à gauche</text>
-              <HeliSide sx={sx} sz={sz} hl={[...S.hl, ...(ov.includes("pm") ? ["pm"] : [])]} overlay={ov} />
-            </svg>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {STRUCT_ELEMS.map((e) => (
-              <Chip key={e.id} active={ov.includes(e.id)} onClick={() => toggle(e.id)}><span className={e.color}>■</span> {e.name}</Chip>
-            ))}
-          </div>
-        </div>
-        <div className="flex flex-col gap-2">
-          {SECTIONS.map((s, i) => (
-            <button key={s.id} type="button" onClick={() => setSec(s.id)} className={cx("flex flex-col gap-0.5 rounded-lg border p-3 text-left transition", sec === s.id ? "border-sky bg-sky/10" : "border-line bg-bg hover:border-sky/60")}>
-              <div className="flex items-baseline gap-2"><span className="font-mono text-xs text-sky">{i + 1}</span><span className="font-display text-lg font-semibold text-ink">{s.name}</span></div>
-              <span className="font-mono text-[10px] uppercase tracking-wider text-muted">{s.sub}</span>
-              {sec === s.id && <span className="mt-1 text-[13px] leading-relaxed text-ink/90">{s.desc}</span>}
-            </button>
-          ))}
-          <div className="flex flex-col gap-1.5 rounded-lg border border-line bg-bg p-3">
-            {STRUCT_ELEMS.filter((e) => ov.includes(e.id)).map((e) => (
-              <div key={e.id} className="text-[12px] leading-snug text-ink/85"><strong className={e.color}>{e.name} : </strong>{e.desc}</div>
-            ))}
-            {ov.length === 0 && <span className="text-[12px] text-muted">Active un élément structural pour le voir sur le profil.</span>}
-          </div>
-        </div>
-      </div>
-    </Panel>
-  );
-}
-
 const STRUCT_ITEMS = [
   { name: "Plancher mécanique", cat: "primaire", why: "Il reçoit la BTP et les turbomoteurs : effort majeur, structure primaire." },
   { name: "Anneau principal (reprise des barres BTP)", cat: "primaire", why: "Il transmet la portance du rotor à la cellule : structure primaire." },
@@ -490,14 +350,14 @@ function StructureSort({ onAllCorrect }) {
 }
 
 const ZONES = [
-  { code: "100", hl: ["cab"], name: "Fuselage inférieur", detail: "Sur hélicoptère : la barque, sous le plancher cabine. Réservoirs carburant, structure inférieure." },
-  { code: "200", hl: ["cab"], name: "Fuselage supérieur", detail: "Pointe avant (cockpit, verrière) et cabine, jusqu'au plancher mécanique." },
-  { code: "300", hl: ["300", "fen"], name: "Arrière / poutre de queue", detail: "Poutre de queue, stabilisateur horizontal, dérive, Fenestron ou rotor arrière." },
-  { code: "400", hl: ["400"], name: "Groupes motopropulseurs", detail: "Turbomoteurs (Arriel, Arrano, Makila…), capots, cloisons pare-feu." },
+  { code: "100", hl: ["cab"], side: ["barque"], name: "Fuselage inférieur", detail: "Sur hélicoptère : la barque, sous le plancher cabine. Réservoirs carburant, structure inférieure." },
+  { code: "200", hl: ["cab"], side: ["cabine"], name: "Fuselage supérieur", detail: "Pointe avant (cockpit, verrière) et cabine, jusqu'au plancher mécanique." },
+  { code: "300", hl: ["300", "fen"], side: ["boom", "fen"], name: "Arrière / poutre de queue", detail: "Poutre de queue, stabilisateur horizontal, dérive, Fenestron ou rotor arrière." },
+  { code: "400", hl: ["400"], side: ["eng"], name: "Groupes motopropulseurs", detail: "Turbomoteurs (Arriel, Arrano, Makila…), capots, cloisons pare-feu." },
   { code: "500", hl: [], name: "Voilure gauche (avion)", detail: "Sans voilure fixe sur hélicoptère : vérifie l'affectation de ces numéros dans le zonage du manuel du type." },
   { code: "600", hl: [], name: "Voilure droite (avion)", detail: "Même remarque que 500. La logique impair = gauche, pair = droite reste valable partout." },
-  { code: "700", hl: ["700"], name: "Atterrisseurs", detail: "Patins (H125, H145) ou train à roues (H160, H175, Super Puma)." },
-  { code: "800", hl: ["800"], name: "Portes et trappes", detail: "Portes cabine coulissantes, portes pilote, trappes d'accès et capots ouvrants." },
+  { code: "700", hl: ["700"], side: ["skid"], name: "Atterrisseurs", detail: "Patins (H125, H145) ou train à roues (H160, H175, Super Puma)." },
+  { code: "800", hl: ["800"], side: ["800"], name: "Portes et trappes", detail: "Portes cabine coulissantes, portes pilote, trappes d'accès et capots ouvrants." },
 ];
 
 function ZoneMap() {
@@ -505,18 +365,26 @@ function ZoneMap() {
   const z = ZONES.find((x) => x.code === zone);
   const sx = (x) => 30 + (x / HX) * 460;
   const sy = (y) => 125 - (y / HY) * 100;
+  const szZ = (zz) => 212 - (zz / HZ) * 190;
   return (
     <Panel className="p-5">
       <div className="mb-3 flex items-center gap-2"><MapIcon size={18} className="text-sky" /><h3 className="font-display text-xl font-semibold text-ink">Le zonage ATA 100 appliqué à l'hélicoptère</h3></div>
       <div className="grid gap-5 lg:grid-cols-[1.3fr_1fr]">
-        <div className="min-w-0 rounded-lg border border-line bg-bg p-2">
-          <svg viewBox="0 0 520 250" className="h-auto w-full" role="img" aria-label="Hélicoptère vu de dessus avec zones">
-            <text x="8" y="14" fill="#8fa0bd" fontSize="10" fontFamily="JetBrains Mono, monospace">Vu de dessus · nez à gauche</text>
-            <text x="370" y="14" fill="#ffb020" fontSize="10" fontFamily="JetBrains Mono, monospace">+Y DROITE ↑</text>
-            <text x="8" y="244" fill="#ffb020" fontSize="10" fontFamily="JetBrains Mono, monospace">↓ −Y GAUCHE</text>
-            <HeliTop sx={sx} sy={sy} hl={z.hl} />
-            {(zone === "100" || zone === "200") && <text x={sx(1650)} y={sy(0) + 4} fill="#e6edf7" fontSize="11" fontWeight="700" fontFamily="JetBrains Mono, monospace" textAnchor="middle">{zone === "100" ? "BARQUE" : "CABINE"}</text>}
-          </svg>
+        <div className="flex min-w-0 flex-col gap-2">
+          <div className="rounded-lg border border-line bg-bg p-2">
+            <svg viewBox="0 0 520 250" className="h-auto w-full" role="img" aria-label="Hélicoptère vu de dessus avec numéros de zones">
+              <text x="8" y="14" fill="#8fa0bd" fontSize="10" fontFamily="JetBrains Mono, monospace">Vue de dessus · nez à gauche</text>
+              <text x="410" y="14" fill="#ffb020" fontSize="10" fontFamily="JetBrains Mono, monospace">+Y DROITE ↑</text>
+              <text x="8" y="244" fill="#ffb020" fontSize="10" fontFamily="JetBrains Mono, monospace">↓ −Y GAUCHE</text>
+              <HeliTop sx={sx} sy={sy} hl={z.hl} zones={zone} />
+            </svg>
+          </div>
+          <div className="rounded-lg border border-line bg-bg p-2">
+            <svg viewBox="0 0 520 225" className="h-auto w-full" role="img" aria-label="Hélicoptère de profil avec numéros de zones">
+              <text x="8" y="14" fill="#8fa0bd" fontSize="10" fontFamily="JetBrains Mono, monospace">Vue de profil gauche · la zone 100 (barque) est sous le plancher cabine</text>
+              <HeliSide sx={sx} sz={szZ} hl={z.side || []} zones={zone} />
+            </svg>
+          </div>
         </div>
         <div className="flex flex-col gap-2">
           <div className="grid grid-cols-4 gap-1.5">
@@ -584,10 +452,9 @@ function SubzoneDecoder() {
 }
 
 function TabLocate({ done, onComplete }) {
-  const [axisOpen, setAxisOpen] = useState("X");
   const axes = [
     { id: "X", name: "Station · STA", dir: "Longitudinal : du nez vers le Fenestron", pos: "Couples / cadres (Frames, FR), anneaux principaux", note: "Le point zéro X0 est placé en avant du nez : toutes les stations restent positives jusqu'au Fenestron.", color: "text-sky" },
-    { id: "Y", name: "Buttock Line · BL", dir: "Transversal : gauche / droite", pos: "Lisses (Stringers), longerons de plancher", note: "Règle d'or : gauche et droite se lisent assis dans un siège pilote, regard vers l'avant. −Y à gauche (impair), +Y à droite (pair). Le commandant de bord est à droite sur hélico Airbus, mais la géométrie ne change pas.", color: "text-amber" },
+    { id: "Y", name: "Buttock Line · BL", dir: "Transversal : gauche / droite", pos: "Lisses (Stringers), longerons de plancher", note: "Gauche et droite se lisent assis dans un siège pilote, regard vers l'avant. −Y à gauche (impair), +Y à droite (pair). Le commandant de bord est à droite sur hélico Airbus, mais la géométrie ne change pas.", color: "text-amber" },
     { id: "Z", name: "Water Line · WL", dir: "Vertical : barque → cabine → plancher mécanique → tête rotor", pos: "Plancher cabine, plancher mécanique, BTP", note: "La WL te dit si tu travailles dans la barque (réservoirs), en cabine, sur le plancher mécanique ou au niveau de la tête rotor.", color: "text-ok" },
   ];
   return (
@@ -598,18 +465,16 @@ function TabLocate({ done, onComplete }) {
 
       <div className="grid gap-3 md:grid-cols-3">
         {axes.map((a) => (
-          <button key={a.id} type="button" onClick={() => setAxisOpen(a.id)} className={cx("flex flex-col gap-1 rounded-xl border p-4 text-left transition", axisOpen === a.id ? "border-sky bg-sky/10" : "border-line bg-panel hover:border-sky/60")}>
+          <div key={a.id} className="flex flex-col gap-1 rounded-xl border border-line bg-panel p-4">
             <div className="flex items-baseline gap-2"><span className={cx("font-mono text-3xl font-bold", a.color)}>{a.id}</span><span className="font-display text-lg font-semibold text-ink">{a.name}</span></div>
             <div className="text-[13px] text-muted">{a.dir}</div>
             <div className="text-[13px] text-ink"><span className="text-muted">Positionne : </span>{a.pos}</div>
-            {axisOpen === a.id && <div className={cx("mt-2 rounded-lg border border-line bg-bg p-2 text-[13px] leading-relaxed", a.id === "Y" ? "text-amber" : "text-ink/90")}>{a.note}</div>}
-          </button>
+            <div className={cx("mt-2 flex-1 rounded-lg border p-3 text-[13px] leading-relaxed", a.id === "Y" ? "border-amber/50 bg-amber/10 text-ink" : "border-line bg-bg text-ink/90")}>{a.id === "Y" && <strong className="text-amber">Règle d'or. </strong>}{a.note}</div>
+          </div>
         ))}
       </div>
 
       <Cutaway />
-
-      <CelluleExplorer />
 
       <div className="grid gap-3 md:grid-cols-3">
         <Panel className="p-4">
@@ -981,6 +846,7 @@ function TriedreSim({ onComplete }) {
   const hlTop = zone === "100" || zone === "200" ? ["cab"] : zone === "pm" ? ["pm"] : zone === "rotor" ? ["rotor"] : zone ? [zone] : [];
   const hlSide = zone === "100" ? ["barque"] : zone === "200" ? ["cabine"] : zone === "pm" ? ["pm"] : zone === "rotor" ? ["rotor"] : zone === "400" ? ["eng"] : zone === "300" ? ["boom"] : zone === "fen" ? ["fen"] : zone === "700" ? ["skid"] : [];
   const px = sx(X), pyT = syTop(Y), pzS = szSide(Z);
+  const zoneTag = zone === "fen" ? "300" : zone && !["pm", "rotor"].includes(zone) ? zone : "aucune";
 
   return (
     <Panel className="overflow-hidden">
@@ -1000,7 +866,7 @@ function TriedreSim({ onComplete }) {
               <line x1={sx(0)} y1={syTop(0)} x2={sx(HX)} y2={syTop(0)} stroke="#2a3a5c" strokeDasharray="4 4" />
               <line x1={sx(0)} y1="24" x2={sx(0)} y2="200" stroke="#3b9eff" strokeOpacity="0.5" />
               <text x={sx(0) + 3} y="34" fill="#3b9eff" fontSize="9" fontFamily="JetBrains Mono, monospace">X0</text>
-              <HeliTop sx={sx} sy={syTop} hl={hlTop} />
+              <HeliTop sx={sx} sy={syTop} hl={hlTop} zones={zoneTag} />
               <line x1={px} y1="6" x2={px} y2="214" stroke="#3ddc97" strokeOpacity="0.35" />
               <line x1={PADX} y1={pyT} x2={W - PADX} y2={pyT} stroke="#3ddc97" strokeOpacity="0.35" />
               <circle cx={px} cy={pyT} r="7" fill="none" stroke="#3ddc97" strokeWidth="2" />
@@ -1011,7 +877,7 @@ function TriedreSim({ onComplete }) {
             <div className="flex justify-between px-1 font-mono text-[10px] uppercase tracking-wider text-muted"><span>Vue de côté gauche (plan X-Z)</span><span>← nez · Fenestron →</span></div>
             <svg viewBox={`0 0 ${W} 215`} className="h-auto w-full" role="img" aria-label="Vue de profil avec point d'intervention">
               <line x1={PADX} y1={szSide(0)} x2={W - PADX} y2={szSide(0)} stroke="#2a3a5c" />
-              <HeliSide sx={sx} sz={szSide} hl={hlSide} />
+              <HeliSide sx={sx} sz={szSide} hl={hlSide} zones={zoneTag} />
               {[[1000, "plancher cabine"], [2300, "plancher mécanique"]].map(([z, l]) => (
                 <g key={l}>
                   <line x1={sx(6700)} y1={szSide(z)} x2={sx(7300)} y2={szSide(z)} stroke="#ffb020" strokeOpacity="0.5" strokeDasharray="3 3" />
