@@ -9,7 +9,7 @@
    les fiches venant de plusieurs PC (import .json, code, cloud).
    ============================================================ */
 import { Plane, Wrench, Layers, Ruler, Target } from "lucide-react";
-import { sha256Hex, uuid } from "../auth/crypto.js";
+import { sha256Hex, uuid, hmacHex, safeEqual } from "../auth/crypto.js";
 
 export const DB_KEY = "ah_lms_db_v2";
 export const SEUIL = 85;
@@ -83,15 +83,52 @@ export const frDateTime = (d) => { if (!d) return "—"; const t = new Date(d); 
 
 /* Identité stagiaire : Nom + Prénom + Type de formation (insensible à la casse et aux accents) */
 const fold = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[\s\-']+/g, " ").trim().toLowerCase();
-export const cleanNom = (s) => String(s || "").replace(/\s+/g, " ").trim().toUpperCase();
-export const cleanPrenom = (s) => String(s || "").replace(/\s+/g, " ").trim().toLowerCase().replace(/(^|[\s-])\p{L}/gu, (m) => m.toUpperCase());
+/* Anti-XSS : seuls lettres Unicode, espaces, tirets et apostrophes sont conservés (40 caractères max) */
+const lettres = (s) => String(s || "").normalize("NFC").replace(/[^\p{L}\s\-']/gu, "").replace(/\s+/g, " ").trim().slice(0, 40).trim();
+export const cleanNom = (s) => lettres(s).toUpperCase();
+export const cleanPrenom = (s) => lettres(s).toLowerCase().replace(/(^|[\s-])\p{L}/gu, (m) => m.toUpperCase());
 export const cleStagiaire = (nom, prenom, type) => `${fold(nom)}|${fold(prenom)}|${fold(type)}`;
 export const idFromCle = (cle) => "stg_" + sha256Hex(cle).slice(0, 12);
 
 /* ============================================================
    FICHE STAGIAIRE
    ============================================================ */
-const emptyFiche = () => ({ grilleCompetences: {}, commentaireFormateur: "", pointsARevoir: "", drapeauSecurite: { actif: false, motif: "" }, updatedAt: "" });
+const emptyFiche = () => ({ grilleCompetences: {}, commentaireFormateur: "", pointsARevoir: "", drapeauSecurite: { actif: false, motif: "" }, integrite: null, updatedAt: "" });
+
+/* ============================================================
+   ANTI-TRICHE : le score d'une tentative est TOUJOURS recalculé à
+   partir du détail des réponses (jamais lu tel quel dans un fichier).
+   ============================================================ */
+const trunc1 = (x) => Math.floor(x * 10) / 10;
+/** Recalcule ok / good / total / score d'une tentative. Retourne { h, altere } */
+export function verifierTentative(h) {
+  if (!h || h.kind === "debut") return { h, altere: false };
+  const answers = Array.isArray(h.answers) ? h.answers : [];
+  let altere = false;
+  /* M4B : la liste ne contient que les erreurs (score = jauge), on borne seulement */
+  if (h.atelierId === "simulateur-final" || !answers.length) {
+    const sc = isNum(h.score) ? clamp(h.score) : null;
+    if (sc !== h.score) altere = true;
+    const fixed = { ...h, score: sc, statut: statutDe(sc) };
+    if (h.atelierId === "simulateur-final" && answers.some((a) => a && a.ok)) altere = true;
+    return { h: fixed, altere };
+  }
+  /* ok n'est pas déduit du texte (certains ateliers notent une valeur saisie) : toute bascule de ok est détectée par le scellé */
+  const ans = answers.map((a) => ({ ...(a || {}), ok: !!a?.ok }));
+  /* Dénominateur : nombre de réponses détaillées (un total déclaré plus grand ne peut que baisser le score) */
+  const good = ans.filter((a) => a.ok).length, total = Math.max(ans.length, isNum(h.total) ? h.total : 0);
+  const score = trunc1((good / total) * 100);
+  if (!isNum(h.score) || Math.abs(h.score - score) > 0.05 || (h.good !== undefined && h.good !== good)) altere = true;
+  return { h: { ...h, answers: ans, good, total, score, statut: statutDe(score) }, altere };
+}
+
+/* Scellé d'intégrité des exports (.json et codes AHSYNC1).
+   ⚠ La clé est dans le code public : le scellé détecte une retouche à la main
+   (éditeur de texte, Base64), pas un tricheur qui lit et rejoue le code source. */
+const SEAL_KEY = "AH-formation-preparateur|scelle-v1|85";
+const sealPayload = (s) => [s.id, s.cle, ...(s.historique || []).map((h) => [h.id, h.moduleId, h.kind, h.date, h.score, h.good, h.total,
+  ...(Array.isArray(h.answers) ? h.answers.map((a) => `${a?.q}~${a?.choix}~${a?.bonne}~${a?.ok ? 1 : 0}`) : [])].join("^"))].join("\n");
+export const sealStudent = (s) => hmacHex(`${SEAL_KEY}|${s.id}`, sealPayload(s));
 
 export function newStudent({ nom, prenom, typeFormation }) {
   const cle = cleStagiaire(nom, prenom, typeFormation);
@@ -111,11 +148,12 @@ export function normaliser(s) {
   const cle = s.cle || cleStagiaire(nom, prenom, typeFormation);
   const fiche = { ...emptyFiche(), ...(s.fiche || {}) };
   fiche.drapeauSecurite = { actif: !!fiche.drapeauSecurite?.actif, motif: fiche.drapeauSecurite?.motif || "" };
+  fiche.integrite = fiche.integrite?.alerte ? { alerte: true, motif: String(fiche.integrite.motif || ""), date: fiche.integrite.date || "" } : null;
   return {
-    id: s.id || idFromCle(cle), cle, nom, prenom, typeFormation,
-    matricule: s.matricule || "AH-" + String(s.id || idFromCle(cle)).slice(4, 10).toUpperCase(),
+    id: /^stg_[0-9a-f]{12}$/.test(String(s.id || "")) ? s.id : idFromCle(cle), cle, nom, prenom, typeFormation,
+    matricule: /^AH-\d{4}-[0-9A-Z]{6}$/.test(String(s.matricule || "")) ? s.matricule : "AH-" + String(s.id || idFromCle(cle)).replace(/[^0-9a-z]/gi, "").slice(3, 9).toUpperCase(),
     createdAt: s.createdAt || nowISO(), lastLogin: s.lastLogin || s.createdAt || "",
-    historique: Array.isArray(s.historique) ? s.historique.filter((h) => h && h.id && h.moduleId) : [],
+    historique: Array.isArray(s.historique) ? s.historique.filter((h) => h && h.id && h.moduleId).map((h) => verifierTentative(h).h) : [],
     decisions: Array.isArray(s.decisions) ? s.decisions.filter((d) => d && d.id && d.type) : [],
     fiche,
   };
@@ -231,7 +269,7 @@ export function mergeStudent(a, b) {
     lastLogin: [a.lastLogin, b.lastLogin].filter(Boolean).sort().pop(),
     historique: uniq([...(a.historique || []), ...(b.historique || [])]).sort(byDate),
     decisions: uniq([...(a.decisions || []), ...(b.decisions || [])]).sort(byDate),
-    fiche: String(fb.updatedAt || "") > String(fa.updatedAt || "") ? fb : fa,
+    fiche: (() => { const f = String(fb.updatedAt || "") > String(fa.updatedAt || "") ? fb : fa; const al = fa.integrite?.alerte ? fa.integrite : fb.integrite?.alerte ? fb.integrite : null; return { ...f, integrite: al }; })(),
   });
 }
 
@@ -272,8 +310,10 @@ const b64enc = (str) => { const bytes = new TextEncoder().encode(str); let bin =
 const b64dec = (b64) => { const bin = atob(b64.replace(/\s+/g, "")); const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0)); return new TextDecoder().decode(bytes); };
 
 export function exportStudentPayload(s) {
-  return { format: "ah-fiche-stagiaire", version: 2, exportedAt: nowISO(), regle: "Score < 85 % = À REVOIR ; Score ≥ 85 % = VALIDE", stagiaires: [s] };
+  return { format: "ah-fiche-stagiaire", version: 3, exportedAt: nowISO(), regle: "Score < 85 % = À REVOIR ; Score ≥ 85 % = VALIDE", stagiaires: [{ ...s, seal: sealStudent(s) }] };
 }
+/** Export complet de la base (formateur) : chaque fiche porte son scellé */
+export const exportDBPayload = (db) => ({ format: "ah-lms-bdd", version: 3, exportedAt: nowISO(), regle: "Score < 85 % = À REVOIR ; Score ≥ 85 % = VALIDE", stagiaires: db.stagiaires.map((s) => ({ ...s, seal: sealStudent(s) })), supprimes: db.supprimes });
 export const studentCode = (s) => CODE_PREFIX + b64enc(JSON.stringify(exportStudentPayload(s)));
 
 /** Lit un export JSON (base complète, fiche unique, tableau) ou un code AHSYNC1 */
@@ -288,7 +328,19 @@ export function parseImport(text) {
   }
   const list = Array.isArray(obj) ? obj : Array.isArray(obj?.stagiaires) ? obj.stagiaires : obj?.stagiaire ? [obj.stagiaire] : null;
   if (!list) throw new Error("Aucune liste « stagiaires » dans ce contenu.");
-  const clean = list.filter((s) => s && s.nom && s.prenom).map(normaliser);
-  if (!clean.length) throw new Error("Aucune fiche stagiaire exploitable (nom et prénom requis).");
-  return { stagiaires: clean, supprimes: obj?.supprimes || {} };
+  const raw = list.filter((s) => s && s.nom && s.prenom);
+  if (!raw.length) throw new Error("Aucune fiche stagiaire exploitable (nom et prénom requis).");
+  let alteres = 0;
+  const clean = raw.map((r) => {
+    const s = normaliser(r);
+    /* Le scellé porte sur le contenu brut reçu, avant tout recalcul */
+    const brut = { ...r, id: s.id, cle: s.cle, historique: Array.isArray(r.historique) ? r.historique.filter((h) => h && h.id && h.moduleId) : [] };
+    const recalc = brut.historique.some((h) => verifierTentative(h).altere);
+    const sealOk = typeof r.seal === "string" && safeEqual(r.seal, sealStudent(brut));
+    if (sealOk && !recalc) return s;
+    alteres += 1;
+    const motif = !r.seal ? "Fichier non scellé (scellé retiré ou export d'une ancienne version)" : recalc ? "Scores ou réponses retouchés à la main : scores recalculés à partir du détail des réponses" : "Scellé invalide : contenu modifié après l'export";
+    return { ...s, fiche: { ...s.fiche, integrite: { alerte: true, motif, date: nowISO() }, updatedAt: nowISO() } };
+  });
+  return { stagiaires: clean, supprimes: obj?.supprimes || {}, alteres };
 }

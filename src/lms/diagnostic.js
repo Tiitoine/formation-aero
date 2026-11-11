@@ -75,16 +75,18 @@ export function diagnostic(s) {
 
   /* Durée des sprints : « debut » apparié au sprint suivant du même module */
   const sprints = [];
+  let abandons = 0;
   MODULES.forEach((m) => {
     let start = null;
     hist.filter((h) => h.moduleId === m.id).forEach((h) => {
-      if (h.kind === "debut") start = h.date;
+      if (h.kind === "debut") { if (start) abandons += 1; start = h.date; }
       else if (h.kind === "sprint") {
         const ms = start ? new Date(h.date) - new Date(start) : null;
         sprints.push({ module: m.code, date: h.date, score: h.score, statut: statutDe(h.score), duree: ms && ms < 6 * 3600e3 ? ms : null });
         start = null;
       }
     });
+    if (start) abandons += 1;
   });
 
   const dates = hist.map((h) => h.date).filter(Boolean);
@@ -92,7 +94,7 @@ export function diagnostic(s) {
   const ateliers = hist.filter((h) => h.kind === "atelier");
   return {
     nbReponses, domaines, forces, lacunes, nonCouverts, alertes, themes,
-    sprints, nbSprints: sprints.length, sprintsKO: sprints.filter((x) => x.statut !== "VALIDE").length,
+    sprints, abandons, nbSprints: sprints.length, sprintsKO: sprints.filter((x) => x.statut !== "VALIDE").length,
     ateliers: ateliers.length, ateliersOK: ateliers.filter((h) => isNum(h.score) && h.score >= SEUIL).length,
     premiere: dates[0] || "", derniere: dates[dates.length - 1] || "", joursActifs: jours.size,
     dureeSprints: sprints.reduce((t, x) => t + (x.duree || 0), 0),

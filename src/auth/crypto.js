@@ -74,6 +74,9 @@ function hmacFactory(key) {
   };
 }
 
+/** HMAC-SHA-256 synchrone : clé et message texte → hexadécimal */
+export const hmacHex = (key, msg) => toHex(hmacFactory(enc(String(key)))(enc(String(msg))));
+
 /** PBKDF2-HMAC-SHA-256 en JavaScript pur (1 bloc de 32 octets) */
 function pbkdf2JS(password, salt, iterations) {
   const prf = hmacFactory(enc(password));

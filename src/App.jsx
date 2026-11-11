@@ -160,8 +160,20 @@ export default function App() {
   const mState = student && moduleId ? moduleState(student, moduleId, policy) : null;
   const logAttempt = useCallback((entry) => {
     if (!student || !moduleId) return;
-    setDB((d) => addHistory(d, student.id, makeAttempt(moduleId, entry)));
-  }, [student?.id, moduleId]);
+    const att = makeAttempt(moduleId, entry);
+    if (entry?.kind === "debut") {
+      /* Anti-triche : le démarrage du sprint est écrit dans localStorage IMMÉDIATEMENT (avant l'affichage
+         de la question 1) et poussé vers le cloud sans attendre : un F5 en plein test laisse une trace. */
+      const next = addHistory(dbRef.current, student.id, att);
+      saveDB(next);
+      dbRef.current = next;
+      if (cloudReady(cfg)) {
+        const me = next.stagiaires.find((s) => s.id === student.id);
+        if (me) pushDB(cfg, next, { student: me }).then((res) => { if (res.sent) mergePushed(res); }).catch(() => { /* renvoyé au prochain envoi automatique */ });
+      }
+    }
+    setDB((d) => (d.stagiaires.some((s) => s.id === student.id && s.historique.some((h) => h.id === att.id)) ? d : addHistory(d, student.id, att)));
+  }, [student?.id, moduleId, cfg]);
   const sessionValue = useMemo(() => {
     if (isAdmin) return { mode: "apercu", moduleId, canAttempt: true, blockReason: "", logAttempt: () => {} };
     if (student) return { mode: "stagiaire", moduleId, canAttempt: mState?.canAttempt ?? true, blockReason: mState?.blockReason || "", logAttempt };

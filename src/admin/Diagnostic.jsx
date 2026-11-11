@@ -58,6 +58,7 @@ export default function Diagnostic({ dg }) {
       <div className="rounded-lg border border-line bg-panel2 p-3">
         <div className="mb-1 flex items-center gap-1.5 text-[13px] font-semibold text-ink"><Clock size={15} />Temps et historique</div>
         <div className="font-mono text-[12px] text-muted">Première activité {frDateTime(dg.premiere)} · dernière {frDateTime(dg.derniere)} · {dg.joursActifs} jour(s) actif(s) · temps total en sprint {fmtDuree(dg.dureeSprints)}</div>
+        {dg.abandons > 0 && <div className="mt-1 flex items-center gap-1.5 text-[12px] font-semibold text-amber"><AlertTriangle size={13} />{dg.abandons} sprint(s) noté(s) lancé(s) puis abandonné(s) avant la fin (fermeture ou rechargement de la page)</div>}
         {dg.sprints.length > 0 && (
           <table className="mt-2 w-full text-left text-[12px]"><thead className="font-mono text-[10px] uppercase text-muted"><tr><th className="py-1">Module</th><th>Date</th><th>Durée</th><th className="text-right">Score</th></tr></thead>
             <tbody>{dg.sprints.map((x, i) => (<tr key={i} className="border-t border-line/60"><td className="py-1 font-mono">{x.module}</td><td className="font-mono text-muted">{frDateTime(x.date)}</td><td className="font-mono text-muted">{fmtDuree(x.duree)}</td><td className={cx("text-right font-mono", x.statut === "VALIDE" ? "text-ok" : "text-ko")}>{pct(x.score)}</td></tr>))}</tbody>

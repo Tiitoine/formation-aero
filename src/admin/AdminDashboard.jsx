@@ -114,7 +114,7 @@ export default function AdminDashboard({ db, setDB, adminLogin, onLogout, onPrev
                   <tbody>
                     {filtered.map(({ s, c, act, al }) => (
                       <tr key={s.id} className="cursor-pointer border-b border-line/60 last:border-b-0 hover:bg-panel2" onClick={() => setSelId(s.id)}>
-                        <td className="px-4 py-3"><div className="font-semibold text-ink">{s.nom} {s.prenom}</div><div className="font-mono text-[11px] text-muted">{s.matricule}</div></td>
+                        <td className="px-4 py-3"><div className="font-semibold text-ink">{s.nom} {s.prenom}</div><div className="font-mono text-[11px] text-muted">{s.matricule}</div>{s.fiche?.integrite?.alerte && <div className="mt-1 inline-flex items-center gap-1 rounded border border-ko/60 bg-ko/15 px-1.5 py-0.5 text-[11px] font-semibold text-ko" title={s.fiche.integrite.motif}><AlertTriangle size={12} />Intégrité du fichier modifiée manuellement</div>}</td>
                         <td className="px-3 py-3 text-muted">{s.typeFormation}</td>
                         {c.mods.map((m) => (
                           <td key={m.id} className="px-2 py-3 text-center">
@@ -199,6 +199,12 @@ function StudentDetail({ s, c, setDB, adminLogin, onBack, onPreview, onDeleted, 
         <div className="flex items-center gap-2"><StatusBadge statut={c.statutModules} size="lg" /><Btn tone="dangerGhost" onClick={() => { setDelText(""); setConfirm({ type: "delete" }); }}><Trash2 size={15} />Supprimer l'élève</Btn></div>
       </div>
 
+      {s.fiche?.integrite?.alerte && (
+        <div role="alert" className="flex items-start gap-2 rounded-lg border-2 border-ko bg-ko/15 px-4 py-3 text-[13px] text-ink">
+          <AlertTriangle size={18} className="mt-0.5 shrink-0 text-ko" />
+          <div><b className="text-ko">⚠ Intégrité du fichier modifiée manuellement</b><div className="text-muted">{s.fiche.integrite.motif} · détecté à l'import le {frDateTime(s.fiche.integrite.date)}. Les scores affichés sont recalculés à partir du détail des réponses.</div></div>
+        </div>
+      )}
       <nav className="flex flex-wrap gap-1" aria-label="Vues de la fiche">
         {[["parcours", "Parcours & réponses", History], ["grille", "Grille 20 compétences", LayoutGrid], ["bilan", "Bilan PDF / HTML", FileText]].map(([id, label, Icon]) => (
           <button key={id} type="button" onClick={() => setSub(id)} className={cx("flex items-center gap-2 rounded-lg border px-3 py-2 text-[13px] font-semibold", sub === id ? "border-sky bg-sky/15 text-ink" : "border-line bg-panel2 text-muted hover:text-ink")}><Icon size={15} />{label}</button>

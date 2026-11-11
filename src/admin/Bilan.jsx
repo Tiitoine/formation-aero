@@ -41,6 +41,9 @@ const ATT_CSS = `
 @media (max-width:640px){.att{padding:22px 16px}.att-id{grid-template-columns:1fr 1fr}.att-sign{grid-template-columns:1fr}.att-top{flex-direction:column}.att-ref{text-align:left}}
 @media print{@page{size:A4;margin:12mm}.att{padding:0;max-width:none;border-radius:0}.att-dec,.att table,.att-sign{break-inside:avoid}}
 `;
+/** Échappe toute valeur interpolée dans le fichier HTML téléchargé (anti-XSS) */
+export const escapeHtml = (str) => String(str ?? "").replace(/[&<>"'`]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;", "`": "&#96;" })[c]);
+const fileSafe = (str) => String(str ?? "").replace(/[^\p{L}\p{N}_-]+/gu, "_").slice(0, 60);
 const vClass = (st) => (st === V ? "v v-ok" : st === R ? "v v-ko" : "v v-na");
 
 export default function Bilan({ active, calc }) {
@@ -51,11 +54,11 @@ export default function Bilan({ active, calc }) {
   const dg = diagnostic(active);
   const refDoc = `BIL-${active.matricule}-${today().replace(/-/g, "")}`;
   const download = () => {
-    const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fiche bilan ${active.matricule} — ${active.prenom} ${active.nom}</title>`
+    const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fiche bilan ${escapeHtml(active.matricule)} — ${escapeHtml(active.prenom)} ${escapeHtml(active.nom)}</title>`
       + `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700&family=Barlow+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;700&display=swap">`
       + `<style>body{margin:0;background:#e9edf3;padding:24px 0}.pbtn{display:block;margin:0 auto 16px;padding:10px 18px;font:600 14px Barlow,system-ui,sans-serif;background:#1f6fd1;color:#fff;border:0;border-radius:6px;cursor:pointer}@media print{body{background:#fff;padding:0}.pbtn{display:none}}${ATT_CSS}</style></head><body>`
       + `<button class="pbtn" onclick="window.print()">Imprimer / Enregistrer en PDF</button>${ref.current.outerHTML}</body></html>`;
-    offerFile(`fiche-bilan_${active.matricule}_${active.nom}.html`, html, "text/html");
+    offerFile(`fiche-bilan_${fileSafe(active.matricule)}_${fileSafe(active.nom)}.html`, html, "text/html");
   };
   return (
     <div className="flex flex-col gap-5">
@@ -123,7 +126,7 @@ export default function Bilan({ active, calc }) {
             <tbody>
               <tr><td style={{ width: "32%" }}><b>Forces</b></td><td>{dg.forces.length ? dg.forces.map((d) => `${d.id} ${d.titre} (${pct(d.taux)})`).join(" · ") : "—"}</td></tr>
               <tr><td><b>Lacunes précises</b></td><td>{dg.lacunes.length ? dg.lacunes.map((d) => `${d.id} (${pct(d.taux)}) : ${d.erreurs.slice(-2).map((e) => court(e.q)).join(" ; ")}`).join(" · ") : "—"}</td></tr>
-              <tr><td><b>Tentatives</b></td><td className="mono">{dg.nbSprints} sprint(s) noté(s), dont {dg.sprintsKO} à revoir · {dg.ateliers} atelier(s), dont {dg.ateliersOK} ≥ 85 %</td></tr>
+              <tr><td><b>Tentatives</b></td><td className="mono">{dg.nbSprints} sprint(s) noté(s), dont {dg.sprintsKO} à revoir{dg.abandons ? `, ${dg.abandons} abandonné(s) en cours` : ""} · {dg.ateliers} atelier(s), dont {dg.ateliersOK} ≥ 85 %</td></tr>
               <tr><td><b>Temps / historique</b></td><td className="mono">du {frDateTime(dg.premiere)} au {frDateTime(dg.derniere)} · {dg.joursActifs} jour(s) actif(s) · temps en sprint {fmtDuree(dg.dureeSprints)}</td></tr>
               <tr style={dg.themes.length ? { background: "#fff5f6" } : undefined}><td><b style={dg.themes.length ? { color: "#b3202f" } : undefined}>Drapeaux rouges sécurité des vols</b></td><td>{dg.themes.length ? dg.themes.map((t) => `${t.label} : ${t.n} erreur(s), dont ${t.notees} en sprint noté (ex. ${MOD[t.ex[0].module]?.code} « ${court(t.ex[0].q)} »)`).join(" · ") : "Aucune erreur sur les thèmes ATA 67, freinage, FOD, métallisation, péremption, contrôles, litiges."}</td></tr>
             </tbody>

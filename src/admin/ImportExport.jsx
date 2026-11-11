@@ -1,7 +1,7 @@
 /* Import / fusion de résultats (.json ou code AHSYNC1) et exports de la promotion */
 import React, { useRef, useState } from "react";
 import { Upload, Download, FileSpreadsheet, ClipboardPaste, CheckCircle2, AlertTriangle } from "lucide-react";
-import { parseImport, mergeIntoDB, MODULES, pct, today, nowISO, calcStagiaire, frDateTime, mean } from "../lms/db.js";
+import { parseImport, exportDBPayload, mergeIntoDB, MODULES, pct, today, nowISO, calcStagiaire, frDateTime, mean } from "../lms/db.js";
 import { Panel, Eyebrow, Btn, inputCls, offerFile } from "../lms/ui.jsx";
 
 const csvCell = (v) => { const s = String(v ?? ""); return /[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
@@ -21,25 +21,25 @@ export default function ImportExport({ db, setDB, filtered }) {
 
   const doImport = (raw, source) => {
     try {
-      const { stagiaires, supprimes } = parseImport(raw);
+      const { stagiaires, supprimes, alteres } = parseImport(raw);
       const res = mergeIntoDB(db, stagiaires, supprimes);
       setDB(() => ({ ...res.db, journal: [...(db.journal || []), { date: nowISO(), action: "import", detail: `${source} : ${stagiaires.length} fiche(s)` }].slice(-200) }));
-      setMsg({ ok: true, text: `${source} fusionné : ${res.ajoutes} nouveau(x) stagiaire(s), ${res.fusionnes} fiche(s) complétée(s). Aucune tentative existante n'est écrasée.` });
+      setMsg({ ok: true, text: `${source} fusionné : ${res.ajoutes} nouveau(x) stagiaire(s), ${res.fusionnes} fiche(s) complétée(s). Aucune tentative existante n'est écrasée.${alteres ? ` ⚠ Intégrité du fichier modifiée manuellement sur ${alteres} fiche(s) : alerte rouge posée.` : ""}` });
       setText("");
     } catch (e) { setMsg({ ok: false, text: e.message }); }
   };
   const onFiles = async (files) => {
-    const all = [], tomb = {}, errs = [];
+    const all = [], tomb = {}, errs = []; let alteres = 0;
     for (const f of files) {
-      try { const r = parseImport(await f.text()); all.push(...r.stagiaires); Object.assign(tomb, r.supprimes); } catch (e) { errs.push(`${f.name} : ${e.message}`); }
+      try { const r = parseImport(await f.text()); all.push(...r.stagiaires); Object.assign(tomb, r.supprimes); alteres += r.alteres; } catch (e) { errs.push(`${f.name} : ${e.message}`); }
     }
     if (fileRef.current) fileRef.current.value = "";
     if (!all.length) { setMsg({ ok: false, text: errs.join(" · ") || "Aucun fichier lu." }); return; }
     const res = mergeIntoDB(db, all, tomb);
     setDB(() => ({ ...res.db, journal: [...(db.journal || []), { date: nowISO(), action: "import", detail: `${files.length} fichier(s) : ${all.length} fiche(s)` }].slice(-200) }));
-    setMsg({ ok: !errs.length, text: `${files.length - errs.length} fichier(s) fusionné(s) : ${res.ajoutes} nouveau(x) stagiaire(s), ${res.fusionnes} fiche(s) complétée(s).${errs.length ? " Erreurs : " + errs.join(" · ") : ""}` });
+    setMsg({ ok: !errs.length, text: `${files.length - errs.length} fichier(s) fusionné(s) : ${res.ajoutes} nouveau(x) stagiaire(s), ${res.fusionnes} fiche(s) complétée(s).${alteres ? ` ⚠ Intégrité du fichier modifiée manuellement sur ${alteres} fiche(s) : alerte rouge posée.` : ""}${errs.length ? " Erreurs : " + errs.join(" · ") : ""}` });
   };
-  const exportJSON = () => offerFile(`ah_lms_bdd_${today()}.json`, JSON.stringify({ format: "ah-lms-bdd", version: 2, exportedAt: nowISO(), regle: "Score < 85 % = À REVOIR ; Score ≥ 85 % = VALIDE", stagiaires: db.stagiaires, supprimes: db.supprimes }, null, 2));
+  const exportJSON = () => offerFile(`ah_lms_bdd_${today()}.json`, JSON.stringify(exportDBPayload(db), null, 2));
   const exportCSV = () => offerFile(`ah_lms_suivi_${today()}.csv`, toCSV(filtered || db.stagiaires, db.settings.retryPolicy), "text/csv");
 
   return (

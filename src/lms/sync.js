@@ -150,7 +150,10 @@ export function eventsToStudents(events) {
 
 async function postEvents(cfg, events, token) {
   for (let i = 0; i < events.length; i += 200) {
-    await rest(cfg, `${TABLE}?on_conflict=id`, { method: "POST", body: events.slice(i, i + 200), token, headers: { Prefer: "resolution=ignore-duplicates,return=minimal" } });
+    const batch = events.slice(i, i + 200);
+    /* Stagiaire (clé anon) : passage obligé par la fonction serveur ah_push_stagiaire (contrôles RLS + doublons ignorés) */
+    if (!token) await rest(cfg, "rpc/ah_push_stagiaire", { method: "POST", body: { p_events: batch } });
+    else await rest(cfg, `${TABLE}?on_conflict=id`, { method: "POST", body: batch, token, headers: { Prefer: "resolution=ignore-duplicates,return=minimal" } });
   }
 }
 
