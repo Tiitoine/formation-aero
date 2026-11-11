@@ -93,7 +93,7 @@ function Cartouche({ W, H, m, designation, reference, indice = "A", matiere, tra
     <g>
       <rect x={x} y={y} width={w} height={h} fill={P.paper} stroke={P.ink} strokeWidth="2" />
       {L(x, y + 34, x + w, y + 34)}{L(x, y + 68, x + w, y + 68)}{L(x, y + 102, x + w, y + 102)}{L(x, y + 136, x + w, y + 136)}
-      {L(x + 300, y, x + 300, y + 136)}{L(x + 150, y + 68, x + 150, y + 136)}{L(x + 385, y + 68, x + 385, y + 136)}{L(x + 235, y + 136, x + 235, y + h)}{L(x + 340, y + 136, x + 340, y + h)}
+      {L(x + 300, y, x + 300, y + 136)}{L(x + 150, y + 68, x + 150, y + 102)}{L(x + 385, y + 68, x + 385, y + 136)}{L(x + 235, y + 136, x + 235, y + h)}{L(x + 340, y + 136, x + 340, y + h)}
       <F fx={x} fy={y} k="DÉSIGNATION" v={designation} vs={12.5} />
       <F fx={x + 300} fy={y} k="APPAREIL / ATA" v={appareil} vs={12} />
       <F fx={x} fy={y + 34} k="RÉFÉRENCE (P/N)" v={reference} vs={16} vw={700} />

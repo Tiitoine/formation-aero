@@ -81,7 +81,9 @@ export function Plan1Drawing({ sel, onPick }) {
       <Dim x1={SX(53)} y1={SZ(0)} x2={SX(53)} y2={SZ(25)} off={104} text="25" s={12} />
       <Datum x={SX(9)} y={SZ(0)} letter="A" dir="down" len={24} />
       <Leader x1={SX(59) + 4} y1={SZ(8) - 4} x2={1110} y2={290} s={12.5}>R3 · raccordements non cotés</Leader>
-      <T x={932} y={572} s={15} a="middle" w={700}>COUPE A-A</T>
+      <T x={932} y={572} s={15} a="middle" w={700}>COUPE A-A (rabattue)</T>
+      <T x={SX(0)} y={548} s={10.5} c={P.thin}>← Face avant</T>
+      <T x={SX(70)} y={548} s={10.5} a="end" c={P.thin}>Bord relevé →</T>
 
       {/* ---------------- NOTES ---------------- */}
       <g>
@@ -111,9 +113,9 @@ export function Plan1Drawing({ sel, onPick }) {
       <Hot n={1} x={890} y={720} active={on(1)} onPick={onPick} />
       <Hot n={2} x={848} y={336} active={on(2)} onPick={onPick} />
       <Hot n={3} x={668} y={350} active={on(3)} onPick={onPick} />
-      <Hot n={4} x={996} y={363} active={on(4)} onPick={onPick} />
+      <Hot n={4} x={834} y={410} active={on(4)} onPick={onPick} />
       <Hot n={5} x={584} y={232} active={on(5)} onPick={onPick} />
-      <Hot n={6} x={X(115) + 34} y={OY + 38} active={on(6)} onPick={onPick} />
+      <Hot n={6} x={556} y={505} active={on(6)} onPick={onPick} />
       <Hot n={7} x={258} y={298} active={on(7)} onPick={onPick} />
       <Hot n={8} x={1128} y={256} active={on(8)} onPick={onPick} />
       <Hot n={9} x={340} y={625} active={on(9)} onPick={onPick} />

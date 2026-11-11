@@ -96,11 +96,13 @@ function SectionCC() {
       {/* peau extérieure */}
       <polygon points={`${top} ${bot}`} fill="#545c67" stroke={P.ink} strokeWidth="1" />
       {[5, 10, 15].map((d) => <polyline key={d} points={prof.map(([x, y]) => `${x},${y - d}`).join(" ")} fill="none" stroke="#7a828e" strokeWidth="0.5" />)}
-      {/* peel ply */}
-      <polyline points={prof.map(([x, y]) => `${x},${y - 24}`).join(" ")} fill="none" stroke={P.mastic} strokeWidth="1.5" strokeDasharray="6 4" />
+      {/* peel ply (interrompu au droit de la fixation : la tête affleure la face extérieure du stratifié) */}
+      <polyline points={[[60, 534], [fx - 30, 534]].map(([x, y]) => `${x},${y - 24}`).join(" ")} fill="none" stroke={P.mastic} strokeWidth="1.5" strokeDasharray="6 4" />
+      <polyline points={[[fx + 30, 534], ...prof.slice(1)].map(([x, y]) => `${x},${y - 24}`).join(" ")} fill="none" stroke={P.mastic} strokeWidth="1.5" strokeDasharray="6 4" />
       {/* fixation en zone monolithique */}
-      <path d={`M${fx - 16},514 L${fx + 16},514 L${fx + 7},522 L${fx - 7},522 Z`} fill="#d6dde6" stroke={P.ink} strokeWidth="1.1" />
       <rect x={fx - 7} y="522" width="14" height="104" fill="#d6dde6" stroke={P.ink} strokeWidth="1.1" />
+      <path d={`M${fx - 16},514 L${fx + 16},514 L${fx + 7},521.5 L${fx - 7},521.5 Z`} fill="#d6dde6" stroke={P.ink} strokeWidth="1.1" strokeLinejoin="round" />
+      <line x1={fx - 16} y1="514" x2={fx + 16} y2="514" stroke="#d6dde6" strokeWidth="1.2" />
       <rect x={fx - 22} y="614" width="44" height="5" fill="#b9c4d1" stroke={P.ink} strokeWidth="1" />
       <path d={`M${fx - 12},619 H${fx + 12} V630 H${fx - 12} Z`} fill="#b9c4d1" stroke={P.ink} strokeWidth="1" />
       <Axis x1={fx} y1={500} x2={fx} y2={642} />
@@ -194,13 +196,13 @@ export function Plan3Drawing({ sel, onPick }) {
       {on(7) && <><Spot on x={PX0 - 8} y={PY0 - 34} w={210} h={70} /><Spot on x={100} y={494} w={110} h={150} /></>}
       <Spot on={on(8)} x={908} y={420} w={470} h={282} />
       <Hot n={1} x={850} y={104} active={on(1)} onPick={onPick} />
-      <Hot n={2} x={1360} y={40} active={on(2)} onPick={onPick} />
-      <Hot n={3} x={40} y={592} active={on(3)} onPick={onPick} />
+      <Hot n={2} x={880} y={44} active={on(2)} onPick={onPick} />
+      <Hot n={3} x={54} y={648} active={on(3)} onPick={onPick} />
       <Hot n={4} x={878} y={446} active={on(4)} onPick={onPick} />
-      <Hot n={5} x={440} y={540} active={on(5)} onPick={onPick} />
+      <Hot n={5} x={545} y={524} active={on(5)} onPick={onPick} />
       <Hot n={6} x={core.x + core.w - 20} y={core.y + 22} active={on(6)} onPick={onPick} />
       <Hot n={7} x={230} y={60} active={on(7)} onPick={onPick} />
-      <Hot n={8} x={1372} y={420} active={on(8)} onPick={onPick} />
+      <Hot n={8} x={1340} y={450} active={on(8)} onPick={onPick} />
     </Sheet>
   );
 }

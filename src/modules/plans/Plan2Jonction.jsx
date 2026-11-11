@@ -84,7 +84,12 @@ export function Plan2Drawing({ sel, onPick }) {
 
       {/* cotes et appels de la coupe */}
       <Dim x1={352} y1={170} x2={fx} y2={170} off={-34} text="ED 12" s={12} />
-      <Leader x1={fx + 12} y1={171} x2={470} y2={150} s={12}>⌵100° · tête côté plancher (dessus)</Leader>
+      <Leader x1={fx + 12} y1={171} x2={470} y2={80} s={12}>6x Ø4,8 ⌵100° (plancher / cornière)</Leader>
+      <T x={488} y={97} s={10.5} c={P.thin}>tête côté plancher (dessus)</T>
+      <Leader x1={294} y1={256} x2={270} y2={226} a="end" s={11.5}>4x Ø4,8 (cornière / ferrure)</Leader>
+      {/* sens d'observation de la vue F */}
+      <T x={640} y={126} s={11.5} a="middle" w={700}>VUE F</T>
+      <line x1="640" y1="132" x2="640" y2="166" stroke={P.ink} strokeWidth="1.4" markerEnd="url(#pArr)" />
       <Leader x1={345} y1={452} x2={420} y2={420} s={12} w={600}>Ø20 H7/p6 · frettage LN₂ (note 4)</Leader>
       <Leader x1={333} y1={322} x2={420} y2={372} s={11.5}>jeu &gt; 0,05 → cale pelable (note 5)</Leader>
       <T x={330} y={600} s={15} a="middle" w={700}>COUPE B-B</T>
@@ -117,11 +122,19 @@ export function Plan2Drawing({ sel, onPick }) {
       <Dim x1={700} y1={96} x2={736} y2={96} off={-24} text="12" s={12} />
       <Dim x1={736} y1={120} x2={736} y2={192} off={60} text="24" s={12} />
       <Dim x1={736} y1={120} x2={736} y2={408} off={110} text="4 × 24 (= 96)" s={11.5} />
-      <Leader x1={746} y1={330} x2={770} y2={348} s={11.5} w={600}>10x Ø4,8 ⌵100°</Leader>
-      <T x={790} y={366} s={10.5} c={P.thin}>ED ≥ 2,5D · pas 4D à 6D</T>
-      <line x1="770" y1="456" x2="830" y2="456" stroke={P.ink} strokeWidth="1.4" markerEnd="url(#pArr)" /><T x={840} y={460} s={11}>X avion</T>
-      <T x={800} y={490} s={15} a="middle" w={700}>VUE F · DESSUS PLANCHER</T>
-      <T x={800} y={508} s={11} a="middle" c={P.thin}>(tête des Hi-Lok côté vue)</T>
+      <Leader x1={744} y1={420} x2={762} y2={442} s={11.5} w={600}>10x Ø4,8 ⌵100°</Leader>
+      <T x={780} y={460} s={10.5} c={P.thin}>ED ≥ 2,5D · pas 4D à 6D</T>
+      {/* trait de coupe B-B (passe par l'axe d'une fixation) */}
+      <line x1="672" y1="264" x2="916" y2="264" stroke={P.ink} strokeWidth="0.7" strokeDasharray="14 3 2 3" />
+      <line x1="652" y1="264" x2="674" y2="264" stroke={P.ink} strokeWidth="2.6" />
+      <line x1="914" y1="264" x2="936" y2="264" stroke={P.ink} strokeWidth="2.6" />
+      <line x1="654" y1="264" x2="654" y2="292" stroke={P.ink} strokeWidth="1.4" markerEnd="url(#pArr)" />
+      <line x1="934" y1="264" x2="934" y2="292" stroke={P.ink} strokeWidth="1.4" markerEnd="url(#pArr)" />
+      <T x={654} y={312} s={15} a="middle" w={700}>B</T>
+      <T x={934} y={312} s={15} a="middle" w={700}>B</T>
+      <line x1="700" y1="482" x2="760" y2="482" stroke={P.ink} strokeWidth="1.4" markerEnd="url(#pArr)" /><T x={770} y={486} s={11}>X avion</T>
+      <T x={800} y={514} s={15} a="middle" w={700}>VUE F · DESSUS PLANCHER</T>
+      <T x={800} y={532} s={11} a="middle" c={P.thin}>(tête des Hi-Lok côté vue)</T>
 
       {/* ---------------- LÉGENDE MATIÈRES ---------------- */}
       <g>
@@ -165,11 +178,11 @@ export function Plan2Drawing({ sel, onPick }) {
       <Spot on={on(8)} x={276} y={240} w={250} h={46} />
       <Hot n={1} x={500} y={312} active={on(1)} onPick={onPick} />
       <Hot n={2} x={380} y={500} active={on(2)} onPick={onPick} />
-      <Hot n={3} x={620} y={132} active={on(3)} onPick={onPick} />
-      <Hot n={4} x={880} y={250} active={on(4)} onPick={onPick} />
+      <Hot n={3} x={560} y={140} active={on(3)} onPick={onPick} />
+      <Hot n={4} x={990} y={330} active={on(4)} onPick={onPick} />
       <Hot n={5} x={560} y={400} active={on(5)} onPick={onPick} />
       <Hot n={6} x={200} y={260} active={on(6)} onPick={onPick} />
-      <Hot n={7} x={1362} y={398} active={on(7)} onPick={onPick} />
+      <Hot n={7} x={1330} y={360} active={on(7)} onPick={onPick} />
       <Hot n={8} x={560} y={290} active={on(8)} onPick={onPick} />
     </Sheet>
   );
