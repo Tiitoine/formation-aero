@@ -84,9 +84,9 @@ export function Plan2Drawing({ sel, onPick }) {
 
       {/* cotes et appels de la coupe */}
       <Dim x1={352} y1={170} x2={fx} y2={170} off={-34} text="ED 12" s={12} />
-      <Leader x1={fx + 12} y1={171} x2={470} y2={80} s={12}>6x Ø4,8 ⌵100° (plancher / cornière)</Leader>
+      <Leader x1={fx + 12} y1={171} x2={470} y2={80} s={12}>5x Ø4,8 ⌵100° (plancher / cornière)</Leader>
       <T x={488} y={97} s={10.5} c={P.thin}>tête côté plancher (dessus)</T>
-      <Leader x1={294} y1={256} x2={270} y2={226} a="end" s={11.5}>4x Ø4,8 (cornière / ferrure)</Leader>
+      <Leader x1={294} y1={256} x2={270} y2={226} a="end" s={11.5}>5x Ø4,8 (cornière / ferrure)</Leader>
       {/* sens d'observation de la vue F */}
       <T x={640} y={126} s={11.5} a="middle" w={700}>VUE F</T>
       <line x1="640" y1="132" x2="640" y2="166" stroke={P.ink} strokeWidth="1.4" markerEnd="url(#pArr)" />
@@ -122,8 +122,9 @@ export function Plan2Drawing({ sel, onPick }) {
       <Dim x1={700} y1={96} x2={736} y2={96} off={-24} text="12" s={12} />
       <Dim x1={736} y1={120} x2={736} y2={192} off={60} text="24" s={12} />
       <Dim x1={736} y1={120} x2={736} y2={408} off={110} text="4 × 24 (= 96)" s={11.5} />
-      <Leader x1={744} y1={420} x2={762} y2={442} s={11.5} w={600}>10x Ø4,8 ⌵100°</Leader>
-      <T x={780} y={460} s={10.5} c={P.thin}>ED ≥ 2,5D · pas 4D à 6D</T>
+      <Leader x1={744} y1={420} x2={762} y2={442} s={11.5} w={600}>5x Ø4,8 ⌵100°</Leader>
+      <T x={780} y={460} s={11}>(plancher / cornière)</T>
+      <T x={780} y={475} s={10.5} c={P.thin}>ED ≥ 2,5D · pas 4D à 6D</T>
       {/* trait de coupe B-B (passe par l'axe d'une fixation) */}
       <line x1="672" y1="264" x2="916" y2="264" stroke={P.ink} strokeWidth="0.7" strokeDasharray="14 3 2 3" />
       <line x1="652" y1="264" x2="674" y2="264" stroke={P.ink} strokeWidth="2.6" />
@@ -132,9 +133,9 @@ export function Plan2Drawing({ sel, onPick }) {
       <line x1="934" y1="264" x2="934" y2="292" stroke={P.ink} strokeWidth="1.4" markerEnd="url(#pArr)" />
       <T x={654} y={312} s={15} a="middle" w={700}>B</T>
       <T x={934} y={312} s={15} a="middle" w={700}>B</T>
-      <line x1="700" y1="482" x2="760" y2="482" stroke={P.ink} strokeWidth="1.4" markerEnd="url(#pArr)" /><T x={770} y={486} s={11}>X avion</T>
-      <T x={800} y={514} s={15} a="middle" w={700}>VUE F · DESSUS PLANCHER</T>
-      <T x={800} y={532} s={11} a="middle" c={P.thin}>(tête des Hi-Lok côté vue)</T>
+      <line x1="700" y1="496" x2="760" y2="496" stroke={P.ink} strokeWidth="1.4" markerEnd="url(#pArr)" /><T x={770} y={500} s={11}>X avion</T>
+      <T x={800} y={526} s={15} a="middle" w={700}>VUE F · DESSUS PLANCHER</T>
+      <T x={800} y={544} s={11} a="middle" c={P.thin}>(tête des Hi-Lok côté vue)</T>
 
       {/* ---------------- LÉGENDE MATIÈRES ---------------- */}
       <g>
