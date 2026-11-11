@@ -198,7 +198,7 @@ function TabFlight({ done, onComplete }) {
       </div>
 
       <ImpactBox title="Environnement vibratoire extrême = freinage mécanique partout">
-        Le rotor génère des vibrations permanentes qui desserrent toute fixation non freinée et accélèrent la fatigue de la structure. Chaque fixation de la gamme doit avoir son moyen de freinage défini, selon les instructions EI et l'ATA 20. Sélectionne chaque moyen pour ouvrir sa fiche :
+        Le rotor génère des vibrations permanentes qui desserrent toute fixation non freinée et accélèrent la fatigue de la structure. Chaque fixation de la gamme doit avoir son moyen de freinage défini, selon les instructions EI et l'ATA 20. Les cinq moyens et leurs fiches complètes :
       </ImpactBox>
       <Freinages />
 
@@ -504,12 +504,36 @@ function TabLocate({ done, onComplete }) {
    ONGLET 3 : SYSTÈMES ATA, BNAE & STANDARDS AIRBUS HELICOPTERS
    ============================================================ */
 const HELI_CHAPTERS = [
-  { code: "62", name: "Rotor principal", icon: Fan, ops: ["Pales", "Moyeu rotor (Starflex, Spheriflex)", "Amortisseurs de traînée"], note: "Pièces critiques : traçabilité totale, serrages tracés." },
-  { code: "63", name: "Entraînement rotor principal", icon: Cog, ops: ["BTP (MGB)", "Barres de suspension BTP, béquilles", "Plateau cyclique", "Mât rotor"], note: "Le cœur mécanique : chaque fixation est freinée et tracée." },
-  { code: "64", name: "Rotor arrière / Fenestron", icon: Wind, ops: ["Rotor anticouple ou Fenestron", "Pales à espacement irrégulier (Fenestron)", "Moyeu arrière"], note: "Fenestron sur H135, H145, H160 ; rotor classique sur H125, H175, Super Puma." },
-  { code: "65", name: "Entraînement rotor arrière", icon: Cable, ops: ["Arbres de transmission arrière", "Paliers intermédiaires", "Boîte intermédiaire (IGB) et BTA (TGB)"], note: "Alignement des arbres et freinage des paliers : sources classiques de vibrations." },
-  { code: "67", name: "Commandes de vol rotors", icon: Gauge, ops: ["Timonerie, bielles, guignols", "Servocommandes hydrauliques", "Double contrôle croisé obligatoire"], note: "Piège : sur avion c'est l'ATA 27, sur hélicoptère c'est l'ATA 67." },
-  { code: "71 à 79", name: "Groupe turbomoteur", icon: Flame, ops: ["Intégration moteur (Arriel, Arrano, Makila…)", "Cloisons pare-feu titane / inox", "Entrées d'air"], note: "L'étanchéité des pare-feu se monte avec les produits et méthodes imposés." },
+  { code: "62", name: "Rotor principal", icon: Fan, crit: "critique",
+    organes: ["Pales composites (3 sur H125, 4 ou 5 sur H145 selon la version, 5 sur H160 / H175)", "Moyeu : Starflex (H125, AS365), Spheriflex (H155, H175, H225) ou rotor sans articulation selon le type", "Butées sphériques lamifiées, rotules élastomère, amortisseurs de traînée", "Manchons de pale et axes de fixation de pale"],
+    ops: ["Appairage et positionnement des pales selon leur repère (couleur / numéro)", "Serrage des axes de pale au couple, freinage par goupille ou rondelle frein", "Report des numéros de série dans le dossier appareil"],
+    qc: ["Double contrôle indépendant des serrages et freinages", "Traçabilité série de chaque pièce tournante", "Inspection d'état des élastomères (pas de coupure, pas de décollement)"],
+    note: "Pièces critiques sans redondance : rien ne se monte « à l'équivalent »." },
+  { code: "63", name: "Entraînement rotor principal", icon: Cog, crit: "critique",
+    organes: ["BTP (boîte de transmission principale, MGB) et ses étages de réduction", "Mât rotor et ses roulements", "4 barres de suspension BTP et béquilles (ou plaque) anticouple", "Arbres d'entrée moteur → BTP, accouplements"],
+    ops: ["Pose de la BTP sur le plancher mécanique, barres sur les anneaux principaux", "Couples tracés, sens de montage des axes et rondelles selon plan", "Freinage systématique de chaque écrou (fil, goupille, rondelle frein)"],
+    qc: ["Double contrôle croisé des serrages et freinages", "Numéros de série relevés (BTP, mât, barres)", "Inventaire FOD avant fermeture des capots BTP"],
+    note: "Le cœur mécanique : une barre mal montée peut séparer l'ensemble rotor-BTP de la cellule." },
+  { code: "64", name: "Rotor arrière / Fenestron", icon: Wind, crit: "critique",
+    organes: ["Fenestron : rotor caréné à pales à espacement irrégulier (H130, H135, H145, H160)", "Rotor arrière classique (H125, H175, Super Puma)", "Moyeu arrière, pales et commande de pas intégrée"],
+    ops: ["Montage de chaque pale à sa position angulaire repérée", "Serrage et freinage de la fixation du rotor sur la BTA", "Réglage du jeu pale / carénage"],
+    qc: ["Position de chaque pale conforme au repérage", "Jeu radial pale / carénage dans la tolérance", "Freinages vérifiés, traçabilité série"],
+    note: "Fenestron sur H135, H145, H160 ; rotor classique sur H125, H175, Super Puma." },
+  { code: "65", name: "Entraînement rotor arrière", icon: Cable, crit: "critique",
+    organes: ["Arbres de transmission arrière en tronçons sur le dessus de la poutre", "Paliers à roulement et accouplements flexibles (flectors)", "BTI (boîte intermédiaire, IGB) au pied de dérive et BTA (boîte arrière, TGB)"],
+    ops: ["Alignement des tronçons d'arbre selon la documentation", "Serrage des paliers et des accouplements, freinage", "Pose des capots de protection d'arbre"],
+    qc: ["Alignement et jeux mesurés et tracés", "Freinage des accouplements vérifié", "Inventaire FOD avant fermeture des capots de poutre"],
+    note: "Alignement des arbres et freinage des paliers : sources classiques de vibrations." },
+  { code: "67", name: "Commandes de vol rotors", icon: Gauge, crit: "critique",
+    organes: ["Manche cyclique, levier de pas collectif, palonniers (doubles commandes)", "Timonerie : bielles, guignols, renvois d'angle, câbles vers l'arrière", "Servocommandes hydrauliques (3 au plateau cyclique, 1 arrière)", "Plateau cyclique et biellettes de pas (partie commande)"],
+    ops: ["Montage des bielles avec sens de pose défini (tête de vis vers l'avant ou vers le haut selon EI)", "Freinage par écrou crénelé + goupille sur chaque axe", "Réglage des longueurs de bielles et des butées de débattement"],
+    qc: ["Double contrôle croisé indépendant, signé par deux opérateurs", "Contrôle des sens et des débattements en fin de montage", "Aucun FOD sous les planchers de poste (zone des timoneries)"],
+    note: "Piège : sur avion c'est l'ATA 27, sur hélicoptère c'est l'ATA 67." },
+  { code: "71 à 79", name: "Groupe turbomoteur", icon: Flame, crit: "primaire",
+    organes: ["Turbomoteurs Safran (Arriel, Arrano, Makila) ou Pratt & Whitney selon le type", "Supports et suspente moteur, capots, entrées d'air (ATA 71)", "Échappement (ATA 78), régulation et commandes moteur (ATA 73 / 76)", "Cloisons pare-feu titane / inox (protection incendie ATA 26)"],
+    ops: ["Pose du moteur sur ses supports au couple, freinage tout métal en zone chaude", "Étanchéité des traversées pare-feu avec le mastic coupe-feu imposé", "Raccordement carburant, huile et métallisation des capots"],
+    qc: ["Aucun écrou à bague nylon en zone chaude", "Traversées pare-feu conformes à l'EI (produit, cordon, polymérisation)", "Jeux tuyauteries / structure respectés"],
+    note: "L'étanchéité des pare-feu se monte avec les produits et méthodes imposés." },
 ];
 const GEN_CHAPTERS = [
   { code: "20", name: "Pratiques standard cellule", txt: "Couples de serrage, métallisation, application PR, freinage." },
@@ -521,14 +545,14 @@ const GEN_CHAPTERS = [
 
 const OF_CARDS = [
   {
-    id: "OF-H160-0412", title: "Montage bielle de pas cyclique entre manche et servocommande", aircraft: "H160", x: 2200, y: 300, z: 1200, zone: "212", ref: "EI · double contrôle des commandes de vol",
+    id: "OF-H160-0412", title: "Montage bielle de pas cyclique entre manche et servocommande", aircraft: "H160", x: 2200, y: 300, z: 1200, zone: "212", ref: "Instruction EI 05-xxx · écrou crénelé + goupille ASN-A xxxx",
     answers: { side: "droite", part: "200", ata: "67", type: "ah" }, ataOptions: ["27", "67", "63", "22"],
     explain: "Zone 212 : pointe avant, dernier chiffre pair donc droite (BL positive), côté du commandant de bord. La timonerie de commande rotor relève de l'ATA 67, pas de l'ATA 27. La référence EI est une instruction interne Airbus Helicopters.",
   },
   {
-    id: "OF-H175-0587", title: "Pose barre de suspension BTP sur anneau principal", aircraft: "H175", x: 4200, y: -600, z: 2500, zone: "Plancher mécanique", ref: "ATA 63 · Entraînement rotor principal",
-    answers: { side: "gauche", part: "pm", ata: "63", type: "ata" }, ataOptions: ["53", "62", "63", "67"],
-    explain: "BL négative : côté gauche. WL au-dessus du plancher mécanique, sur l'ensemble BTP. Les barres de suspension relèvent de l'ATA 63. Pièce critique : traçabilité totale. La référence citée est un chapitre ATA, donc fonctionnelle.",
+    id: "OF-H175-0587", title: "Pose barre de suspension BTP sur anneau principal", aircraft: "H175", x: 4200, y: -600, z: 2500, zone: "Plancher mécanique", ref: "Axe de barre ECS xxxx · rondelle frein ECS xxxx",
+    answers: { side: "gauche", part: "pm", ata: "63", type: "ah" }, ataOptions: ["53", "62", "63", "67"],
+    explain: "BL négative : côté gauche. WL au-dessus du plancher mécanique, sur l'ensemble BTP. Les barres de suspension relèvent de l'ATA 63. Pièce critique : traçabilité totale. ECS (Eurocopter Standard) est un référentiel interne Airbus Helicopters.",
   },
   {
     id: "OF-H125-0733", title: "Fixation capot du turbomoteur Arriel", aircraft: "H125", x: 5000, y: 500, z: 2600, zone: "412", ref: "Vis ASN xxxx",
@@ -536,9 +560,9 @@ const OF_CARDS = [
     explain: "Zone 412 : groupe motopropulseur, dernier chiffre pair donc droite. Capots et intégration moteur : ATA 71 à 79. ASN est une norme Aerospatiale reprise par Airbus Helicopters pour les pièces standard et fixations.",
   },
   {
-    id: "OF-H145-0901", title: "Montage arbre de transmission arrière et palier intermédiaire", aircraft: "H145", x: 8000, y: 0, z: 2350, zone: "310", ref: "ATA 65 · Entraînement rotor arrière",
-    answers: { side: "axe", part: "boom", ata: "65", type: "ata" }, ataOptions: ["64", "65", "63", "67"],
-    explain: "BL = 0 : dans le plan de symétrie, sur le dessus de la poutre de queue. Arbres et paliers vers l'arrière : ATA 65. Le Fenestron lui-même serait l'ATA 64. Référence fonctionnelle ATA.",
+    id: "OF-H145-0901", title: "Montage arbre de transmission arrière et palier intermédiaire", aircraft: "H145", x: 8000, y: 0, z: 2350, zone: "310", ref: "Palier à roulement NF L 31-xxx",
+    answers: { side: "axe", part: "boom", ata: "65", type: "bnae" }, ataOptions: ["64", "65", "63", "67"],
+    explain: "BL = 0 : dans le plan de symétrie, sur le dessus de la poutre de queue. Arbres et paliers vers l'arrière : ATA 65. Le Fenestron lui-même serait l'ATA 64. La NF L est une norme produite sous l'égide du BNAE.",
   },
   {
     id: "OF-H160-1044", title: "Pose réservoir sous plancher et étanchéité PR carburant", aircraft: "H160", x: 3500, y: -500, z: 800, zone: "131", ref: "Écrou auto-freiné NF L 22-xxx",
@@ -551,7 +575,7 @@ const OF_CARDS = [
     explain: "Zone 322 : arrière / poutre, dernier chiffre pair donc droite. L'ensemble Fenestron relève de l'ATA 64. ECS (Eurocopter Standard) est le référentiel interne de pièces standard d'Airbus Helicopters.",
   },
   {
-    id: "OF-H125-1290", title: "Montage du moyeu Starflex sur le mât rotor", aircraft: "H125", x: 3500, y: 0, z: 3300, zone: "Tête rotor", ref: "RG.Aéro 000 23 · gestion de configuration",
+    id: "OF-H125-1290", title: "Montage du moyeu Starflex sur le mât rotor", aircraft: "H125", x: 3500, y: 0, z: 3300, zone: "Tête rotor", ref: "RG.Aéro 000 23 · effectivité MSN de la nomenclature",
     answers: { side: "axe", part: "rotor", ata: "62", type: "bnae" }, ataOptions: ["62", "63", "64", "20"],
     explain: "BL = 0 : dans l'axe, au sommet du mât. Le moyeu relève de l'ATA 62 (le mât, de l'ATA 63). Pièce critique : traçabilité totale. Les RG.Aéro sont éditées par le BNAE.",
   },
@@ -681,7 +705,6 @@ function OFDecoder({ onComplete }) {
 }
 
 function TabSystems({ done, onComplete }) {
-  const [open, setOpen] = useState("67");
   return (
     <div className="flex flex-col gap-6">
       <SectionHead icon={BookOpen} kicker="Onglet 3 · Systèmes & normes" title="Trois référentiels sur chaque plan Airbus Helicopters">
@@ -717,28 +740,29 @@ function TabSystems({ done, onComplete }) {
       </div>
 
       <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-2"><Fan size={16} className="text-sky" /><Eyebrow>Chapitres vitaux de l'hélicoptère · clique pour ouvrir</Eyebrow></div>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="flex items-center gap-2"><Fan size={16} className="text-sky" /><Eyebrow>Chapitres vitaux de l'hélicoptère</Eyebrow></div>
+        <div className="grid gap-3 lg:grid-cols-2">
           {HELI_CHAPTERS.map((c) => {
             const Icon = c.icon;
-            const isOpen = open === c.code;
+            const red = c.code === "67";
             return (
-              <button key={c.code} type="button" onClick={() => setOpen(isOpen ? null : c.code)} className={cx("flex flex-col gap-2 rounded-xl border p-4 text-left transition", isOpen ? "border-sky bg-sky/10" : "border-line bg-panel hover:border-sky/60", c.code === "67" && !isOpen && "border-ko/50")}>
-                <div className="flex items-center gap-2">
-                  <Icon size={18} className={c.code === "67" ? "text-ko" : "text-sky"} />
-                  <span className={cx("font-mono text-lg font-semibold", c.code === "67" ? "text-ko" : "text-sky")}>ATA {c.code}</span>
-                  {isOpen ? <ChevronDown size={14} className="ml-auto text-muted" /> : <ChevronRight size={14} className="ml-auto text-muted" />}
+              <article key={c.code} className={cx("flex flex-col gap-3 rounded-xl border bg-panel p-4", red ? "border-ko/50" : "border-line")}>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Icon size={18} className={red ? "text-ko" : "text-sky"} />
+                  <span className={cx("font-mono text-lg font-semibold", red ? "text-ko" : "text-sky")}>ATA {c.code}</span>
+                  <span className="font-display text-lg font-semibold leading-tight text-ink">{c.name}</span>
+                  <span className={cx("ml-auto rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase", c.crit === "critique" ? "border-ko/60 bg-ko/10 text-ko" : "border-sky/60 bg-sky/10 text-sky")}>{c.crit === "critique" ? "Pièces critiques" : "Structure primaire"}</span>
                 </div>
-                <div className="font-display text-base font-semibold leading-tight text-ink">{c.name}</div>
-                {isOpen && (
-                  <div className="flex flex-col gap-2">
-                    <ul className="flex flex-col gap-1">
-                      {c.ops.map((o) => <li key={o} className="flex items-start gap-1.5 text-[13px] text-ink/90"><CheckCircle2 size={13} className="mt-0.5 shrink-0 text-ok" />{o}</li>)}
-                    </ul>
-                    <div className="text-[12px] leading-snug text-amber">{c.note}</div>
-                  </div>
-                )}
-              </button>
+                <div className="grid gap-2 md:grid-cols-3">
+                  {[["Organes", c.organes, "text-sky"], ["Opérations types en gamme", c.ops, "text-amber"], ["Contrôles qualité obligatoires", c.qc, "text-ok"]].map(([t, items, tone]) => (
+                    <div key={t} className="rounded-lg border border-line bg-bg p-3">
+                      <div className={cx("mb-1 font-mono text-[10px] uppercase tracking-wider", tone)}>{t}</div>
+                      <ul className="flex flex-col gap-1">{items.map((o) => <li key={o} className="flex items-start gap-1.5 text-[12.5px] leading-snug text-ink/90"><CheckCircle2 size={12} className={cx("mt-0.5 shrink-0", tone)} />{o}</li>)}</ul>
+                    </div>
+                  ))}
+                </div>
+                <div className={cx("text-[12.5px] leading-snug", red ? "text-ko" : "text-amber")}>{c.note}</div>
+              </article>
             );
           })}
         </div>

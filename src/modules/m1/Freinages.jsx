@@ -3,7 +3,7 @@
    Les références produits et valeurs sont des exemples pédagogiques :
    la gamme applique toujours l'instruction EI et le plan en vigueur.
    ============================================================ */
-import React, { useState } from "react";
+import React from "react";
 import { Lock, Cog, MapPin, ClipboardList, ShieldCheck } from "lucide-react";
 
 const cx = (...c) => c.filter(Boolean).join(" ");
@@ -225,30 +225,22 @@ const List = ({ items }) => (
 );
 
 export default function Freinages() {
-  const [sel, setSel] = useState(0);
-  const f = FREINAGES[sel];
   return (
     <div className="flex flex-col gap-3">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5" role="tablist" aria-label="Moyens de freinage">
-        {FREINAGES.map((x, i) => (
-          <button key={x.id} type="button" role="tab" aria-selected={sel === i} onClick={() => setSel(i)} className={cx("flex flex-col gap-1.5 rounded-lg border p-2 text-left transition", sel === i ? "border-amber bg-amber/10" : "border-line bg-panel hover:border-amber/60")}>
-            <div className="overflow-hidden rounded border border-line"><x.Draw /></div>
-            <span className="flex items-center gap-1.5 font-display text-[15px] font-semibold text-ink"><Lock size={14} className="text-amber" />{x.name}</span>
-          </button>
-        ))}
-      </div>
-      <div className="grid gap-4 rounded-xl border border-amber/40 bg-panel p-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
-        <div className="min-w-0">
-          <div className="mb-2 font-display text-xl font-semibold text-ink">{f.name}</div>
-          <div className="overflow-hidden rounded-lg border border-line"><f.Draw /></div>
-        </div>
-        <div className="grid min-w-0 gap-2 md:grid-cols-2">
-          <Section icon={Cog} title="Principe mécanique" tone="text-sky"><p className="text-[13px] leading-snug text-ink/90">{f.principe}</p></Section>
-          <Section icon={MapPin} title="Où sur l'hélicoptère (zones / ATA)" tone="text-amber"><List items={f.zones} /></Section>
-          <Section icon={ClipboardList} title="Règle de pose en gamme (EI)" tone="text-ok"><List items={f.regle} /></Section>
-          <Section icon={ShieldCheck} title="Critère de contrôle Qualité" tone="text-ko"><p className="text-[13px] leading-snug text-ink/90">{f.qc}</p></Section>
-        </div>
-      </div>
+      {FREINAGES.map((f, i) => (
+        <article key={f.id} className="grid gap-4 rounded-xl border border-amber/40 bg-panel p-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)]">
+          <div className="min-w-0">
+            <h4 className="mb-2 flex items-center gap-2 font-display text-xl font-semibold text-ink"><span className="grid h-7 w-7 place-items-center rounded-md bg-amber font-mono text-[13px] font-bold text-bg">{i + 1}</span><Lock size={16} className="text-amber" />{f.name}</h4>
+            <div className="overflow-hidden rounded-lg border border-line"><f.Draw /></div>
+          </div>
+          <div className="grid min-w-0 gap-2 md:grid-cols-2">
+            <Section icon={Cog} title="Principe mécanique" tone="text-sky"><p className="text-[13px] leading-snug text-ink/90">{f.principe}</p></Section>
+            <Section icon={MapPin} title="Où sur l'hélicoptère (zones / ATA)" tone="text-amber"><List items={f.zones} /></Section>
+            <Section icon={ClipboardList} title="Règle de pose en gamme (EI)" tone="text-ok"><List items={f.regle} /></Section>
+            <Section icon={ShieldCheck} title="Critère de contrôle Qualité" tone="text-ko"><p className="text-[13px] leading-snug text-ink/90">{f.qc}</p></Section>
+          </div>
+        </article>
+      ))}
       <p className="font-mono text-[11px] text-muted">Valeurs et pratiques données à titre de formation : la gamme applique toujours l'instruction EI et le plan en vigueur.</p>
     </div>
   );

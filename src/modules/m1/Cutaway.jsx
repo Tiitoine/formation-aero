@@ -455,18 +455,20 @@ export default function Cutaway() {
             </div>
           </div>
         </div>
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid gap-5 lg:grid-cols-2">
           <div className="flex flex-col gap-3">
             <p className="text-[14px] leading-relaxed text-ink/90">{p.resume}</p>
-            <div className="flex gap-2 rounded-lg border border-amber/50 bg-amber/10 p-3 text-[13px] leading-relaxed text-ink"><AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber" /><span><strong className="text-amber">Piège : </strong>{p.piege}</span></div>
-          </div>
-          <div>
+            <div>
             <div className="mb-1 flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-wider text-muted"><Wrench size={12} />À retenir pour la gamme</div>
             <ul className="flex flex-col gap-1.5 text-[13px] leading-relaxed text-ink/90">{p.points.map((t) => <li key={t} className="flex gap-2"><span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-sky" />{t}</li>)}</ul>
+            </div>
           </div>
-          <div>
+          <div className="flex flex-col gap-3">
+            <div>
             <div className="mb-1 flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-wider text-ok"><ClipboardCheck size={12} />Contrôles qualité</div>
             <ul className="flex flex-col gap-1.5 text-[13px] leading-relaxed text-ink/90">{p.qc.map((t) => <li key={t} className="flex gap-2"><span className="text-ok">✓</span>{t}</li>)}</ul>
+            </div>
+            <div className="flex gap-2 rounded-lg border border-amber/50 bg-amber/10 p-3 text-[13px] leading-relaxed text-ink"><AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber" /><span><strong className="text-amber">Piège : </strong>{p.piege}</span></div>
           </div>
         </div>
       </article>

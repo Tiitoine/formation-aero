@@ -18,12 +18,65 @@ const REFS = [
 ];
 
 const SEGMENTS = [
-  { id: "norme", txt: "EN xxxx", label: "Norme de définition", detail: "Désigne la famille : vis à tête fraisée 100°, vis à tête hexagonale, écrou autofreiné à embase… La fiche de la norme donne la forme, la matière autorisée, la résistance et le tableau des dimensions.", ex: "NF L (norme française), EN (norme européenne ASD-STAN), ASN ou ECS (standard interne)" },
-  { id: "mat", txt: "T", label: "Matière / classe de résistance", detail: "Code lettre ou chiffre défini par la norme : alliage de titane (TA6V), acier allié haute résistance, acier inoxydable, superalliage A286, alliage d'aluminium.", ex: "Une vis titane et une vis acier de même géométrie ne sont PAS interchangeables (masse, résistance, couple galvanique)." },
-  { id: "trait", txt: "C", label: "Traitement de surface / revêtement", detail: "Protection anticorrosion et frottement : anodisation, passivation (inox), revêtement aluminium (IVD), cadmiage (en substitution REACH), lubrifiant sec.", ex: "Le traitement conditionne le couple de serrage et la compatibilité avec la structure (carbone, aluminium)." },
-  { id: "dia", txt: "06", label: "Diamètre nominal", detail: "Code du diamètre : en millimètres pour les séries métriques, en seizièmes ou trente-deuxièmes de pouce pour les séries inch (ex. Hi-Lok : tiret 6 = 6/32 po).", ex: "Toujours lire l'unité dans la norme : un « 6 » n'est pas forcément 6 mm." },
-  { id: "grip", txt: "12", label: "Longueur / grip", detail: "Longueur sous tête ou longueur de la partie lisse (grip) qui doit correspondre à l'épaisseur totale serrée. Sur les fixations à grip, le pas est souvent de 1/16 po.", ex: "Grip trop court : le filet travaille dans l'alésage. Grip trop long : le collier ou l'écrou ne serre plus (talonnage)." },
+  { id: "norme", txt: "EN6115", sep: "", label: "Norme de définition", detail: "Désigne la famille de la vis. Exemple d'école construit sur le modèle de l'EN6115 : vis à tête fraisée 100°, en alliage de titane, de série inch. La fiche de la norme donne la forme, la matière autorisée, la résistance et le tableau des dimensions.", ex: "Autres désignations rencontrées sur une nomenclature Airbus Helicopters : « Écrou NF L 22-xxx », « Vis ASN-A xxxx », « Collier ECS xxxx »." },
+  { id: "mat", txt: "T", sep: " - ", label: "Matière / classe de résistance", detail: "Code de matière défini par la norme : alliage de titane (TA6V), acier allié haute résistance, acier inoxydable, superalliage A286, alliage d'aluminium.", ex: "Une vis titane et une vis acier de même géométrie ne sont PAS interchangeables (masse, résistance, couple galvanique)." },
+  { id: "trait", txt: "C", sep: " - ", label: "Traitement de surface / revêtement", detail: "Protection anticorrosion et frottement : anodisation, passivation (inox), revêtement aluminium (IVD), lubrifiant sec. Le dessin montre le revêtement sur toute la vis.", ex: "Le traitement conditionne le couple de serrage et la compatibilité avec la structure (carbone, aluminium)." },
+  { id: "dia", txt: "04", sep: " - ", label: "Diamètre nominal D", detail: "Code du diamètre nominal, mesuré sur le fût lisse. L'unité dépend de la série : millimètres en métrique, fraction de pouce en série inch (le tableau de la norme donne la correspondance).", ex: "Toujours lire l'unité dans la norme : un « 04 » n'est pas forcément 4 mm." },
+  { id: "grip", txt: "10", sep: " - ", label: "Longueur de prise (grip)", detail: "Longueur de la partie lisse qui doit correspondre à l'épaisseur totale serrée. Sur une vis fraisée, elle se mesure depuis le dessus de la tête. Dans les séries inch, le grip progresse souvent par pas de 1/16 po.", ex: "Grip trop court : le filet travaille dans l'alésage. Grip trop long : l'écrou ou la bague talonne et ne serre plus." },
 ];
+
+/* Schéma coté de la vis : chaque bloc de la désignation s'allume sur le dessin */
+function VisSchema({ seg }) {
+  const on = (id) => seg === id;
+  const hl = "#3b9eff", line = "#5b7299", txt = "#8fa0bd", amber = "#ffb020";
+  const bodyStroke = on("mat") || on("trait") || on("norme") ? hl : line;
+  return (
+    <svg viewBox="0 0 480 230" className="h-auto w-full" role="img" aria-label="Schéma coté d'une vis à tête fraisée 100°">
+      <defs>
+        <marker id="vs-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill={txt} /></marker>
+        <pattern id="vs-h" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="5" stroke="#2e4168" strokeWidth="1" /></pattern>
+      </defs>
+      <rect width="480" height="230" fill="#0b1220" />
+      {/* tôles serrées */}
+      <path d="M60,40 L60,190 L150,190 L150,40 Z" fill="url(#vs-h)" stroke={line} opacity="0.55" />
+      <line x1="105" y1="40" x2="105" y2="190" stroke={line} opacity="0.55" />
+      {/* tête fraisée 100° */}
+      <path d="M60,74 L60,146 L90,126 L90,94 Z" fill={on("norme") ? "rgba(59,158,255,0.25)" : "#1b2a47"} stroke={bodyStroke} strokeWidth="1.6" />
+      {/* fût lisse */}
+      <rect x="90" y="94" width="120" height="32" fill={on("dia") || on("grip") ? "rgba(59,158,255,0.2)" : "#1b2a47"} stroke={bodyStroke} strokeWidth="1.6" />
+      {/* partie filetée */}
+      <rect x="210" y="96" width="90" height="28" fill="#1b2a47" stroke={bodyStroke} strokeWidth="1.6" />
+      {Array.from({ length: 11 }, (_, i) => <line key={i} x1={214 + i * 8} y1="96" x2={220 + i * 8} y2="124" stroke={line} />)}
+      <path d="M300,96 L306,100 L306,120 L300,124" fill="none" stroke={bodyStroke} strokeWidth="1.6" />
+      {/* revêtement */}
+      {on("trait") && <path d="M58,72 L92,92 L212,92 L212,94 L302,94 L308,99 L308,121 L302,126 L212,126 L212,128 L92,128 L58,148 Z" fill="none" stroke={amber} strokeWidth="2" strokeDasharray="4 2" />}
+      {/* empreinte */}
+      <line x1="66" y1="102" x2="66" y2="118" stroke={line} strokeWidth="2" />
+      {/* cote angle 100° */}
+      <path d="M48,70 L76,110 L48,150" fill="none" stroke={on("norme") ? hl : txt} strokeDasharray="3 2" />
+      <text x="22" y="114" fontSize="12" fontFamily="JetBrains Mono, monospace" fill={on("norme") ? hl : txt}>100°</text>
+      {/* cote diamètre D */}
+      <line x1="180" y1="60" x2="180" y2="94" stroke={on("dia") ? hl : txt} markerEnd="url(#vs-a)" />
+      <line x1="180" y1="160" x2="180" y2="126" stroke={on("dia") ? hl : txt} markerEnd="url(#vs-a)" />
+      <text x="186" y="66" fontSize="12" fontFamily="JetBrains Mono, monospace" fontWeight={on("dia") ? 700 : 400} fill={on("dia") ? hl : txt}>Ø D (code 04)</text>
+      {/* cote grip */}
+      <line x1="60" y1="200" x2="60" y2="152" stroke={txt} strokeWidth="0.7" /><line x1="210" y1="200" x2="210" y2="130" stroke={txt} strokeWidth="0.7" />
+      <line x1="62" y1="196" x2="208" y2="196" stroke={on("grip") ? hl : txt} markerStart="url(#vs-a)" markerEnd="url(#vs-a)" />
+      <text x="135" y="214" textAnchor="middle" fontSize="12" fontFamily="JetBrains Mono, monospace" fontWeight={on("grip") ? 700 : 400} fill={on("grip") ? hl : txt}>grip (code 10) = épaisseur serrée</text>
+      {/* cote longueur filetée */}
+      <line x1="300" y1="92" x2="300" y2="40" stroke={txt} strokeWidth="0.7" />
+      <line x1="212" y1="46" x2="298" y2="46" stroke={txt} markerStart="url(#vs-a)" markerEnd="url(#vs-a)" />
+      <text x="256" y="38" textAnchor="middle" fontSize="11" fontFamily="JetBrains Mono, monospace" fill={txt}>longueur filetée</text>
+      {/* étiquette matière / traitement */}
+      <line x1="250" y1="124" x2="330" y2="168" stroke="#3a4c70" />
+      <text x="334" y="166" fontSize="11" fontFamily="JetBrains Mono, monospace" fontWeight={on("mat") ? 700 : 400} fill={on("mat") ? hl : txt}>matière : titane (T)</text>
+      <text x="334" y="182" fontSize="11" fontFamily="JetBrains Mono, monospace" fontWeight={on("trait") ? 700 : 400} fill={on("trait") ? amber : txt}>revêtement (C)</text>
+      <text x="334" y="104" fontSize="11" fontFamily="JetBrains Mono, monospace" fill={txt}>écrou / bague</text>
+      <text x="334" y="118" fontSize="11" fontFamily="JetBrains Mono, monospace" fill={txt}>côté filetage</text>
+      <text x="62" y="30" fontSize="10" fontFamily="JetBrains Mono, monospace" fill={txt}>tôles assemblées</text>
+    </svg>
+  );
+}
 
 const MSN_RANGE = [1040, 1080];
 const CONFIG = [
@@ -74,26 +127,29 @@ export default function NormesTables() {
       {/* 2. Désignation */}
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-2"><Layers size={18} className="text-sky" /><h3 className="font-display text-2xl font-semibold text-ink">Décoder la désignation d'une vis ou d'un écrou normalisé</h3></div>
-        <p className="max-w-3xl text-[13px] text-muted">Une désignation de fixation se lit par blocs. L'ordre et le codage exacts sont fixés par chaque norme : l'exemple ci-dessous est <strong className="text-ink">pédagogique</strong>, il montre la logique de lecture. Clique un bloc.</p>
-        <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-line bg-bg p-4 font-mono text-xl sm:text-2xl">
-          {SEGMENTS.map((x, i) => (
+        <p className="max-w-3xl text-[13px] text-muted">Une désignation de fixation se lit par blocs. Exemple d'école sur le modèle d'une vis <strong className="text-ink">EN6115</strong> (tête fraisée 100°, titane) : clique un bloc, il s'allume sur le schéma coté. L'ordre et le codage exacts de chaque lettre sont donnés par la fiche de la norme.</p>
+        <div className="flex flex-wrap items-center gap-1 rounded-xl border border-line bg-bg p-4 font-mono text-xl sm:text-2xl">
+          {SEGMENTS.map((x) => (
             <React.Fragment key={x.id}>
-              {i > 0 && <span className="text-muted">{i === 1 ? " " : i === 3 ? " - " : i === 4 ? "-" : ""}</span>}
+              {x.sep && <span className="text-muted">{x.sep.trim()}</span>}
               <button type="button" onClick={() => setSeg(x.id)} className={cx("rounded-md border px-2 py-1 transition", seg === x.id ? "border-sky bg-sky/20 text-ink" : "border-line bg-panel2 text-sky hover:border-sky/60")}>{x.txt}</button>
             </React.Fragment>
           ))}
         </div>
-        <div className="grid gap-3 lg:grid-cols-[1fr_1fr]">
-          <div className="rounded-xl border border-sky/50 bg-sky/10 p-4">
-            <div className="font-mono text-[11px] uppercase tracking-wider text-sky">{s.label}</div>
-            <p className="mt-1 text-[14px] leading-relaxed text-ink">{s.detail}</p>
-            <p className="mt-2 text-[13px] text-amber">{s.ex}</p>
-          </div>
-          <div className="overflow-x-auto rounded-xl border border-line">
-            <table className="w-full text-left text-[12px]">
-              <thead className="bg-panel2 font-mono text-[10px] uppercase tracking-wider text-muted"><tr><th className="px-3 py-2">Bloc</th><th className="px-3 py-2">Information</th></tr></thead>
-              <tbody>{SEGMENTS.map((x) => <tr key={x.id} className={cx("border-t border-line", seg === x.id && "bg-sky/10")}><td className="px-3 py-1.5 font-mono text-sky">{x.txt}</td><td className="px-3 py-1.5 text-ink">{x.label}</td></tr>)}</tbody>
-            </table>
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+          <div className="overflow-hidden rounded-xl border border-line"><VisSchema seg={seg} /></div>
+          <div className="flex flex-col gap-3">
+            <div className="rounded-xl border border-sky/50 bg-sky/10 p-4">
+              <div className="font-mono text-[11px] uppercase tracking-wider text-sky">{s.txt} · {s.label}</div>
+              <p className="mt-1 text-[14px] leading-relaxed text-ink">{s.detail}</p>
+              <p className="mt-2 text-[13px] text-amber">{s.ex}</p>
+            </div>
+            <div className="overflow-x-auto rounded-xl border border-line">
+              <table className="w-full text-left text-[12px]">
+                <thead className="bg-panel2 font-mono text-[10px] uppercase tracking-wider text-muted"><tr><th className="px-3 py-2">Bloc</th><th className="px-3 py-2">Information</th></tr></thead>
+                <tbody>{SEGMENTS.map((x) => <tr key={x.id} className={cx("border-t border-line", seg === x.id && "bg-sky/10")}><td className="px-3 py-1.5 font-mono text-sky">{x.txt}</td><td className="px-3 py-1.5 text-ink">{x.label}</td></tr>)}</tbody>
+              </table>
+            </div>
           </div>
         </div>
         <div className="grid gap-3 md:grid-cols-3 text-[13px] leading-relaxed">
