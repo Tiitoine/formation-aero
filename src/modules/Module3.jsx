@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from "react";
 import BackToPortal from "../lms/BackToPortal.jsx";
 import { scopedKey } from "../lms/session.js";
 import { GammeMESScreen, GammeMESAtelier } from "./m3/GammeMES.jsx";
-import { QnSwimlane, QnDecisionMatrix, StandardVsConcession, QnWorkflowAtelier } from "./m3/QnWorkflow.jsx";
+import { QnSwimlane, StandardVsConcession, QnWorkflowAtelier } from "./m3/QnWorkflow.jsx";
+import { EdPitchSVG, QM01Screen, PokaYokeSVG, ProtectionsZoneSVG } from "./m3/Schemas.jsx";
 import { PlanLab } from "./plans/PlanKit.jsx";
 import { PLAN2_MBOM } from "./plans/Plan2Jonction.jsx";
 import { shuffle, shuffleSpread, permutation, useAtelier, AtelierCounter, AtelierResult, LockRule, LockChip, OptionButton, optState, LETTERS, LockedQuickCheck, SprintQCM, useModuleSession } from "../lib/pedago.jsx";
@@ -315,6 +316,10 @@ const EFF_CASES = [
   { sn: 2131, state: "Sur la chaîne d'assemblage (FAL)", answer: "D", why: "2131 est compris entre 2105 et 2150 : c'est l'indice D, avec le MOD 07-4410 appliqué en production." },
   { sn: 2098, state: "Livré au client depuis 2 ans", answer: "SB", why: "2098 est hors de la tranche du MOD. L'appareil est déjà livré : la modification ne peut l'atteindre que par un Service Bulletin appliqué en exploitation, pas par la gamme de production." },
   { sn: 2151, state: "Sur la chaîne d'assemblage (FAL)", answer: "E", why: "2151 est la première borne de l'indice E. Une borne de tranche est incluse : on applique la nouvelle ferrure titane." },
+  { sn: 2104, state: "Sur la chaîne d'assemblage (FAL)", answer: "C", why: "2104 est la dernière borne de l'indice C, incluse : définition d'origine, sans le renfort du MOD 07-4410." },
+  { sn: 2150, state: "Sur la chaîne d'assemblage (FAL)", answer: "D", why: "2150 est la borne haute de l'indice D, incluse : renfort de cornière, pas encore la ferrure titane." },
+  { sn: 2140, state: "Livré au client, revenu pour visite", answer: "D", why: "2140 a été construit dans la tranche D : il porte déjà le MOD 07-4410. Sa définition est l'indice D, aucun SB n'est nécessaire pour ce renfort." },
+  { sn: 2187, state: "Sur la chaîne d'assemblage (FAL)", answer: "E", why: "2187 est au-delà de 2151 : indice E, ferrure titane du MOD 07-4532." },
 ];
 
 function EffectivityTrainer() {
@@ -329,7 +334,7 @@ function EffectivityTrainer() {
         <h3 className="font-display text-xl font-semibold text-ink">Exercice · Lire l'effectivité MSN d'un H145</h3>
         <AtelierCounter at={at} />
       </div>
-      <p className="mb-3 text-[14px] text-muted">Le cartouche du plan de la cornière de poutre de queue indique trois tranches d'effectivité. Pour chaque appareil, quelle définition s'applique ? Un seul choix par appareil.</p>
+      <p className="mb-3 text-[14px] text-muted">Le cartouche du plan de la cornière de poutre de queue indique trois tranches d'effectivité (bornes incluses). 7 appareils, 1 erreur tolérée. Pour chaque appareil, quelle définition s'applique ? Un seul choix par appareil.</p>
       <div className="mb-4 overflow-x-auto rounded-lg border border-line">
         <table className="w-full min-w-[460px] text-left text-[13px]">
           <thead className="bg-panel2 font-mono text-[11px] uppercase tracking-wider text-muted">
@@ -389,6 +394,10 @@ const Q_BE = [
     why: "Le MOD change la définition à partir d'un rang d'effectivité sur la chaîne. Le Service Bulletin permet de porter une modification sur la flotte en service.",
     hint: "Un appareil sur la chaîne et un appareil chez le client ne sont pas modifiés par le même document.",
   },
+  { q: "H160, contrôle d'implantation sur cornière. Fixation Ø 4,8 mm ; le compagnon mesure 7,0 mm entre le bord du trou et le bord de la tôle. Que vaut l'ED réelle ?", options: ["9,4 mm : on ajoute le rayon 2,4 mm à la mesure", "7,0 mm : l'ED se mesure depuis le bord du trou", "4,6 mm : on retranche le rayon 2,4 mm à la mesure", "11,8 mm : on ajoute le diamètre à la mesure faite"], answer: 0, why: "L'ED se mesure depuis l'axe du trou : 7,0 + 2,4 = 9,4 mm. C'est sous 2D = 9,6 mm : l'écart doit être signalé par une QN.", hint: "L'ED part de l'axe, pas du bord du trou." },
+  { q: "H145, rangée de rivets Ø 4 mm sur un cadre alu. Quel pas respecte la règle courante de 4D à 6D ?", options: ["20 mm, soit 5 fois le diamètre", "12 mm, soit 3 fois le diamètre", "30 mm, soit 7,5 fois le diamètre", "8 mm, soit 2 fois le diamètre"], answer: 0, why: "4D à 6D donne 16 à 24 mm pour Ø 4 : seul 20 mm est dans la plage. Le plan fait toujours foi.", hint: "Multiplie le diamètre par 4 puis par 6." },
+  { q: "H175, revue de conception d'une jonction. Quel mode de ruine guette une rangée de fixations au pas trop serré ?", options: ["La tôle se déchire d'un trou à l'autre, en timbre-poste", "Le bord de tôle s'arrache devant chaque fixation", "La tête de fixation se mate sous l'effort de serrage", "Les écrous se desserrent sous les vibrations du rotor"], answer: 0, why: "Avec un pas trop faible, la matière restante entre les trous est trop mince : la tôle se découpe le long de la rangée. L'arrachement du bord est le mode lié à une ED trop faible.", hint: "Pense à un carnet de timbres." },
+  { q: "H160, réception d'un nouveau plan pour préparer une gamme. Quelle est ta première lecture ?", options: ["Le cartouche : indice, matière, traitement, tolérances", "La nomenclature : quantités de fixations et rondelles", "Les vues de détail : cotes de perçage et d'implantation", "Les notes générales : couples de serrage et mastics"], answer: 0, why: "Le cartouche te dit si l'indice est applicable au MSN, et fixe matière, traitement et tolérances générales. Sans lui, tu risques de préparer une définition périmée.", hint: "Avant les cotes, il faut savoir si le plan est le bon." },
 ];
 
 function TabBE({ done, onComplete }) {
@@ -428,6 +437,7 @@ function TabBE({ done, onComplete }) {
             Distance entre les centres de deux fixations voisines. Typiquement <strong className="font-mono">4D ≤ pas ≤ 6D</strong>. Trop serré, la tôle est affaiblie façon « timbre-poste » ; trop lâche, le plaquage entre fixations n'est plus garanti.
           </RuleCard>
         </div>
+        <Panel className="p-3"><EdPitchSVG /></Panel>
         <NoteBox>Les valeurs 2D, 2,5D et 4D à 6D sont des règles de conception courantes (normes BNAE, standards AH ECS / EICM). La valeur exigée sur ta pièce est toujours celle du plan ou de la norme qu'il cite.</NoteBox>
       </div>
 
@@ -464,31 +474,36 @@ const BLOCKS = [
   { n: "6", icon: ClipboardCheck, title: "Traçabilité & contrôle qualité", text: "Relevé des lots (batch) et des S/N des pièces critiques (BTP, servocommandes, pales). Points d'arrêt qualité et double contrôle indépendant sur l'ATA 67." },
 ];
 
+const RW = (bad, ok, k1, k2) => ({ bad, options: [{ t: ok, ok: true }, { t: k1, ok: false }, { t: k2, ok: false }] });
 const REWRITES = [
-  {
-    bad: "Mettre un peu de PR sous la ferrure.",
-    options: [
-      { t: "Appliquer un cordon de PR 1776 B2 en interposition sur toute la surface de contact de la ferrure, après contrôle de la date de péremption de la cartouche ; relever le n° de lot dans le MES.", ok: true },
-      { t: "Mettre suffisamment de PR sous la ferrure pour que ça déborde.", ok: false },
-      { t: "Mettre du PR sous la ferrure si nécessaire.", ok: false },
-    ],
-  },
-  {
-    bad: "Bien serrer les 4 boulons de la ferrure.",
-    options: [
-      { t: "Serrer les 4 boulons à fond à la clé à cliquet.", ok: false },
-      { t: "Serrer les 4 boulons en croix au couple de 12 à 14 N.m selon norme EICM, avec une clé dynamométrique en cours de validité ; enregistrer la valeur.", ok: true },
-      { t: "Serrer les 4 boulons comme sur l'avion précédent.", ok: false },
-    ],
-  },
-  {
-    bad: "Vérifier la métallisation.",
-    options: [
-      { t: "Contrôler visuellement la tresse de métallisation.", ok: false },
-      { t: "Mesurer la résistance de métallisation au milliohmmètre étalonné entre la ferrure et la structure : valeur ≤ à la limite du plan ; saisir la valeur mesurée.", ok: true },
-      { t: "Vérifier la métallisation si le temps le permet.", ok: false },
-    ],
-  },
+  RW("Mettre un peu de PR sous la ferrure.",
+    "Appliquer en interposition un film continu de PR 1776 B2 sur toute la face de contact de la ferrure ; contrôler la date limite et relever le lot dans le MES.",
+    "Appliquer sous la ferrure une quantité de PR 1776 B2 suffisante pour obtenir un léger débordement visible sur tout le pourtour de la pièce.",
+    "Appliquer un cordon de PR sous la ferrure si l'opérateur le juge nécessaire, selon l'état des surfaces et le temps disponible au poste."),
+  RW("Bien serrer les 4 boulons de la ferrure.",
+    "Serrer les 4 boulons en croix au couple de 12 à 14 N·m selon EICM, clé dynamométrique en cours de validité ; enregistrer la valeur dans le MES.",
+    "Serrer les 4 boulons en croix à fond à la clé à cliquet, puis vérifier à la main qu'aucun boulon ne tourne plus avant de passer à l'opération suivante.",
+    "Serrer les 4 boulons au même couple que sur l'appareil précédent, avec la clé dynamométrique du poste, et prévenir le chef d'équipe en cas de doute."),
+  RW("Vérifier la métallisation.",
+    "Mesurer au milliohmmètre 4 fils étalonné la résistance entre ferrure et structure : R ≤ limite du plan ; saisir la valeur mesurée dans le MES.",
+    "Contrôler visuellement la tresse de métallisation entre la ferrure et la structure : cosse en place, tresse non effilochée, vis présente et serrée.",
+    "Vérifier la continuité entre la ferrure et la structure avec l'ohmmètre 2 fils du poste ; noter « OK » dans le MES si l'aiguille indique zéro."),
+  RW("Nettoyer avant collage.",
+    "Dégraisser les surfaces au chiffon non pelucheux imbibé de MEK, en sens unique ; évaporation 10 min mini avant collage ; relever le lot du solvant.",
+    "Nettoyer correctement les surfaces de collage avec le solvant disponible au poste, puis vérifier visuellement qu'il ne reste aucune trace de graisse.",
+    "Nettoyer les surfaces de collage à l'air comprimé puis au chiffon sec, pour éviter d'apporter un solvant qui pourrait gêner la polymérisation."),
+  RW("Contrôler le perçage.",
+    "Contrôler chaque alésage au tampon lisse Ø 4,8 H8 Entre / N'entre pas en cours de validité ; reporter le résultat par position dans le MES.",
+    "Contrôler visuellement que les alésages sont bien ronds et sans bavure, puis mesurer un trou sur dix au pied à coulisse pour vérifier le diamètre.",
+    "Contrôler les alésages au tampon lisse uniquement si le foret a été changé pendant l'opération, sinon considérer le perçage comme conforme."),
+  RW("Freiner les vis.",
+    "Freiner les vis par paires au fil EN3628 Ø 0,8 neuf, double torsade, traction dans le sens du serrage, 6 à 8 torsades par pouce, queue repliée.",
+    "Freiner les vis avec le fil disponible au poste, en torsadant comme d'habitude, puis couper l'extrémité à la pince au ras de la dernière tête.",
+    "Freiner les vis au fil EN3628 en réutilisant le fil déposé s'il est intact, double torsade, avec un nombre de torsades laissé au choix du compagnon."),
+  RW("Enlever les protections à la fin.",
+    "Retirer et compter les 13 protections posées en op. 0010 ; bilan posées = retirées reporté dans le MES avant toute demande de fermeture de zone.",
+    "Enlever en fin de poste toutes les protections visibles dans la zone de travail, puis passer l'aspirateur sur le plancher avant de fermer le caisson.",
+    "Enlever les protections restantes au moment de la fermeture du caisson, le compagnon suivant vérifiant ensuite visuellement la zone fermée."),
 ];
 
 function RewriteTrainer() {
@@ -603,6 +618,10 @@ const Q_GAMME = [
     why: "Une erreur de montage sur les commandes de vol est catastrophique. Un second contrôleur habilité, indépendant de celui qui a monté, vérifie et signe séparément.",
     hint: "Quelle chaîne d'organes ne tolère aucune erreur de montage ?",
   },
+  { q: "H145, création d'une gamme dans SAP. Pourquoi les opérations sont-elles numérotées de 10 en 10 (0010, 0020…) ?", options: ["Pour insérer une opération sans renuméroter la gamme", "Pour indiquer la durée de chaque opération en minutes", "Pour identifier le poste de charge de chaque opération", "Pour respecter le découpage imposé par la norme ATA 100"], answer: 0, why: "Une opération oubliée ou ajoutée par un MOD se glisse en 0015 ou 0025 sans casser la numérotation ni les références des documents associés.", hint: "Que se passe-t-il si on doit ajouter une opération entre deux autres ?" },
+  { q: "H160, rédaction de l'opération de serrage. Quelle donnée doit accompagner chaque moyen de mesure cité dans la gamme ?", options: ["Sa référence et sa date de validité métrologique", "Son fournisseur et son prix d'achat au catalogue", "Sa couleur et son emplacement dans l'armoire", "Sa masse et sa longueur hors tout utile au poste"], answer: 0, why: "Un moyen hors validité ne prouve rien : la mesure serait à refaire. Le compagnon vérifie l'étiquette, la gamme cite la référence.", hint: "Une mesure n'a de valeur que si l'instrument est étalonné." },
+  { q: "H175, gamme dans le MES. Un point d'arrêt qualité n'est pas encore levé par le contrôleur. Que se passe-t-il ?", options: ["Les opérations suivantes restent bloquées dans le MES", "L'opération suivante démarre avec une simple alerte", "Le compagnon peut signer à la place du contrôleur", "Le point d'arrêt se lève seul en fin d'équipe de nuit"], answer: 0, why: "Le point d'arrêt garantit qu'aucune opération ne recouvre une zone non contrôlée. Le MES bloque la suite jusqu'au visa qualité.", hint: "C'est un arrêt, pas un avertissement." },
+  { q: "H160, pose d'une servocommande principale. Quels relevés de traçabilité la gamme impose-t-elle ?", options: ["Le numéro de série de la servo et les lots des consommables", "La masse de la servo et la couleur de son marquage peint", "Le nom du fournisseur et le prix unitaire de la servo", "La seule date de réception de la servo au magasin"], answer: 0, why: "Les pièces critiques sont suivies par S/N, les consommables par lot : en cas d'alerte, on retrouve tous les appareils concernés.", hint: "Pense à une campagne de rappel sur un lot défectueux." },
 ];
 
 function TabGamme({ done, onComplete }) {
@@ -666,10 +685,10 @@ const QN_STEPS = [
 ];
 
 const DECISIONS = [
-  { id: "rework", label: "REWORK", fr: "Retouche", tone: "blue", text: "Remise en conformité stricte avec le plan initial. Après retouche, la pièce est exactement celle du plan." },
-  { id: "repair", label: "REPAIR", fr: "Réparation", tone: "amber", text: "Travaux correctifs approuvés par le BE qui ne ramènent pas exactement au plan, mais restaurent l'aptitude au vol. Le préparateur rédige l'opération de retouche dans la gamme QN." },
-  { id: "uai", label: "USE AS IS", fr: "Utiliser en l'état", tone: "green", text: "Accepté sans retouche physique, après démonstration par le calcul du BE que l'écart n'affecte pas la tenue." },
-  { id: "scrap", label: "SCRAP", fr: "Rebut", tone: "red", text: "Pièce irrécupérable : isolée, identifiée rebut, puis détruite physiquement pour qu'elle ne revienne jamais en production." },
+  { id: "rework", label: "REWORK", fr: "Retouche", tone: "blue", text: "Remise en conformité stricte avec le plan initial. Après retouche, la pièce est exactement celle du plan.", qui: "Production, selon la définition existante", doc: "Gamme QN de retouche", ex: "Rivets de mauvaise longueur déposés et reposés dans des trous conformes" },
+  { id: "repair", label: "REPAIR", fr: "Réparation", tone: "amber", text: "Travaux correctifs approuvés par le BE qui ne ramènent pas exactement au plan, mais restaurent l'aptitude au vol. Le préparateur rédige l'opération de retouche dans la gamme QN.", qui: "BE (DOA) approuve, production exécute", doc: "Dossier de réparation BE + gamme QN", ex: "Doubleur et fixation de diamètre supérieur non prévus au plan" },
+  { id: "uai", label: "USE AS IS", fr: "Utiliser en l'état", tone: "green", text: "Accepté sans retouche physique, après démonstration par le calcul du BE que l'écart n'affecte pas la tenue.", qui: "BE (DOA) par le calcul", doc: "Concession (dérogation) signée", ex: "Semelle 0,05 mm sous le mini, marge démontrée par le Stress Office" },
+  { id: "scrap", label: "SCRAP", fr: "Rebut", tone: "red", text: "Pièce irrécupérable : isolée, identifiée rebut, puis détruite physiquement pour qu'elle ne revienne jamais en production.", qui: "Qualité / BE selon le cas", doc: "QN soldée rebut, destruction tracée", ex: "Crique traversante sur ferrure titane" },
 ];
 
 const DEC_CASES = [
@@ -677,6 +696,9 @@ const DEC_CASES = [
   { t: "Un alésage est hors tolérance. Le BE prescrit un doubleur et une fixation de diamètre supérieur non prévus au plan, puis approuve le dossier.", answer: "repair" },
   { t: "L'épaisseur d'une semelle mesure 0,05 mm sous le mini du plan. Le Stress Office démontre une marge suffisante et accepte sans retouche.", answer: "uai" },
   { t: "Une ferrure usinée en titane présente une crique traversante détectée au ressuage.", answer: "scrap" },
+  { t: "Un congé de PR a été lissé avec un rayon trop faible. On retire le cordon et on refait le congé au rayon exact du plan.", answer: "rework" },
+  { t: "Une crique de bord sur une cornière alu est arrêtée par un perçage et un renfort collé-riveté définis et approuvés par le BE.", answer: "repair" },
+  { t: "Un trou est décalé de 0,4 mm de sa position nominale. ED et pas restent tenus ; le BE démontre la tenue par le calcul, sans retouche.", answer: "uai" },
 ];
 
 function DecisionSorter() {
@@ -691,7 +713,7 @@ function DecisionSorter() {
         <h3 className="font-display text-xl font-semibold text-ink">Exercice · Quelle décision de traitement ?</h3>
         <AtelierCounter at={at} />
       </div>
-      <p className="mb-3 text-[14px] text-muted">Pour chaque QN soldée, retrouve la décision officielle qui a été prise. Un seul clic par cas.</p>
+      <p className="mb-3 text-[14px] text-muted">Pour chaque QN soldée, retrouve la décision officielle qui a été prise. Un seul clic par cas, 7 cas, 1 erreur tolérée.</p>
       <LockRule className="mb-4" />
       <div className="flex flex-col gap-4">
         {order.map((ci) => {
@@ -739,6 +761,10 @@ const Q_QN = [
     why: "Le REWORK est la seule décision qui rend la pièce strictement conforme au plan initial. Le REPAIR restaure l'aptitude au vol par une définition différente, approuvée par le BE.",
     hint: "Retouche ou réparation : laquelle revient au plan d'origine ?",
   },
+  { q: "H145, écart dimensionnel sur une semelle. Qui a l'autorité de décider une concession USE AS IS ?", options: ["Le BE (DOA Part-21J), avec le calcul du Stress Office", "Le préparateur méthodes responsable du poste concerné", "Le chef d'équipe de production, pour tenir la cadence", "Le contrôleur qualité de la ligne de montage finale"], answer: 0, why: "Accepter un écart, c'est modifier la définition approuvée : seul l'organisme de conception Part-21J peut le faire, après justification par le calcul.", hint: "Qui détient l'approbation de conception ?" },
+  { q: "H160, création de la QN dans SAP (QM01). Quelle pièce jointe aide le plus le BE à décider sans venir au poste ?", options: ["Un croquis coté avec la position et la valeur mesurée", "Un commentaire libre qui décrit le contexte de l'écart", "La liste des compagnons présents sur le poste ce jour", "Le planning de livraison prévu pour l'appareil concerné"], answer: 0, why: "Le croquis coté localise l'écart et donne les valeurs : le Stress Office peut calculer directement. Une photo vient en complément.", hint: "Le BE calcule avec des cotes." },
+  { q: "H175, QN transmise au BE pour un alésage hors tolérance à l'opération 0040. Dans quel état est cette opération ?", options: ["Bloquée dans le MES jusqu'à la décision signée", "Poursuivie normalement puisque la QN est ouverte", "Soldée par le préparateur avec une réserve écrite", "Reportée au poste suivant sans aucune traçabilité"], answer: 0, why: "Tant que le BE n'a pas décidé, poser la fixation recouvrirait le défaut. L'opération reste bloquée, la QN est rattachée au MSN.", hint: "On ne recouvre jamais un défaut non décidé." },
+  { q: "H160, ferrure décidée SCRAP après QN. Que prescrit la gamme pour cette pièce ?", options: ["Identification rebut, isolement, puis destruction", "Stockage au magasin en attente d'un autre MSN", "Réemploi sur un appareil d'essais au sol interne", "Retour au fournisseur sans marquage particulier"], answer: 0, why: "Une pièce rebutée est marquée, isolée puis détruite physiquement : elle ne doit jamais revenir sur un appareil.", hint: "Le risque est qu'elle revienne en production." },
 ];
 
 function TabQN({ done, onComplete }) {
@@ -769,17 +795,27 @@ function TabQN({ done, onComplete }) {
 
       <div className="flex flex-col gap-3">
         <Eyebrow>Les 4 décisions officielles de traitement</Eyebrow>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {DECISIONS.map((d) => (
             <RuleCard key={d.id} title={d.label} icon={d.id === "rework" ? Wrench : d.id === "repair" ? PackagePlus : d.id === "uai" ? CheckCircle2 : Ban} tone={d.tone}>
               <div className="mb-1 font-mono text-[11px] uppercase tracking-wider text-muted">{d.fr}</div>
-              {d.text}
+              <p>{d.text}</p>
+              <dl className="mt-2 grid gap-1 border-t border-line pt-2 text-[12.5px]">
+                <div><dt className="inline font-semibold text-ink">Qui décide : </dt><dd className="inline text-ink/85">{d.qui}</dd></div>
+                <div><dt className="inline font-semibold text-ink">Document : </dt><dd className="inline text-ink/85">{d.doc}</dd></div>
+                <div><dt className="inline font-semibold text-ink">Exemple : </dt><dd className="inline text-ink/80">{d.ex}</dd></div>
+              </dl>
             </RuleCard>
           ))}
         </div>
       </div>
 
-      <QnDecisionMatrix />
+      <div className="flex flex-col gap-3">
+        <SectionHead icon={FileWarning} kicker="Transaction SAP QM01" title="À quoi ressemble une QN dans SAP">
+          L'avis qualité porte l'identité de l'appareil et de l'opération bloquée, une description cotée (attendu au plan contre relevé), les codes défaut du catalogue et les pièces jointes. Ouvre les onglets, puis transfère l'avis au BE.
+        </SectionHead>
+        <QM01Screen />
+      </div>
 
       <DecisionSorter />
 
@@ -848,6 +884,10 @@ function FodCounter() {
         </div>
         <Toggle on={lamp} onClick={() => setLamp(!lamp)}><Flashlight size={14} /> Lampe et miroir d'inspection</Toggle>
       </div>
+      <div className="mb-3">
+        <ProtectionsZoneSVG removed={removed} lamp={lamp} disabled={tried} onRemove={(id) => setRemoved({ ...removed, [id]: true })} labels={Object.fromEntries(PROTECTIONS.map((p) => [p.id, p.t]))} />
+        <p className="mt-1 text-[12px] text-muted">Clique sur une protection dans le schéma ou dans la liste pour la retirer. Une protection retirée laisse un contour pointillé vert.</p>
+      </div>
       <div className="grid gap-3 md:grid-cols-2">
         {ZONES.map((z) => {
           const items = PROTECTIONS.filter((p) => p.zone === z.id);
@@ -891,26 +931,6 @@ function FodCounter() {
   );
 }
 
-function PokaYokeSVG() {
-  return (
-    <svg viewBox="0 0 360 150" className="h-auto w-full" role="img" aria-label="Deux lignes hydrauliques voisines avec des raccords de diamètres différents">
-      <rect x="0" y="0" width="360" height="150" rx="10" fill="#0f1729" />
-      <rect x="20" y="40" width="190" height="16" rx="8" fill="#3b9eff" opacity="0.85" />
-      <rect x="20" y="96" width="190" height="10" rx="5" fill="#ffb020" opacity="0.9" />
-      <rect x="210" y="34" width="34" height="28" rx="4" fill="#3b9eff" />
-      <rect x="210" y="91" width="34" height="20" rx="4" fill="#ffb020" />
-      <rect x="276" y="34" width="44" height="28" rx="4" fill="none" stroke="#3b9eff" strokeWidth="2" />
-      <rect x="276" y="91" width="44" height="20" rx="4" fill="none" stroke="#ffb020" strokeWidth="2" />
-      <text x="24" y="30" fill="#e6edf7" fontFamily="JetBrains Mono" fontSize="11">Ligne HP · raccord -8</text>
-      <text x="24" y="126" fill="#e6edf7" fontFamily="JetBrains Mono" fontSize="11">Ligne retour · raccord -6</text>
-      <text x="270" y="80" fill="#8fa0bd" fontFamily="JetBrains Mono" fontSize="10">servocommande</text>
-      <path d="M250 48 L270 48" stroke="#3ddc97" strokeWidth="2" markerEnd="url(#pk)" />
-      <path d="M250 101 L270 101" stroke="#3ddc97" strokeWidth="2" markerEnd="url(#pk)" />
-      <defs><marker id="pk" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#3ddc97" /></marker></defs>
-    </svg>
-  );
-}
-
 const Q_LEAN = [
   {
     q: "H160, servocommande principale. Deux lignes hydrauliques voisines arrivent sur la même servocommande. Quelle disposition rend l'inversion physiquement impossible ?",
@@ -933,6 +953,10 @@ const Q_LEAN = [
     why: "Une protection non retrouvée est un FOD potentiel dans une zone qui va devenir inaccessible, voire un bouchon resté sur un circuit. Le compte doit être juste avant fermeture.",
     hint: "Où peut être la protection manquante, et que se passe-t-il si on ferme ?",
   },
+  { q: "H160, ferrure support de servocommande avec deux pions d'indexage de diamètres différents et à entraxe asymétrique. À quoi servent-ils ?", options: ["À rendre le montage à l'envers impossible", "À augmenter la tenue en cisaillement", "À remplacer le serrage au couple des vis", "À faciliter la dépose en maintenance"], answer: 0, why: "Deux pions différents, placés de façon asymétrique, n'acceptent qu'une seule orientation : c'est un Poka-Yoke d'outillage ou de pièce.", hint: "Une seule position possible." },
+  { q: "H145, raccord hydraulique « Dash -8 ». Quel diamètre extérieur de tube ce numéro désigne-t-il ?", options: ["8/16 de pouce, soit 1/2 in", "8 mm, soit environ 5/16 in", "8/32 de pouce, soit 1/4 in", "8/8 de pouce, soit 1 in"], answer: 0, why: "Le dash number donne le diamètre extérieur en seizièmes de pouce : -8 = 1/2 in, -6 = 3/8 in. Deux tailles différentes rendent l'inversion impossible.", hint: "L'unité est le seizième de pouce." },
+  { q: "H175, retrait des protections : le compte donne 12 sur 13. Quel moyen prescris-tu pour chercher derrière la servocommande ?", options: ["Lampe et miroir d'inspection, ou endoscope", "Soufflette d'air comprimé dans toute la zone", "Secouer la cellule pour faire tomber l'objet", "Aspirateur passé à l'aveugle derrière le corps"], answer: 0, why: "On cherche en voyant : lampe, miroir ou endoscope. Souffler ou secouer déplace l'objet vers une zone encore moins accessible.", hint: "Il faut voir sans démonter." },
+  { q: "H160, préparation d'un sous-ensemble de plancher. Pourquoi le monter sur bâti avant son intégration dans la cellule ?", options: ["Pour travailler à hauteur d'homme, sans posture pénible", "Pour éviter de compter les protections temporaires", "Pour supprimer le point d'arrêt qualité de fin de poste", "Pour réduire le nombre de fixations à poser au total"], answer: 0, why: "Une opération faite à hauteur d'homme, bien éclairée, est plus sûre et plus juste. La gamme décide aussi de l'ergonomie.", hint: "Pense au dos et aux bras du compagnon." },
 ];
 
 function TabLean({ done, onComplete }) {
@@ -942,11 +966,11 @@ function TabLean({ done, onComplete }) {
         Une bonne gamme ne se contente pas d'être juste : elle rend les erreurs difficiles, voire impossibles, et protège la cellule pendant les centaines d'heures de montage.
       </SectionHead>
 
-      <div className="grid gap-4 lg:grid-cols-[1.1fr_1fr]">
+      <div className="flex flex-col gap-3">
         <RuleCard title="Poka-Yoke · Détrompage" icon={Target}>
           Prévoir des détrompeurs sur les outillages ou dans le séquencement pour rendre l'erreur impossible. Exemple : des <strong>diamètres de raccords différents</strong> sur deux lignes hydrauliques voisines, un pion de détrompage asymétrique sur un gabarit de perçage, des connecteurs à clés différentes.
         </RuleCard>
-        <Panel className="p-3"><PokaYokeSVG /></Panel>
+        <PokaYokeSVG />
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
