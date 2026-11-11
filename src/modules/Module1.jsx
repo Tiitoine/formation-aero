@@ -2,6 +2,9 @@ import React, { useState, useEffect, useMemo } from "react";
 import BackToPortal from "../lms/BackToPortal.jsx";
 import Cutaway from "./m1/Cutaway.jsx";
 import NormesTables from "./m1/NormesTables.jsx";
+import RotorSim from "./m1/RotorLab.jsx";
+import Freinages from "./m1/Freinages.jsx";
+import MasticPR from "./m1/MasticPR.jsx";
 import { scopedKey } from "../lms/session.js";
 import { shuffle, shuffleSpread, permutation, useAtelier, AtelierCounter, AtelierResult, LockRule, LockChip, OptionButton, optState, LETTERS, LockedQuickCheck, SprintQCM, useModuleSession } from "../lib/pedago.jsx";
 import {
@@ -127,103 +130,7 @@ function QuickCheck(props) {
   return <LockedQuickCheck {...props} />;
 }
 
-function RotorSim() {
-  const [collectif, setCollectif] = useState(8);
-  const [cyclique, setCyclique] = useState(0);
-  const [anticouple, setAnticouple] = useState(8);
-  const tilt = cyclique * 1.6;
-  const thrust = 30 + collectif * 5;
-  const vertical = collectif > 10 ? "Montée" : collectif < 6 ? "Descente" : "Stationnaire";
-  const horizontal = cyclique > 1 ? "Translation vers l'avant" : cyclique < -1 ? "Translation vers l'arrière" : "Pas de translation";
-  const torqueDelta = collectif - anticouple;
-  const yaw =
-    Math.abs(torqueDelta) <= 1
-      ? { txt: "Cap stable : le couple du rotor principal est compensé.", tone: "text-ok" }
-      : torqueDelta > 1
-      ? { txt: "Le fuselage part en lacet dans le sens inverse du rotor : anticouple insuffisant.", tone: "text-ko" }
-      : { txt: "Le fuselage tourne dans le sens du rotor : excès d'anticouple.", tone: "text-amber" };
-  const rad = (tilt * Math.PI) / 180;
-  const mx = 200, my = 92;
-  const half = 150;
-  const x1 = mx - half * Math.cos(rad), y1 = my - half * Math.sin(rad);
-  const x2 = mx + half * Math.cos(rad), y2 = my + half * Math.sin(rad);
-  const tx = mx + thrust * Math.sin(rad), ty = my - thrust * Math.cos(rad);
 
-  const Slider = ({ id, label, value, min, max, onChange, left, right, unit }) => (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-baseline justify-between">
-        <label htmlFor={id} className="text-[13px] font-semibold text-ink">{label}</label>
-        <span className="font-mono text-xs text-sky">{value > 0 && min < 0 ? "+" : ""}{value}{unit}</span>
-      </div>
-      <input id={id} type="range" min={min} max={max} value={value} onChange={(e) => onChange(Number(e.target.value))} className="w-full accent-sky" />
-      <div className="flex justify-between font-mono text-[10px] uppercase tracking-wider text-muted"><span>{left}</span><span>{right}</span></div>
-    </div>
-  );
-
-  return (
-    <Panel className="p-5">
-      <div className="mb-3 flex items-center gap-2">
-        <Fan size={18} className="text-sky" />
-        <h3 className="font-display text-xl font-semibold text-ink">Mini-simulateur : plateau cyclique</h3>
-      </div>
-      <div className="grid gap-5 lg:grid-cols-[1.2fr_1fr]">
-        <div className="min-w-0 rounded-lg border border-line bg-bg p-2">
-          <svg viewBox="0 0 400 230" className="h-auto w-full" role="img" aria-label="Hélicoptère vu de profil avec inclinaison du disque rotor">
-            <defs>
-              <marker id="ah-thrust" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
-                <path d="M0,0 L10,5 L0,10 z" fill="#3ddc97" />
-              </marker>
-            </defs>
-            <line x1="0" y1="212" x2="400" y2="212" stroke="#1f2b45" strokeWidth="2" />
-            <path d="M120,150 C120,118 160,108 205,108 L250,110 C270,112 280,128 280,150 C280,170 260,178 220,178 L150,178 C130,178 120,168 120,150 Z" fill="#1d2a45" stroke="#5b7299" strokeWidth="1.5" />
-            <path d="M138,140 C140,124 160,116 185,116 L185,148 L140,148 Z" fill="#17304f" stroke="#5b7299" />
-            <path d="M275,135 L370,128 L372,138 L278,155 Z" fill="#1d2a45" stroke="#5b7299" strokeWidth="1.2" />
-            <path d="M360,128 L378,100 L386,100 L376,134 Z" fill="#24365a" stroke="#5b7299" />
-            <circle cx="378" cy="122" r={6 + anticouple * 0.6} fill="none" stroke="#ffb020" strokeWidth="1.5" strokeDasharray="3 3" />
-            <line x1="150" y1="188" x2="250" y2="188" stroke="#5b7299" strokeWidth="3" />
-            <line x1="165" y1="178" x2="160" y2="188" stroke="#5b7299" strokeWidth="2" />
-            <line x1="235" y1="178" x2="240" y2="188" stroke="#5b7299" strokeWidth="2" />
-            <rect x="196" y="92" width="8" height="18" fill="#8fa0bd" />
-            <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#3b9eff" strokeWidth="4" strokeLinecap="round" />
-            <ellipse cx={mx} cy={my} rx="6" ry="6" fill="#e6edf7" />
-            <line x1={mx} y1={my} x2={tx} y2={ty} stroke="#3ddc97" strokeWidth="3.5" markerEnd="url(#ah-thrust)" />
-            <text x="12" y="22" fill="#8fa0bd" fontSize="11" fontFamily="JetBrains Mono, monospace">← AVANT</text>
-            <text x="12" y="40" fill="#3ddc97" fontSize="11" fontFamily="JetBrains Mono, monospace">Poussée rotor</text>
-            <text x="300" y="80" fill="#ffb020" fontSize="11" fontFamily="JetBrains Mono, monospace">Rotor arrière</text>
-          </svg>
-        </div>
-        <div className="flex flex-col gap-4">
-          {Slider({id: "collectif", label: "Pas général (collectif)", value: collectif, min: 0, max: 16, unit: "°", onChange: setCollectif, left: "Descendre", right: "Monter",})}
-          {Slider({id: "cyclique", label: "Pas cyclique (inclinaison du disque)", value: cyclique, min: -6, max: 6, unit: "", onChange: setCyclique, left: "Arrière", right: "Avant",})}
-          {Slider({id: "anticouple", label: "Rotor anticouple / Fenestron (palonnier)", value: anticouple, min: 0, max: 16, unit: "", onChange: setAnticouple, left: "Faible", right: "Fort",})}
-          <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-lg border border-line bg-bg p-3">
-              <div className="font-mono text-[10px] uppercase tracking-wider text-muted">Vertical</div>
-              <div className="font-display text-lg font-semibold text-ink">{vertical}</div>
-            </div>
-            <div className="rounded-lg border border-line bg-bg p-3">
-              <div className="font-mono text-[10px] uppercase tracking-wider text-muted">Horizontal</div>
-              <div className="font-display text-lg font-semibold text-ink">{horizontal}</div>
-            </div>
-          </div>
-          <div className={cx("rounded-lg border border-line bg-bg p-3 text-[13px] font-medium", yaw.tone)}>{yaw.txt}</div>
-        </div>
-      </div>
-      <p className="mt-4 text-[13px] leading-relaxed text-muted">
-        Augmente le collectif sans toucher au palonnier : plus de pas = plus de couple moteur absorbé, donc plus de couple de réaction sur le fuselage.
-        C'est pour cela que l'anticouple doit suivre chaque variation de puissance.
-      </p>
-    </Panel>
-  );
-}
-
-const FREINAGES = [
-  { name: "Fil à freiner", desc: "Torsadé entre deux éléments et tendu dans le sens du serrage : si la vis tend à se desserrer, le fil la retient." },
-  { name: "Écrou auto-freiné", desc: "Insert polymère ou filet déformé qui crée un couple de freinage. Couple de freinage à vérifier, réutilisation limitée." },
-  { name: "Goupille fendue", desc: "Traverse l'écrou crénelé et la tige. Toujours neuve, branches rabattues selon la pratique standard." },
-  { name: "Frein filet", desc: "Produit anaérobie appliqué sur filetage propre et dégraissé, de la référence exacte demandée par la gamme." },
-  { name: "Rondelle frein", desc: "Rondelle à languette ou à ergot rabattue sur un plat de l'écrou ou de la pièce." },
-];
 
 
 /* ============================================================
@@ -320,17 +227,10 @@ const COMMANDES = [
   { name: "Palonniers", effet: "Font varier le pas des pales du rotor arrière ou du Fenestron : contrôle du lacet et compensation du couple.", chaine: "Palonniers → timonerie ou câbles → servocommande arrière → pas des pales anticouple" },
 ];
 
-const PR_ROLES = [
-  { name: "Intempéries & aérodynamique", icon: Droplets, desc: "Empêcher l'eau de pluie et de lavage d'entrer dans la cellule, en particulier dans les baies avionique et sous la verrière." },
-  { name: "Carburant & fluides", icon: Fuel, desc: "Étanchéité des zones réservoirs sous plancher et des drains du plancher mécanique, qui recueillent les fuites d'huile de la BTP et des moteurs." },
-  { name: "Cloisons pare-feu", icon: Flame, desc: "Les firewalls en titane ou inox isolent les turbomoteurs et la BTP. Leur étanchéité doit tenir face au feu : produits et méthode imposés." },
-  { name: "Anticorrosion galvanique", icon: ShieldCheck, desc: "Interposition entre matériaux de potentiels différents : aluminium, carbone, titane. Ces couples sont très présents sur H160, H175 et NH90." },
-];
+
 
 function TabFlight({ done, onComplete }) {
   const [cmd, setCmd] = useState(0);
-  const [frein, setFrein] = useState(null);
-  const [pr, setPr] = useState(null);
   const [avion, setAvion] = useState(false);
   return (
     <div className="flex flex-col gap-6">
@@ -382,33 +282,14 @@ function TabFlight({ done, onComplete }) {
       </div>
 
       <ImpactBox title="Environnement vibratoire extrême = freinage mécanique partout">
-        Le rotor génère des vibrations permanentes qui desserrent toute fixation non freinée et accélèrent la fatigue de la structure. Chaque fixation de la gamme doit avoir son moyen de freinage défini, selon les instructions EI et l'ATA 20. Clique sur chacun :
+        Le rotor génère des vibrations permanentes qui desserrent toute fixation non freinée et accélèrent la fatigue de la structure. Chaque fixation de la gamme doit avoir son moyen de freinage défini, selon les instructions EI et l'ATA 20. Sélectionne chaque moyen pour ouvrir sa fiche :
       </ImpactBox>
-      <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-5">
-        {FREINAGES.map((x, i) => (
-          <button key={x.name} type="button" onClick={() => setFrein(i)} className={cx("flex flex-col gap-1 rounded-lg border p-3 text-left transition", frein === i ? "border-amber bg-amber/10" : "border-line bg-panel hover:border-amber/60")}>
-            <Lock size={16} className="text-amber" />
-            <span className="font-display text-base font-semibold text-ink">{x.name}</span>
-            {frein === i && <span className="text-[12px] leading-snug text-ink/85">{x.desc}</span>}
-          </button>
-        ))}
-      </div>
+      <Freinages />
 
       <ImpactBox title="Pas de pressurisation : alors à quoi sert le mastic PR ?">
-        Un hélicoptère n'est <strong>pas pressurisé</strong>. Le PR reste partout dans tes gammes, mais pour quatre autres raisons. Clique pour les découvrir :
+        Un hélicoptère n'est <strong>pas pressurisé</strong>. Le PR reste partout dans tes gammes, mais pour quatre autres raisons :
       </ImpactBox>
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {PR_ROLES.map((r, i) => {
-          const Icon = r.icon;
-          return (
-            <button key={r.name} type="button" onClick={() => setPr(i)} className={cx("flex flex-col gap-1 rounded-lg border p-3 text-left transition", pr === i ? "border-sky bg-sky/10" : "border-line bg-panel hover:border-sky/60")}>
-              <Icon size={16} className="text-sky" />
-              <span className="font-display text-base font-semibold text-ink">{r.name}</span>
-              {pr === i && <span className="text-[12px] leading-snug text-ink/85">{r.desc}</span>}
-            </button>
-          );
-        })}
-      </div>
+      <MasticPR />
 
       <Panel className="p-4">
         <button type="button" onClick={() => setAvion(!avion)} className="flex w-full items-center gap-2 text-left">
@@ -450,6 +331,34 @@ function TabFlight({ done, onComplete }) {
             answer: 0,
             why: "Un espacement régulier concentre le bruit sur une fréquence. L'espacement irrégulier l'étale et le rend moins gênant.",
             hint: "C'est une question d'acoustique.",
+          },
+          {
+            q: "H145 sur banc de commandes, cyclique au neutre. Le compagnon monte le levier de pas collectif. Que fait le plateau cyclique ?",
+            options: ["Il monte parallèlement le long du mât, pas de toutes les pales accru", "Il s'incline vers l'avant, le pas des pales avant augmente", "Il descend le long du mât, le pas des pales diminue", "Il tourne autour du mât sans changer le pas des pales"],
+            answer: 0,
+            why: "Les 3 servocommandes poussent ensemble : le plateau coulisse sur sa rotule sans s'incliner, les biellettes montent et le pas de toutes les pales augmente de la même valeur.",
+            hint: "Collectif = même action sur toutes les pales.",
+          },
+          {
+            q: "H145 en stationnaire, le pilote pousse le manche cyclique vers l'avant. Dans quel sens le disque rotor s'incline-t-il ?",
+            options: ["Vers le nez : la poussée s'incline vers l'avant", "Vers la queue : la poussée s'incline vers l'arrière", "Vers la droite : la poussée compense le couple", "Il reste horizontal : seul le fuselage s'incline"],
+            answer: 0,
+            why: "La poussée reste perpendiculaire au disque. Pour avancer, le disque s'incline vers le nez et la poussée gagne une composante horizontale vers l'avant.",
+            hint: "La poussée est toujours perpendiculaire au disque.",
+          },
+          {
+            q: "H160, bouchon de vidange de la BTP freiné au fil sur une patte du carter. Dans quel sens le fil doit-il tirer le bouchon ?",
+            options: ["Dans le sens du serrage du bouchon", "Dans le sens du desserrage du bouchon", "Perpendiculairement à l'axe du bouchon", "Peu importe, si le fil reste bien tendu"],
+            answer: 0,
+            why: "Si le bouchon amorce un desserrage, le fil se met en traction et le ramène dans le sens du serrage. Posé à l'envers, il aiderait le desserrage.",
+            hint: "Le fil doit s'opposer au desserrage.",
+          },
+          {
+            q: "H145, fixation sur la cloison pare-feu du compartiment moteur. Quel écrou autofreiné la gamme doit-elle prescrire ?",
+            options: ["Écrou autofreiné tout métal, adapté à la température", "Écrou à bague nylon, plus simple à contrôler", "Écrou standard avec frein filet anaérobie", "Écrou à bague nylon avec rondelle large"],
+            answer: 0,
+            why: "La bague nylon perd son freinage au-delà d'environ 120 °C. En zone chaude, seul l'écrou tout métal garde son couple de freinage.",
+            hint: "Pense à la température de la zone.",
           },
         ]}
       />
