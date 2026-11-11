@@ -505,7 +505,7 @@ function PlanSVG() {
       <text x="16" y="22" {...t} fill={C.sky} fontSize="10">VUE DE DESSUS · ÉCH. 1:1 (indicatif)</text>
       {/* bord du plancher */}
       <line x1="44" y1="40" x2="44" y2="240" stroke={C.amber} strokeDasharray="5 4" />
-      <text x="40" y="252" {...t} fill={C.amber} textAnchor="start">bord plancher CFRP</text>
+      <text x="40" y="254" {...t} fill={C.amber} textAnchor="start">bord plancher CFRP</text>
       {/* semelle de la ferrure */}
       <rect x="70" y="62" width="212" height="156" rx="10" fill={C.panel} stroke={C.ink} strokeWidth="1.4" />
       {/* bossage + alésage */}
@@ -521,9 +521,9 @@ function PlanSVG() {
         </g>
       ))}
       {/* cote ED */}
-      <line x1="44" y1="200" x2="100" y2="200" stroke={C.sky} strokeWidth="1" markerStart="url(#arr)" markerEnd="url(#arr)" />
-      <text x="72" y="212" {...t} fill={C.sky} textAnchor="middle">ED 17,0</text>
-      <text x="72" y="222" {...t} fill={C.sky} textAnchor="middle">(≥ 2,5D)</text>
+      <line x1="100" y1="196" x2="100" y2="236" stroke={C.sky} strokeWidth=".6" />
+      <line x1="44" y1="230" x2="100" y2="230" stroke={C.sky} strokeWidth="1" markerStart="url(#arr)" markerEnd="url(#arr)" />
+      <text x="106" y="234" {...t} fill={C.sky}>ED 17,0 (≥ 2,5D)</text>
       {/* repères */}
       <line x1="193" y1="125" x2="300" y2="40" stroke={C.sky} strokeWidth=".8" />
       <text x="302" y="38" {...t} fill={C.ink}>Ø20 H7 · bague 20 H7/p6</text>
@@ -538,16 +538,16 @@ function PlanSVG() {
         </pattern>
       </defs>
       {/* coupe A-A */}
-      <text x="310" y="96" {...t} fill={C.sky} fontSize="10">COUPE A-A (empilage)</text>
+      <text x="310" y="88" {...t} fill={C.sky} fontSize="10">COUPE A-A (empilage)</text>
       <rect x="310" y="110" width="160" height="26" fill={C.panel} stroke={C.ink} />
       <text x="390" y="127" {...t} fill={C.ink} textAnchor="middle">Ferrure Al (anodisée)</text>
       <rect x="310" y="136" width="160" height="9" fill={C.amber} opacity=".35" stroke={C.amber} />
-      <text x="476" y="143" {...t} fill={C.amber} fontSize="8">cale</text>
+      <text x="305" y="143" {...t} fill={C.amber} fontSize="8" textAnchor="end">cale</text>
       <rect x="310" y="145" width="160" height="3" fill={C.ok} opacity=".7" />
-      <text x="476" y="152" {...t} fill={C.ok} fontSize="8">PR</text>
+      <text x="305" y="153" {...t} fill={C.ok} fontSize="8" textAnchor="end">PR</text>
       <rect x="310" y="148" width="160" height="34" fill="url(#cfrp)" stroke={C.ink} />
       <text x="390" y="170" {...t} fill={C.ink} textAnchor="middle">Plancher méca. CFRP</text>
-      {[345, 435].map((x) => (
+      {[324, 456].map((x) => (
         <g key={x}>
           <rect x={x - 5} y="102" width="10" height="90" fill={C.muted} opacity=".55" />
           <rect x={x - 10} y="98" width="20" height="6" rx="1" fill={C.muted} />
@@ -575,48 +575,88 @@ function PlanSVG() {
 }
 
 function HeliTopSVG({ pick, highlight, solved }) {
-  const t = { fontFamily: "JetBrains Mono, monospace", fontSize: 9 };
+  /* Vue en plan H160 (nez en haut) : X vers l'arrière, Y vers la droite, Z vers le haut (trièdre direct) */
+  const halo = { stroke: C.bg, strokeWidth: 3, paintOrder: "stroke", strokeLinejoin: "round" };
+  const t = { fontFamily: "JetBrains Mono, monospace", fontSize: 10, ...halo };
+  const s = { fontFamily: "Barlow, sans-serif", fontSize: 11, ...halo };
+  const half = (k, x) => {
+    const on = highlight === k;
+    const col = k === "L" && solved ? C.ok : C.ko;
+    return (
+      <rect x={x} y="140" width="40" height="104" fill={on ? col : C.panel2} fillOpacity={on ? 0.35 : 1} stroke={C.ink} strokeWidth="1.3"
+        onClick={() => pick && pick(k)} style={{ cursor: pick ? "pointer" : "default" }} role={pick ? "button" : undefined} aria-label={k === "L" ? "Moitié gauche du plancher (−Y)" : "Moitié droite du plancher (+Y)"} />
+    );
+  };
   return (
-    <svg viewBox="0 0 360 330" className="h-auto w-full max-w-[420px]" role="img" aria-label="Vue de dessus de l'hélicoptère, nez vers le haut">
-      <rect x="1" y="1" width="358" height="328" rx="10" fill={C.bg} stroke={C.line} />
-      <circle cx="180" cy="130" r="122" fill="none" stroke={C.line} strokeDasharray="4 6" />
-      {/* fuselage */}
-      <path d="M180 30 C 222 32, 240 80, 238 132 C 236 180, 214 206, 196 214 L 190 290 L 170 290 L 164 214 C 146 206, 124 180, 122 132 C 120 80, 138 32, 180 30 Z" fill={C.panel} stroke={C.muted} strokeWidth="1.2" />
-      <circle cx="180" cy="296" r="16" fill={C.panel2} stroke={C.muted} />
-      <text x="180" y="299" textAnchor="middle" {...t} fill={C.muted} fontSize="7">fenestron</text>
-      {/* sièges */}
-      <rect x="152" y="52" width="22" height="18" rx="4" fill={C.panel2} stroke={C.muted} />
-      <rect x="186" y="52" width="22" height="18" rx="4" fill={C.panel2} stroke={C.muted} />
-      <text x="197" y="47" textAnchor="middle" {...t} fill={C.muted} fontSize="7">CdB</text>
-      <text x="180" y="22" textAnchor="middle" {...t} fill={C.sky}>▲ AVANT (vers le nez)</text>
-      {/* plancher mécanique : deux moitiés cliquables */}
-      <g>
-        <rect x="134" y="100" width="46" height="74" fill={highlight === "L" ? (solved ? C.ok : C.ko) : C.panel2} fillOpacity={highlight === "L" ? 0.35 : 1} stroke={C.ink} strokeWidth="1.2" onClick={() => pick && pick("L")} style={{ cursor: pick ? "pointer" : "default" }} />
-        <rect x="180" y="100" width="46" height="74" fill={highlight === "R" ? C.ko : C.panel2} fillOpacity={highlight === "R" ? 0.35 : 1} stroke={C.ink} strokeWidth="1.2" onClick={() => pick && pick("R")} style={{ cursor: pick ? "pointer" : "default" }} />
-        <line x1="180" y1="92" x2="180" y2="182" stroke={C.amber} strokeDasharray="6 3 2 3" />
-        <text x="180" y="196" textAnchor="middle" {...t} fill={C.amber} fontSize="8">Y = 0 (plan de symétrie)</text>
-        <text x="180" y="90" textAnchor="middle" {...t} fill={C.ink} fontSize="8">Plancher mécanique · Zone 200</text>
+    <svg viewBox="0 0 420 470" className="h-auto w-full max-w-[460px]" role="img" aria-label="Vue en plan du H160, nez vers le haut, avec zone 200 du plancher mécanique et trièdre avion">
+      <defs>
+        <marker id="arrH" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill={C.sky} /></marker>
+      </defs>
+      <rect x="1" y="1" width="418" height="468" rx="10" fill={C.bg} stroke={C.line} />
+      <text x="210" y="20" textAnchor="middle" {...t} fontSize="11" fill={C.sky}>▲ AVANT (nez)</text>
+      {/* disque rotor principal */}
+      <circle cx="210" cy="192" r="150" fill="none" stroke={C.muted} strokeOpacity="0.6" strokeDasharray="5 6" />
+      <text x="340" y="52" textAnchor="middle" {...s} fontSize="10" fill={C.muted}>disque rotor</text>
+      {/* plan de symétrie Y = 0 */}
+      <line x1="210" y1="28" x2="210" y2="452" stroke={C.amber} strokeWidth="0.9" strokeDasharray="10 3 2 3" />
+      {/* fuselage, poutre de queue */}
+      <path d="M210,34 C232,36 250,62 254,100 L256,250 C256,280 246,300 222,316 L216,410 L204,410 L198,316 C174,300 164,280 164,250 L166,100 C170,62 188,36 210,34 Z" fill={C.panel} stroke={C.ink} strokeWidth="1.4" />
+      {/* verrière + sièges : CdB à droite (+Y), copilote à gauche (−Y) */}
+      <path d="M210,44 C228,46 242,66 246,96 L246,126 L174,126 L174,96 C178,66 192,46 210,44 Z" fill={C.sky} fillOpacity="0.14" stroke={C.sky} strokeWidth="1" />
+      <rect x="182" y="96" width="22" height="22" rx="5" fill={C.panel2} stroke={C.muted} />
+      <rect x="216" y="96" width="22" height="22" rx="5" fill={C.panel2} stroke={C.ink} />
+      <polyline points="184,114 160,134 154,134" fill="none" stroke={C.muted} strokeWidth="0.8" />
+      <text x="150" y="132" textAnchor="end" {...s} fill={C.ink}>Copilote</text>
+      <text x="150" y="145" textAnchor="end" {...t} fill={C.muted}>côté −Y</text>
+      <polyline points="236,114 260,134 266,134" fill="none" stroke={C.muted} strokeWidth="0.8" />
+      <text x="270" y="132" {...s} fill={C.ink}>CdB</text>
+      <text x="270" y="145" {...t} fill={C.muted}>côté +Y</text>
+      {/* zone 200 : plancher mécanique, deux moitiés cliquables */}
+      {half("L", 170)}{half("R", 210)}
+      <circle cx="210" cy="192" r="7" fill={C.bg} stroke={C.muted} pointerEvents="none" />
+      <circle cx="210" cy="192" r="2" fill={C.muted} pointerEvents="none" />
+      <text x="190" y="160" textAnchor="middle" {...t} fill={C.muted} pointerEvents="none">−Y</text>
+      <text x="230" y="160" textAnchor="middle" {...t} fill={C.muted} pointerEvents="none">+Y</text>
+      <polyline points="250,212 274,226 280,226" fill="none" stroke={C.ink} strokeWidth="0.8" />
+      <text x="284" y="224" {...s} fontSize="13" fontWeight="700" fill={C.ink}>ZONE 200</text>
+      <text x="284" y="238" {...s} fontSize="10" fill={C.muted}>plancher mécanique</text>
+      <text x="150" y="232" textAnchor="end" {...t} fill={C.amber}>Y = 0</text>
+      <text x="150" y="245" textAnchor="end" {...s} fontSize="10" fill={C.amber}>plan de symétrie</text>
+      {/* capots des 2 turbomoteurs Arrano */}
+      <rect x="180" y="254" width="24" height="46" rx="9" fill={C.panel2} stroke={C.ink} />
+      <rect x="216" y="254" width="24" height="46" rx="9" fill={C.panel2} stroke={C.ink} />
+      <polyline points="240,282 274,292 280,292" fill="none" stroke={C.muted} strokeWidth="0.8" />
+      <text x="284" y="296" {...s} fontSize="10" fill={C.ink}>2 × Arrano (capots)</text>
+      <text x="288" y="340" {...s} fontSize="10" fill={C.muted}>poutre de queue</text>
+      <polyline points="217,340 280,336 284,336" fill="none" stroke={C.muted} strokeWidth="0.8" />
+      {/* stabilisateur biplan (plan inférieur caché en pointillés) */}
+      <rect x="156" y="372" width="108" height="10" rx="4" fill={C.panel2} stroke={C.ink} />
+      <rect x="164" y="386" width="92" height="8" rx="3" fill="none" stroke={C.ink} strokeDasharray="4 3" />
+      <polyline points="264,380 280,380 284,380" fill="none" stroke={C.muted} strokeWidth="0.8" />
+      <text x="288" y="384" {...s} fontSize="10" fill={C.ink}>stabilisateur biplan</text>
+      {/* Fenestron incliné */}
+      <g transform="rotate(-14 210 428)">
+        <rect x="205" y="408" width="10" height="40" rx="4" fill={C.panel2} stroke={C.ink} />
       </g>
+      <polyline points="218,430 280,424 284,424" fill="none" stroke={C.muted} strokeWidth="0.8" />
+      <text x="288" y="428" {...s} fontSize="10" fill={C.ink}>Fenestron incliné</text>
       {solved && (
-        <g>
-          <circle cx="152" cy="140" r="7" fill={C.ok} />
-          <circle cx="152" cy="140" r="12" fill="none" stroke={C.ok} />
-          <text x="100" y="230" {...t} fill={C.ok}>Ferrure : Y = −420 → GAUCHE</text>
+        <g pointerEvents="none">
+          <circle cx="186" cy="204" r="7" fill={C.ok} />
+          <circle cx="186" cy="204" r="12" fill="none" stroke={C.ok} />
+          <text x="410" y="456" textAnchor="end" {...t} fill={C.ok}>Ferrure Y = −420 → GAUCHE</text>
         </g>
       )}
-      {/* trièdre */}
-      <g transform="translate(46 238)">
-        <line x1="0" y1="0" x2="0" y2="44" stroke={C.sky} strokeWidth="2" markerEnd="url(#arrH)" />
-        <text x="6" y="48" {...t} fill={C.sky}>+X (vers l'arrière)</text>
-        <circle cx="0" cy="0" r="7" fill="none" stroke={C.sky} strokeWidth="1.5" />
-        <circle cx="0" cy="0" r="2" fill={C.sky} />
-        <text x="12" y="3" {...t} fill={C.sky}>+Z (vers le haut, vers vous)</text>
-        {solved && (<><line x1="0" y1="0" x2="44" y2="0" stroke={C.ok} strokeWidth="2" markerEnd="url(#arrG)" /><text x="12" y="-8" {...t} fill={C.ok}>+Y (droite)</text></>)}
+      {/* trièdre direct */}
+      <g transform="translate(40 372)">
+        <line x1="0" y1="0" x2="0" y2="42" stroke={C.sky} strokeWidth="2" markerEnd="url(#arrH)" />
+        <line x1="0" y1="0" x2="42" y2="0" stroke={C.sky} strokeWidth="2" markerEnd="url(#arrH)" />
+        <circle cx="0" cy="0" r="7" fill={C.bg} stroke={C.sky} strokeWidth="1.5" />
+        <circle cx="0" cy="0" r="2.2" fill={C.sky} />
+        <text x="-6" y="-14" {...t} fontSize="11" fill={C.sky}>+Z haut (vers vous)</text>
+        <text x="50" y="4" {...t} fontSize="11" fill={C.sky}>+Y droite</text>
+        <text x="10" y="56" {...t} fontSize="11" fill={C.sky}>+X arrière</text>
       </g>
-      <defs>
-        <marker id="arrH" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill={C.sky} /></marker>
-        <marker id="arrG" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill={C.ok} /></marker>
-      </defs>
     </svg>
   );
 }

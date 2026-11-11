@@ -337,20 +337,53 @@ function ProjectionSVG({ mode }) {
 }
 
 function CountersinkSVG({ far }) {
-  /* Coupe de deux tôles : fraisage côté vue (proche) ou côté opposé */
-  const topY = 60, midY = 86, botY = 112;
-  const cs = far
-    ? `M120 ${botY} L136 ${botY - 14} L136 ${topY} L156 ${topY} L156 ${botY - 14} L172 ${botY} Z`
-    : `M120 ${topY} L136 ${topY + 14} L136 ${botY} L156 ${botY} L156 ${topY + 14} L172 ${topY} Z`;
+  /* Coupe de deux tôles + symbole porté au plan (vue de dessus) */
+  const X = 205, top = 72, mid = 94, bot = 116; // axe de la fixation et faces des tôles
+  const rH = 17, rS = 7, dep = (rH - rS) / Math.tan((50 * Math.PI) / 180); // fraisure 100° : demi-angle 50°
+  const faceY = far ? bot : top, sgn = far ? -1 : 1; // face fraisée et sens de pénétration
+  const cone = `M${X - rH},${faceY} L${X - rS},${faceY + sgn * dep} L${X + rS},${faceY + sgn * dep} L${X + rH},${faceY} Z`;
+  const shank = far ? { y: top - 14, h: bot - dep - (top - 14) } : { y: top + dep, h: bot + 14 - (top + dep) };
+  const collarY = far ? top - 14 : bot + 4;
+  const mono = "JetBrains Mono, monospace", sans = "Barlow, sans-serif";
+  const lead = far ? { x1: X - 12, y1: bot - 4, x2: 168, y2: 150 } : { x1: X - 12, y1: top + 4, x2: 168, y2: 44 };
   return (
-    <svg viewBox="0 0 300 160" className="h-auto w-full max-w-[420px]" role="img" aria-label={far ? "Fraisage côté opposé à la vue" : "Fraisage côté vue"}>
-      <text x="150" y="20" textAnchor="middle" fill="#3b9eff" fontSize="11" fontFamily="JetBrains Mono, monospace">▼ SENS DE LA VUE DU PLAN</text>
-      <text x="22" y="48" fill="#8fa0bd" fontSize="10" fontFamily="Barlow, sans-serif">Côté vue (proche, near side)</text>
-      <text x="22" y="132" fill="#8fa0bd" fontSize="10" fontFamily="Barlow, sans-serif">Côté opposé (far side)</text>
-      <rect x="20" y={topY} width="260" height={midY - topY} fill="#1b2a47" stroke="#22304d" />
-      <rect x="20" y={midY} width="260" height={botY - midY} fill="#16233d" stroke="#22304d" />
-      <path d={cs} fill="#ffb020" fillOpacity="0.85" stroke="#ffb020" />
-      <text x="146" y={far ? 150 : 52} textAnchor="middle" fill="#ffb020" fontSize="11" fontFamily="JetBrains Mono, monospace">fraisage 100°</text>
+    <svg viewBox="0 0 460 190" className="h-auto w-full max-w-[560px]" role="img" aria-label={far ? "Fraisage côté opposé à la vue : coupe et symbole au plan" : "Fraisage côté vue : coupe et symbole au plan"}>
+      <defs>
+        <pattern id="csH1" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="7" stroke="#5b7299" strokeWidth="1" /></pattern>
+        <pattern id="csH2" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)"><line x1="0" y1="0" x2="0" y2="7" stroke="#5b7299" strokeWidth="1" /></pattern>
+      </defs>
+      <text x={X} y="18" textAnchor="middle" fill="#3b9eff" fontSize="11" fontFamily={mono}>▼ SENS DE LA VUE DU PLAN</text>
+      {/* tôles en coupe, hachures croisées d'une tôle à l'autre */}
+      <rect x="120" y={top} width="170" height={mid - top} fill="#16233d" /><rect x="120" y={top} width="170" height={mid - top} fill="url(#csH1)" stroke="#8fa0bd" strokeWidth="1.2" />
+      <rect x="120" y={mid} width="170" height={bot - mid} fill="#16233d" /><rect x="120" y={mid} width="170" height={bot - mid} fill="url(#csH2)" stroke="#8fa0bd" strokeWidth="1.2" />
+      {/* fixation fraisée posée (tête affleurante) */}
+      <rect x={X - rS} y={shank.y} width={rS * 2} height={shank.h} fill="#c9d3e3" stroke="#e6edf7" strokeWidth="1" />
+      <path d={cone} fill="#ffb020" stroke="#ffd27a" strokeWidth="1.2" />
+      <rect x={X - 12} y={collarY} width="24" height="10" rx="2" fill="#9fb0c8" stroke="#e6edf7" strokeWidth="1" />
+      <line x1={X} y1={top - 24} x2={X} y2={bot + 24} stroke="#8fa0bd" strokeWidth="0.7" strokeDasharray="10 3 2 3" />
+      {/* étiquettes des faces, à gauche, hors du dessin */}
+      <text x="12" y="80" fill="#e6edf7" fontSize="11" fontFamily={sans}>Côté vue</text>
+      <text x="12" y="92" fill="#8fa0bd" fontSize="10" fontFamily={sans}>near side (NS)</text>
+      <text x="12" y="112" fill="#e6edf7" fontSize="11" fontFamily={sans}>Côté opposé</text>
+      <text x="12" y="124" fill="#8fa0bd" fontSize="10" fontFamily={sans}>far side (FS)</text>
+      {/* rappel de la fraisure */}
+      <polyline points={`${lead.x1},${lead.y1} ${lead.x2},${lead.y2} ${lead.x2 - 10},${lead.y2}`} fill="none" stroke="#ffb020" strokeWidth="0.9" />
+      <circle cx={lead.x1} cy={lead.y1} r="1.8" fill="#ffb020" />
+      <text x={lead.x2 - 14} y={lead.y2 + 4} textAnchor="end" fill="#ffb020" fontSize="11" fontFamily={mono}>fraisure 100°</text>
+      <text x={lead.x2 - 14} y={lead.y2 + (far ? 18 : -10)} textAnchor="end" fill="#8fa0bd" fontSize="10" fontFamily={sans}>cage micrométrique</text>
+      <text x={X} y="182" textAnchor="middle" fill="#8fa0bd" fontSize="10" fontFamily={sans}>COUPE · 2 tôles · fixation fraisée posée</text>
+      {/* symbole porté au plan */}
+      <line x1="306" y1="30" x2="306" y2="176" stroke="#22304d" strokeWidth="1" strokeDasharray="4 3" />
+      <text x="384" y="34" textAnchor="middle" fill="#e6edf7" fontSize="11" fontFamily={mono}>SYMBOLE AU PLAN</text>
+      <circle cx="340" cy="104" r="14" fill="none" stroke="#ffb020" strokeWidth="1.4" strokeDasharray={far ? "4 3" : undefined} />
+      <circle cx="340" cy="104" r="6" fill="none" stroke="#e6edf7" strokeWidth="1.4" />
+      <line x1="322" y1="104" x2="358" y2="104" stroke="#e6edf7" strokeWidth="1" /><line x1="340" y1="86" x2="340" y2="122" stroke="#e6edf7" strokeWidth="1" />
+      <polyline points="350,94 370,70 376,70" fill="none" stroke="#e6edf7" strokeWidth="0.9" />
+      <rect x="376" y="52" width="76" height="36" fill="#0f1729" stroke="#e6edf7" strokeWidth="1" /><line x1="376" y1="70" x2="452" y2="70" stroke="#e6edf7" strokeWidth="0.7" />
+      <text x="414" y="65" textAnchor="middle" fill="#e6edf7" fontSize="10" fontFamily={mono}>Ø4,8 ⌵100°</text>
+      <text x="414" y="83" textAnchor="middle" fill="#ffb020" fontSize="10" fontFamily={mono} fontWeight="700">{far ? "FAR SIDE" : "NEAR SIDE"}</text>
+      <text x="384" y="146" textAnchor="middle" fill="#ffb020" fontSize="10" fontFamily={sans}>{far ? "fraisure cachée : pointillés" : "fraisure visible : trait plein"}</text>
+      <text x="384" y="160" textAnchor="middle" fill="#8fa0bd" fontSize="10" fontFamily={sans}>drapeau : Ø, angle, côté</text>
     </svg>
   );
 }
@@ -367,7 +400,7 @@ function CountersinkTrainer() {
         <Chip active={!far} onClick={() => setFar(false)}>Fraisé côté vue (proche)</Chip>
         <Chip active={far} onClick={() => setFar(true)} tone="amber">Fraisé côté opposé (far side)</Chip>
       </div>
-      <div className="grid gap-4 md:grid-cols-[1fr_1fr] md:items-center">
+      <div className="grid gap-4 lg:grid-cols-[3fr_2fr] lg:items-center">
         <CountersinkSVG far={far} />
         <div className="text-[14px] leading-relaxed text-ink/85">
           {!far ? (
@@ -403,6 +436,34 @@ const Q_PLAN = [
     answer: 0,
     why: "Sous les efforts alternés du rotor, une rayure concentre les contraintes et amorce une crique de fatigue. L'état de surface fait partie de la conformité, au même titre que le diamètre.",
     hint: "Une ferrure de BTP subit des millions de cycles de vibration.",
+  },
+  {
+    q: "H160, plan de revêtement. Le drapeau d'une fixation porte « Ø4,8 ⌵100° FAR SIDE ». Que doit préciser l'opération de gamme ?",
+    options: ["La face d'accès réelle pour fraiser, opposée à la vue du plan", "Le diamètre seulement, le côté se déduit au poste de travail", "Un fraisage des deux faces pour couvrir les deux cas possibles", "Un fraisage côté vue, plus simple à réaliser pour l'opérateur"],
+    answer: 0,
+    why: "FAR SIDE : la fraisure est sur la face que l'on ne voit pas sur la vue. La gamme écrit en clair la face d'accès, et l'outillage de fraisage arrière si besoin.",
+    hint: "FAR SIDE = côté opposé à la vue.",
+  },
+  {
+    q: "H145, vue de dessus d'un panneau. Autour d'un trou, le cercle de fraisure est dessiné en pointillés. Que t'indique ce trait ?",
+    options: ["La fraisure est sur la face cachée, côté opposé à la vue", "La fraisure est facultative et laissée au choix de l'atelier", "La fraisure est à reprendre en retouche après la peinture", "La fraisure est côté vue mais avec un angle de 82° seulement"],
+    answer: 0,
+    why: "Une arête cachée se dessine en traits interrompus. Une fraisure vue en pointillés est donc côté opposé (far side).",
+    hint: "Trait plein = visible, pointillés = caché.",
+  },
+  {
+    q: "H175, fixation fraisée 100° posée côté vue sur une peau extérieure. Quel contrôle la gamme impose-t-elle après pose ?",
+    options: ["L'affleurement de la tête, dans la tolérance du plan (0 / −0,1)", "Le couple de la tête au tournevis dynamométrique étalonné", "La longueur de tige dépassant côté vue, au réglet de 150 mm", "L'absence de mastic visible sous la tête, au miroir d'inspection"],
+    answer: 0,
+    why: "Côté vue, la tête fraisée doit affleurer la peau aérodynamique : on contrôle l'affleurement au comparateur ou à la jauge, dans la tolérance du plan.",
+    hint: "Une tête fraisée côté vue doit être à fleur.",
+  },
+  {
+    q: "H160, cartouche d'un plan fournisseur nord-américain : symbole de projection du 3e dièdre. Où est la vue de dessus ?",
+    options: ["Au-dessus de la vue de face, du côté d'où on la regarde", "En dessous de la vue de face, à l'opposé du regard", "À droite de la vue de face, comme la vue de gauche", "Sur une feuille séparée, la projection étant isométrique"],
+    answer: 0,
+    why: "En 3e dièdre, chaque vue est placée du côté d'où on la regarde : la vue de dessus est au-dessus de la vue de face.",
+    hint: "3e dièdre : la vue est du côté du regard.",
   },
 ];
 
@@ -478,24 +539,35 @@ function TabPlan({ done, onComplete }) {
    ONGLET 2 · AJUSTEMENTS ISO 286
    ============================================================ */
 function FamiliesSVG() {
-  /* Position des zones d'arbre par rapport au trou H (écart inférieur 0) */
-  const y0 = 120;
+  /* Zones de tolérance à Ø10 (µm) par rapport à la ligne zéro (cote nominale) */
+  const y0 = 140, k = 2.4, Y = (um) => y0 - um * k;
+  const mono = "JetBrains Mono, monospace", sans = "Barlow, sans-serif";
+  const zones = [
+    { x: 90, hi: 15, lo: 0, l: "H7 (+15 / 0 µm)", c: "#3b9eff", t: "trou", ly: "above" },
+    { x: 170, hi: -5, lo: -14, l: "g6 (−5 / −14 µm)", c: "#3ddc97", t: "arbre · jeu", ly: "below" },
+    { x: 260, hi: 10, lo: 1, l: "k6 (+10 / +1 µm)", c: "#ffb020", t: "arbre · incertain", ly: "above" },
+    { x: 350, hi: 24, lo: 15, l: "p6 (+24 / +15 µm)", c: "#ff5d6c", t: "arbre · serrage", ly: "above" },
+  ];
   return (
-    <svg viewBox="0 0 360 200" className="h-auto w-full max-w-[460px]" role="img" aria-label="Position des zones de tolérance pour les trois familles d'ajustements">
-      <line x1="10" y1={y0} x2="350" y2={y0} stroke="#e6edf7" strokeDasharray="4 3" />
-      <text x="12" y={y0 - 6} fill="#8fa0bd" fontSize="10" fontFamily="JetBrains Mono, monospace">cote nominale</text>
-      <rect x="40" y={y0 - 40} width="50" height="40" fill="rgba(59,158,255,0.25)" stroke="#3b9eff" />
-      <text x="65" y={y0 - 16} textAnchor="middle" fill="#e6edf7" fontSize="12" fontFamily="JetBrains Mono, monospace">H7</text>
-      <text x="65" y={y0 + 18} textAnchor="middle" fill="#3b9eff" fontSize="10" fontFamily="Barlow, sans-serif">trou</text>
-      {[
-        { x: 120, y: y0 + 12, h: 30, l: "g6", c: "#3ddc97", t: "jeu" },
-        { x: 200, y: y0 - 20, h: 30, l: "k6", c: "#ffb020", t: "incertain" },
-        { x: 280, y: y0 - 72, h: 30, l: "p6", c: "#ff5d6c", t: "serrage" },
-      ].map((z) => (
+    <svg viewBox="0 0 460 232" className="h-auto w-full max-w-[560px]" role="img" aria-label="Position des zones de tolérance H7, g6, k6 et p6 autour de la ligne zéro, en micromètres">
+      {/* axe gradué en µm */}
+      <text x="56" y="12" fill="#8fa0bd" fontSize="10" fontFamily={mono}>µm</text>
+      <line x1="52" y1={Y(50)} x2="52" y2={Y(-25)} stroke="#8fa0bd" strokeWidth="1" />
+      {[50, 25, 0, -25].map((v) => (
+        <g key={v}>
+          <line x1="47" y1={Y(v)} x2="52" y2={Y(v)} stroke="#8fa0bd" strokeWidth="1" />
+          <text x="44" y={Y(v) + 4} textAnchor="end" fill="#8fa0bd" fontSize="10" fontFamily={mono}>{v > 0 ? `+${v}` : v === 0 ? "0" : `−${-v}`}</text>
+          {v !== 0 && <line x1="52" y1={Y(v)} x2="440" y2={Y(v)} stroke="#22304d" strokeWidth="0.6" />}
+        </g>
+      ))}
+      {/* ligne zéro */}
+      <line x1="52" y1={y0} x2="440" y2={y0} stroke="#e6edf7" strokeWidth="1.2" strokeDasharray="5 3" />
+      <text x="440" y={y0 + 16} textAnchor="end" fill="#e6edf7" fontSize="10" fontFamily={sans}>Ligne zéro (cote nominale Ø10,000)</text>
+      {zones.map((z) => (
         <g key={z.l}>
-          <rect x={z.x} y={z.y} width="50" height={z.h} fill={z.c} fillOpacity="0.22" stroke={z.c} />
-          <text x={z.x + 25} y={z.y + 19} textAnchor="middle" fill="#e6edf7" fontSize="12" fontFamily="JetBrains Mono, monospace">{z.l}</text>
-          <text x={z.x + 25} y="190" textAnchor="middle" fill={z.c} fontSize="11" fontFamily="Barlow, sans-serif">arbre · {z.t}</text>
+          <rect x={z.x} y={Y(z.hi)} width="50" height={(z.hi - z.lo) * k} fill={z.c} fillOpacity="0.25" stroke={z.c} strokeWidth="1.4" />
+          <text x={z.x + 25} y={z.ly === "above" ? Y(z.hi) - 6 : Y(z.lo) + 14} textAnchor="middle" fill={z.c} fontSize="10" fontFamily={mono}>{z.l}</text>
+          <text x={z.x + 25} y="224" textAnchor="middle" fill="#8fa0bd" fontSize="10" fontFamily={sans}>{z.t}</text>
         </g>
       ))}
     </svg>
@@ -523,6 +595,34 @@ const Q_FITS = [
     answer: 0,
     why: "Un ajustement incertain donne un jeu ou un serrage de quelques micromètres. La fixation reprend l'effort sans battre sous les vibrations, et reste posable par alésage de finition et maillet doux ou tire-boulon.",
     hint: "Lettres j à n : la zone de l'arbre chevauche celle du trou.",
+  },
+  {
+    q: "H160, arbre Ø10 g6 (−5 / −14 µm). Quelles sont ses cotes limites ?",
+    options: ["9,986 à 9,995 mm", "9,995 à 10,005 mm", "10,005 à 10,014 mm", "9,976 à 9,986 mm"],
+    answer: 0,
+    why: "Écart supérieur −5 µm et inférieur −14 µm : l'arbre va de 10 − 0,014 = 9,986 à 10 − 0,005 = 9,995 mm.",
+    hint: "Minuscule = arbre ; retire les écarts à la cote nominale.",
+  },
+  {
+    q: "H145, ajustement Ø10 H7/g6. Quel est le jeu maxi entre l'alésage et l'arbre ?",
+    options: ["29 µm, soit 0,029 mm", "5 µm, soit 0,005 mm", "15 µm, soit 0,015 mm", "20 µm, soit 0,020 mm"],
+    answer: 0,
+    why: "Jeu maxi = alésage maxi − arbre mini = (+15) − (−14) = 29 µm. Le jeu mini vaut 0 − (−5) = 5 µm.",
+    hint: "Jeu maxi : le plus grand trou avec le plus petit arbre.",
+  },
+  {
+    q: "H175, ajustement Ø10 H7/p6. Quel est le serrage maxi à prévoir pour le frettage ?",
+    options: ["24 µm, soit 0,024 mm", "15 µm, soit 0,015 mm", "9 µm, soit 0,009 mm", "39 µm, soit 0,039 mm"],
+    answer: 0,
+    why: "Serrage maxi = arbre maxi − alésage mini = 24 − 0 = 24 µm. Le serrage mini vaut 15 − 15 = 0 µm.",
+    hint: "Serrage maxi : le plus gros arbre dans le plus petit trou.",
+  },
+  {
+    q: "H160, l'opérateur contrôle un alésage Ø10 H7 au tampon. Le côté « N'entre pas » entre. Ta conclusion ?",
+    options: ["Alésage trop grand, hors tolérance : arrêt et déclaration QN", "Alésage conforme, le côté « N'entre pas » est seulement indicatif", "Alésage trop petit : reprendre à l'alésoir de finition Ø10 H7", "Alésage conforme si le côté « Entre » entre aussi sans forcer"],
+    answer: 0,
+    why: "Le côté N'entre pas est calibré au maxi du trou (10,015). S'il entre, le trou dépasse la tolérance : on ne peut pas reprendre en retirant de la matière, c'est une QN.",
+    hint: "Le côté N'entre pas matérialise le diamètre maxi.",
   },
 ];
 
@@ -756,6 +856,34 @@ const Q_GPS = [
     why: "Bonus = diamètre réel − maximum de matière = 8,012 − 8,000 = 0,012 mm. Zone autorisée : 0,1 + 0,012 = Ø0,112 mm.",
     hint: "Pour un trou, le maximum de matière est son plus petit diamètre.",
   },
+  {
+    q: "H160, cadre de tolérance [⊥ | Ø0,05 | A] sur un alésage. Que contrôle-t-on ?",
+    options: ["L'axe de l'alésage reste dans un cylindre Ø0,05 perpendiculaire à A", "Le diamètre de l'alésage varie de 0,05 mm au plus sur sa longueur", "La planéité de la face A reste meilleure que 0,05 mm sur la pièce", "La position de l'alésage par rapport à A est à ±0,05 mm en X et Y"],
+    answer: 0,
+    why: "⊥ = perpendicularité. Avec Ø, la zone est un cylindre de Ø0,05 perpendiculaire à la référence A, dans lequel l'axe réel doit tenir.",
+    hint: "⊥ est une tolérance d'orientation.",
+  },
+  {
+    q: "H145, sur le plan, la cote « 50 » est encadrée. Comment la lis-tu ?",
+    options: ["Cote théorique exacte, tolérancée par le cadre de localisation", "Cote d'inspection obligatoire à reporter sur le PV de contrôle", "Cote auxiliaire donnée pour information, sans exigence", "Cote à respecter à ±0,1 mm selon la tolérance générale"],
+    answer: 0,
+    why: "Une cote encadrée est une cote théoriquement exacte (CTE). Elle n'a pas de tolérance propre : c'est le cadre de localisation qui fixe l'écart admis.",
+    hint: "Encadrée = théoriquement exacte.",
+  },
+  {
+    q: "H175, trou Ø8 H8 (8,000 à 8,022) avec ⌖ Ø0,1 Ⓜ. Le trou mesure 8,022 mm. Quelle zone de position est autorisée ?",
+    options: ["Ø0,122 mm", "Ø0,100 mm", "Ø0,078 mm", "Ø0,144 mm"],
+    answer: 0,
+    why: "Bonus = 8,022 − 8,000 = 0,022 mm. Zone autorisée : 0,1 + 0,022 = Ø0,122 mm, le maximum possible pour ce trou.",
+    hint: "Plus le trou s'éloigne du maximum de matière, plus le bonus grandit.",
+  },
+  {
+    q: "H160, bâti de perçage : la référence primaire A est une grande face plane. Combien de points d'appui reçoit-elle ?",
+    options: ["3 points, pour bloquer 1 translation et 2 rotations", "2 points, pour bloquer 2 translations seulement", "1 point, la face étant déjà plane et usinée", "6 points, pour bloquer tous les degrés de liberté"],
+    answer: 0,
+    why: "Isostatisme 3-2-1 : la primaire reçoit 3 appuis (1 translation + 2 rotations), la secondaire 2, la tertiaire 1, soit 6 degrés de liberté.",
+    hint: "3-2-1 : la primaire prend le plus d'appuis.",
+  },
 ];
 
 function TabGps({ done, onComplete }) {
@@ -927,6 +1055,34 @@ const Q_CHAIN = [
     answer: 0,
     why: "Un jeu négatif est un serrage. Dans le cas le plus défavorable, les pièces ne rentrent pas sans forcer : il faut remonter l'écart au BE avant de lancer la gamme.",
     hint: "Un jeu négatif, c'est de la matière en trop.",
+  },
+  {
+    q: "H160, chape : A = 24,00 (+0,10 / 0) et B = 23,60 ±0,05. Quel est le jeu maxi Jmax de J = A − B ?",
+    options: ["0,55 mm", "0,45 mm", "0,50 mm", "0,35 mm"],
+    answer: 0,
+    why: "Jmax = Amax − Bmin = 24,10 − 23,55 = 0,55 mm.",
+    hint: "Jmax : la plus grande place avec la plus petite pièce.",
+  },
+  {
+    q: "H145, chaîne de 3 cotes tolérancées à ±0,05, ±0,10 et ±0,05. Quel est l'intervalle de tolérance du jeu au pire cumul ?",
+    options: ["0,40 mm, somme des intervalles", "0,20 mm, somme des demi-intervalles", "0,10 mm, la plus grande tolérance", "0,25 mm, moyenne des intervalles"],
+    answer: 0,
+    why: "Au pire cumul, l'IT du jeu est la somme des IT des maillons : 0,10 + 0,20 + 0,10 = 0,40 mm.",
+    hint: "Les intervalles de tolérance s'additionnent.",
+  },
+  {
+    q: "H175, calage. Espace mesuré 0,62 mm, cale pelable en feuillets de 0,05 mm, jeu résiduel admis 0 à 0,05 mm. Quelle épaisseur de cale ?",
+    options: ["0,60 mm, soit 12 feuillets", "0,65 mm, soit 13 feuillets", "0,55 mm, soit 11 feuillets", "0,62 mm, soit un feuillet coupé"],
+    answer: 0,
+    why: "On prend le multiple de 0,05 juste en dessous de l'espace : 0,60 mm. Jeu résiduel 0,02 mm, dans la plage admise ; 0,65 mm forcerait l'assemblage.",
+    hint: "La cale ne doit jamais dépasser l'espace mesuré.",
+  },
+  {
+    q: "H160, ton calcul donne Jmin = 0,02 mm et Jmax = 0,60 mm pour un jeu exigé de 0,10 à 0,50 mm. Que fais-tu ?",
+    options: ["Je prévois un calage ou un appairage, et je remonte l'écart au BE", "Je lance la gamme : le jeu moyen tombe dans l'exigence", "Je resserre la tolérance de la pièce au poste de montage", "J'accepte : l'écart de 0,08 mm reste sous la tolérance générale"],
+    answer: 0,
+    why: "Les deux bornes sortent de l'exigence au pire cumul. Il faut une solution de montage (cale, appairage) validée par le BE avant de lancer la gamme.",
+    hint: "Comparer Jmin et Jmax aux bornes exigées.",
   },
 ];
 
