@@ -236,7 +236,7 @@ function TabFlight({ done, onComplete }) {
           },
           {
             q: "H160 (non pressurisé), jonction cadre aluminium / panneau carbone. Pourquoi la gamme impose-t-elle une interposition de PR à cette jonction ?",
-            options: ["Pour isoler les deux matériaux contre la corrosion galvanique", "Pour assurer l'étanchéité de pressurisation de la cabine", "Pour remplacer une partie des fixations par du collage", "Pour amortir les vibrations transmises par le rotor"],
+            options: ["Pour isoler les deux matériaux contre la corrosion galvanique", "Pour assurer l'étanchéité de pressurisation de la cabine passagers", "Pour remplacer une partie des fixations par du collage", "Pour amortir les vibrations transmises par le rotor"],
             answer: 0,
             why: "L'aluminium au contact du carbone se corrode par effet galvanique. Le mastic interposé isole électriquement les deux matériaux.",
             hint: "Il n'y a pas de pressurisation sur cet appareil. Pense aux matériaux en contact.",
@@ -250,7 +250,7 @@ function TabFlight({ done, onComplete }) {
           },
           {
             q: "H145 sur banc de commandes, cyclique au neutre. Le compagnon monte le levier de pas collectif. Que fait le plateau cyclique ?",
-            options: ["Il monte parallèlement le long du mât, pas de toutes les pales accru", "Il s'incline vers l'avant, le pas des pales avant augmente", "Il descend le long du mât, le pas des pales diminue", "Il tourne autour du mât sans changer le pas des pales"],
+            options: ["Il monte parallèlement le long du mât, pas de toutes les pales accru", "Il s'incline vers l'avant, le pas des pales avançantes augmente", "Il descend le long du mât, le pas des pales diminue", "Il tourne autour du mât sans changer le pas des pales"],
             answer: 0,
             why: "Les 3 servocommandes poussent ensemble : le plateau coulisse sur sa rotule sans s'incliner, les biellettes montent et le pas de toutes les pales augmente de la même valeur.",
             hint: "Collectif = même action sur toutes les pales.",
@@ -271,7 +271,7 @@ function TabFlight({ done, onComplete }) {
           },
           {
             q: "H145, fixation sur la cloison pare-feu du compartiment moteur. Quel écrou autofreiné la gamme doit-elle prescrire ?",
-            options: ["Écrou autofreiné tout métal, adapté à la température", "Écrou à bague nylon, plus simple à contrôler", "Écrou standard avec frein filet anaérobie", "Écrou à bague nylon avec rondelle large"],
+            options: ["Écrou autofreiné tout métal, adapté à la température", "Écrou à bague nylon, plus simple à contrôler au montage", "Écrou standard avec frein filet anaérobie", "Écrou à bague nylon avec rondelle large"],
             answer: 0,
             why: "La bague nylon perd son freinage au-delà d'environ 120 °C. En zone chaude, seul l'écrou tout métal garde son couple de freinage.",
             hint: "Pense à la température de la zone.",
@@ -372,7 +372,7 @@ function ZoneMap() {
       <div className="grid gap-5 lg:grid-cols-[1.3fr_1fr]">
         <div className="flex min-w-0 flex-col gap-2">
           <div className="rounded-lg border border-line bg-bg p-2">
-            <svg viewBox="0 0 520 250" className="h-auto w-full" role="img" aria-label="Hélicoptère vu de dessus avec numéros de zones">
+            <svg viewBox="0 0 520 250" className="svg-halo h-auto w-full" role="img" aria-label="Hélicoptère vu de dessus avec numéros de zones">
               <text x="8" y="14" fill="#8fa0bd" fontSize="10" fontFamily="JetBrains Mono, monospace">Vue de dessus · nez à gauche</text>
               <text x="410" y="14" fill="#ffb020" fontSize="10" fontFamily="JetBrains Mono, monospace">+Y DROITE ↑</text>
               <text x="8" y="244" fill="#ffb020" fontSize="10" fontFamily="JetBrains Mono, monospace">↓ −Y GAUCHE</text>
@@ -884,7 +884,7 @@ function TriedreSim({ onComplete }) {
         <div className="flex min-w-0 flex-col gap-3">
           <div className="rounded-lg border border-line bg-bg p-2">
             <div className="flex justify-between px-1 font-mono text-[10px] uppercase tracking-wider text-muted"><span>Vue de dessus (plan X-Y)</span><span>X0 en avant du nez →</span></div>
-            <svg viewBox={`0 0 ${W} 220`} className="h-auto w-full" role="img" aria-label="Vue de dessus avec point d'intervention">
+            <svg viewBox={`0 0 ${W} 220`} className="svg-halo h-auto w-full" role="img" aria-label="Vue de dessus avec point d'intervention">
               <text x="8" y="16" fill="#ffb020" fontSize="10" fontFamily="JetBrains Mono, monospace">+Y DROITE (pair) · place CdB</text>
               <text x="8" y="214" fill="#ffb020" fontSize="10" fontFamily="JetBrains Mono, monospace">−Y GAUCHE (impair)</text>
               <line x1={sx(0)} y1={syTop(0)} x2={sx(HX)} y2={syTop(0)} stroke="#2a3a5c" strokeDasharray="4 4" />
@@ -899,7 +899,7 @@ function TriedreSim({ onComplete }) {
           </div>
           <div className="rounded-lg border border-line bg-bg p-2">
             <div className="flex justify-between px-1 font-mono text-[10px] uppercase tracking-wider text-muted"><span>Vue de côté gauche (plan X-Z)</span><span>← nez · Fenestron →</span></div>
-            <svg viewBox={`0 0 ${W} 215`} className="h-auto w-full" role="img" aria-label="Vue de profil avec point d'intervention">
+            <svg viewBox={`0 0 ${W} 215`} className="svg-halo h-auto w-full" role="img" aria-label="Vue de profil avec point d'intervention">
               <line x1={PADX} y1={szSide(0)} x2={W - PADX} y2={szSide(0)} stroke="#2a3a5c" />
               <HeliSide sx={sx} sz={szSide} hl={hlSide} zones={zoneTag} />
               {[[1000, "plancher cabine"], [2300, "plancher mécanique"]].map(([z, l]) => (
@@ -1020,7 +1020,7 @@ const QUESTIONS = [
     options: [
       "Montage à sec, puis cordon de PR d'aspect en bordure après serrage",
       "Interposition (PR ou film isolant) selon l'EI applicable, contre le couple galvanique",
-      "Dégraissage solvant des deux faces puis montage direct au couple nominal",
+      "Dégraissage solvant des deux faces puis montage direct au couple nominal du plan",
       "Primaire de peinture sur l'aluminium uniquement, la face carbone restant nue",
     ],
     answer: 1,
@@ -1058,7 +1058,7 @@ const QUESTIONS = [
     q: "H135, poste équipement. La gamme doit préciser la méthode de freinage au fil d'un bouchon et la métallisation d'un support. Dans quel document trouves-tu la règle maison applicable ?",
     options: [
       "Dans l'instruction EI / EICM citée en note de plan",
-      "Dans la fiche norme ECS de la vis de fixation",
+      "Dans la fiche norme ECS de la vis de fixation posée",
       "Dans le tableau de zonage ATA de l'appareil",
       "Dans la fiche de navigabilité de l'appareil",
     ],
@@ -1137,7 +1137,7 @@ const QUESTIONS = [
     options: [
       "Bloquer l'opération et faire définir le freinage conforme (plan, EI) avant diffusion",
       "Prescrire un frein filet anaérobie standard, déjà utilisé sur d'autres postes",
-      "Prescrire le couple maximal de la plage pour compenser l'absence de freinage",
+      "Prescrire le couple maximal de la plage pour compenser l'absence de tout freinage",
       "Diffuser en l'état et demander au contrôle final de statuer sur le freinage",
     ],
     answer: 0,

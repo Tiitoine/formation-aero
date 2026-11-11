@@ -21,7 +21,7 @@ const Bolt = ({ x, y1, y2 }) => (
 /* verrière : glace acrylique sur cadre, cordon PR et joint */
 function CutCanopy() {
   return (
-    <svg viewBox="0 0 260 140" className="h-auto w-full" role="img" aria-label="Coupe de la fixation de verrière avec cordon de mastic">
+    <svg viewBox="0 0 260 140" className="svg-halo h-auto w-full" role="img" aria-label="Coupe de la fixation de verrière avec cordon de mastic">
       <rect width="260" height="140" fill="#0d1526" />
       <path d="M20,40 L200,40 L200,52 L20,52 Z" fill="rgba(95,208,224,0.18)" stroke={K.glass} />
       <rect x="90" y="52" width="150" height="10" fill={K.fill2} stroke={K.metal} />
@@ -42,7 +42,7 @@ function CutCanopy() {
 /* drain du plancher mécanique : bac, cordon d'angle et goulotte libre */
 function CutDrain() {
   return (
-    <svg viewBox="0 0 260 140" className="h-auto w-full" role="img" aria-label="Coupe d'un drain de plancher mécanique avec cordon d'angle">
+    <svg viewBox="0 0 260 140" className="svg-halo h-auto w-full" role="img" aria-label="Coupe d'un drain de plancher mécanique avec cordon d'angle">
       <rect width="260" height="140" fill="#0d1526" />
       <path d="M20,40 H110 L118,78 H142 L150,40 H240 V50 H156 L148,88 H112 L104,50 H20 Z" fill={K.fill} stroke={K.line} />
       <rect x="122" y="88" width="16" height="40" fill={K.fill2} stroke={K.metal} />
@@ -63,7 +63,7 @@ function CutDrain() {
 /* traversée de cloison pare-feu Ti / inox */
 function CutFirewall() {
   return (
-    <svg viewBox="0 0 260 140" className="h-auto w-full" role="img" aria-label="Coupe d'une traversée de cloison pare-feu avec mastic coupe-feu">
+    <svg viewBox="0 0 260 140" className="svg-halo h-auto w-full" role="img" aria-label="Coupe d'une traversée de cloison pare-feu avec mastic coupe-feu">
       <rect width="260" height="140" fill="#0d1526" />
       <rect x="120" y="14" width="10" height="112" fill={K.fill2} stroke={K.metal} />
       <rect x="40" y="62" width="180" height="16" rx="3" fill={K.fill} stroke={K.line} />
@@ -84,7 +84,7 @@ function CutFirewall() {
 /* jonction CFRP / Al : pli de verre + PR interposé, fixation posée humide */
 function CutGalva() {
   return (
-    <svg viewBox="0 0 260 140" className="h-auto w-full" role="img" aria-label="Coupe d'une jonction carbone aluminium avec pli de verre et mastic interposé">
+    <svg viewBox="0 0 260 140" className="svg-halo h-auto w-full" role="img" aria-label="Coupe d'une jonction carbone aluminium avec pli de verre et mastic interposé">
       <rect width="260" height="140" fill="#0d1526" />
       <rect x="20" y="40" width="200" height="16" fill={K.cf} stroke={K.line} />
       {Array.from({ length: 20 }, (_, i) => <line key={i} x1={24 + i * 10} y1="44" x2={30 + i * 10} y2="52" stroke="#454b57" />)}

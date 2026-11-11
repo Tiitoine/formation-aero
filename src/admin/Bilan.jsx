@@ -1,9 +1,10 @@
 /* Fiche bilan individuelle & attestation (aperçu + export HTML imprimable en PDF) */
 import React, { useRef } from "react";
 import { Download } from "lucide-react";
-import { cx, pct, frDate, today, V, R, N } from "../lms/db.js";
+import { cx, pct, frDate, frDateTime, today, MOD, V, R, N } from "../lms/db.js";
 import { Eyebrow, Btn, offerFile } from "../lms/ui.jsx";
 import { remediation, remediationTexte } from "./Grille.jsx";
+import { diagnostic, fmtDuree, court } from "../lms/diagnostic.js";
 
 const ATT_CSS = `
 .att{background:#fff;color:#14213a;font-family:Barlow,system-ui,sans-serif;font-size:13px;line-height:1.45;max-width:860px;margin:0 auto;padding:36px 40px;border-radius:6px}
@@ -47,6 +48,7 @@ export default function Bilan({ active, calc }) {
   const fiche = active.fiche;
     const ok = calc.statutGlobal === V;
   const rem = remediation(active, calc);
+  const dg = diagnostic(active);
   const refDoc = `BIL-${active.matricule}-${today().replace(/-/g, "")}`;
   const download = () => {
     const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fiche bilan ${active.matricule} — ${active.prenom} ${active.nom}</title>`
@@ -108,6 +110,25 @@ export default function Bilan({ active, calc }) {
             </tbody>
           </table>
 
+          <h2>3. Diagnostic recruteur (calcul automatique sur {dg.nbReponses} réponses)</h2>
+          <table>
+            <thead><tr><th>Domaine</th><th>Bonnes réponses</th><th>Taux</th><th>Lecture</th></tr></thead>
+            <tbody>
+              {dg.domaines.map((d) => (
+                <tr key={d.id}><td><b className="mono">{d.id}</b> · {d.titre}</td><td className="n">{d.ok}/{d.n}</td><td className="n">{d.n ? pct(d.taux) : "—"}</td><td><span className={vClass(d.n ? d.statut : N)}>{!d.n ? "NON COUVERT" : d.taux >= 85 ? (d.n >= 5 ? "FORCE" : "VALIDE") : "LACUNE"}</span></td></tr>
+              ))}
+            </tbody>
+          </table>
+          <table style={{ marginTop: 8 }}>
+            <tbody>
+              <tr><td style={{ width: "32%" }}><b>Forces</b></td><td>{dg.forces.length ? dg.forces.map((d) => `${d.id} ${d.titre} (${pct(d.taux)})`).join(" · ") : "—"}</td></tr>
+              <tr><td><b>Lacunes précises</b></td><td>{dg.lacunes.length ? dg.lacunes.map((d) => `${d.id} (${pct(d.taux)}) : ${d.erreurs.slice(-2).map((e) => court(e.q)).join(" ; ")}`).join(" · ") : "—"}</td></tr>
+              <tr><td><b>Tentatives</b></td><td className="mono">{dg.nbSprints} sprint(s) noté(s), dont {dg.sprintsKO} à revoir · {dg.ateliers} atelier(s), dont {dg.ateliersOK} ≥ 85 %</td></tr>
+              <tr><td><b>Temps / historique</b></td><td className="mono">du {frDateTime(dg.premiere)} au {frDateTime(dg.derniere)} · {dg.joursActifs} jour(s) actif(s) · temps en sprint {fmtDuree(dg.dureeSprints)}</td></tr>
+              <tr style={dg.themes.length ? { background: "#fff5f6" } : undefined}><td><b style={dg.themes.length ? { color: "#b3202f" } : undefined}>Drapeaux rouges sécurité des vols</b></td><td>{dg.themes.length ? dg.themes.map((t) => `${t.label} : ${t.n} erreur(s), dont ${t.notees} en sprint noté (ex. ${MOD[t.ex[0].module]?.code} « ${court(t.ex[0].q)} »)`).join(" · ") : "Aucune erreur sur les thèmes ATA 67, freinage, FOD, métallisation, péremption, contrôles, litiges."}</td></tr>
+            </tbody>
+          </table>
+
           <div className={cx("att-dec", ok ? "ok" : "ko")}>
             <div className="mono" style={{ fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", color: "#5d6b85" }}>Décision finale</div>
             <div className="t">{ok ? "FORMATION VALIDÉE (Score ≥ 85 %)" : "FORMATION À REVOIR (Score < 85 % — Modules à repasser)"}</div>
@@ -121,9 +142,9 @@ export default function Bilan({ active, calc }) {
             )}
           </div>
 
-          <h2>3. Observations du formateur</h2>
+          <h2>4. Observations du formateur</h2>
           <div className="att-txt">{fiche.commentaireFormateur || "—"}</div>
-          {(!ok || fiche.pointsARevoir) && (<><h2>4. Points à revoir</h2><div className="att-txt">{fiche.pointsARevoir || remediationTexte(active, calc) || "—"}</div></>)}
+          {(!ok || fiche.pointsARevoir) && (<><h2>5. Points à revoir</h2><div className="att-txt">{fiche.pointsARevoir || remediationTexte(active, calc) || "—"}</div></>)}
 
           <div className="att-sign">
             <div><span>Le formateur · nom, date et signature</span><span style={{ textTransform: "none", letterSpacing: 0 }}>Date : ____ / ____ / ________</span></div>

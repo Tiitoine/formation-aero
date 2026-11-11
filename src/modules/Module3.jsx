@@ -1224,37 +1224,50 @@ const QN_TREE = [
     id: "react",
     title: "Le compagnon attend ta réponse au téléphone. Que fais-tu ?",
     options: [
-      { t: "Dire au compagnon de mettre une rondelle large en cachette pour reprendre la charge.", ok: false, why: "Faute lourde : c'est un écart non déclaré à la définition approuvée, dissimulé dans une zone qui sera fermée. C'est exactement ce que Part-21G interdit." },
-      { t: "Lui dire de reboucher le trou au mastic et de repercer 3,5 mm plus loin du bord.", ok: false, why: "Tu modifies la définition de ton propre chef. Un nouveau trou à côté d'un trou raté crée un pas non conforme et un ligament affaibli : seul le BE peut le décider." },
-      { t: "Ouvrir une QN SAP, faire marquer et bloquer l'opération et la fermeture de zone, puis soumettre au BE Calcul pour dérogation ou réparation.", ok: true, why: "Stop, sécurisation, QN, et décision par l'organisme de conception : c'est le workflow réglementaire." },
-      { t: "Laisser poser la fixation : 7,5 mm, c'est presque 2D.", ok: false, why: "« Presque » n'existe pas en aéronautique. 7,5 mm pour 10 mm requis, c'est 25 % de matière en moins au bord." },
+      { t: "Faire poser une rondelle large sous la tête pour reprendre la charge, sans rien déclarer.", ok: false, why: "Faute lourde : c'est un écart non déclaré à la définition approuvée, dissimulé dans une zone qui sera fermée. C'est exactement ce que Part-21G interdit." },
+      { t: "Faire reboucher le trou au mastic et repercer 3,5 mm plus loin du bord, puis tracer le geste.", ok: false, why: "Tu modifies la définition de ton propre chef. Un nouveau trou à côté d'un trou raté crée un pas non conforme et un ligament affaibli : seul le BE peut le décider." },
+      { t: "Ouvrir une QN SAP, faire bloquer l'opération et la fermeture de zone, puis saisir le BE.", ok: true, why: "Stop, sécurisation, QN, et décision par l'organisme de conception (DOA Part-21J) : c'est le workflow réglementaire." },
+      { t: "Faire poser la fixation : 7,5 mm reste proche de 2D, l'écart sera noté en commentaire.", ok: false, why: "« Presque » n'existe pas en aéronautique. 7,5 mm pour 10 mm requis, c'est 25 % de matière en moins au bord." },
     ],
   },
   {
     id: "desc",
     title: "Tu rédiges la description de la QN. Laquelle choisis-tu ?",
     options: [
-      { t: "Trou mal placé sur la cornière, à voir.", ok: false, why: "Pas de valeur, pas de référence, pas de localisation : le BE ne peut rien calculer." },
-      { t: "Alésage Ø 5 mm, cornière de poutre de queue réf. plan, position F7 : centre du trou mesuré à 7,5 mm du bord pour 11 mm demandé au plan (ED mini 2D = 10 mm). Fixation non posée.", ok: true, why: "Factuelle et cotée : valeur mesurée, valeur demandée, règle, pièce, position, état actuel." },
-      { t: "Erreur du compagnon au perçage, distance au bord insuffisante.", ok: false, why: "Une QN décrit un écart produit, pas un coupable. Et il manque toutes les valeurs." },
+      { t: "Trou mal placé sur la cornière de poutre de queue, distance au bord à revoir par le BE.", ok: false, why: "Pas de valeur, pas de référence, pas de position : le BE ne peut rien calculer." },
+      { t: "Cornière réf. plan, pos. F7 : Ø5, axe à 7,5 mm du bord pour 11 au plan (mini 10). Non posée.", ok: true, why: "Factuelle et cotée : pièce, position, valeur mesurée, valeur demandée, règle, état actuel." },
+      { t: "Erreur de perçage du compagnon au poste 30, distance au bord insuffisante sur la cornière.", ok: false, why: "Une QN décrit un écart produit, pas un coupable. Et il manque toutes les valeurs." },
+      { t: "Cornière F7 percée trop près du bord, fixation posée provisoirement en attente de décision.", ok: false, why: "Aucune valeur, et poser une fixation sur un trou non conforme fige l'écart : la fixation doit rester non posée." },
     ],
   },
   {
     id: "path",
     title: "La réparation standard pré-approuvée autorise le passage en fixation oversize Ø 5,5 mm. Est-elle applicable ici ?",
     options: [
-      { t: "Oui : Cas A, on passe en oversize et on trace dans la QN.", ok: false, why: "Avec Ø 5,5 mm, l'ED mini devient 2 × 5,5 = 11 mm. Le trou ne s'éloigne pas du bord, il s'élargit : l'écart s'aggrave." },
-      { t: "Non : avec Ø 5,5 mm, ED mini = 11 mm > 7,5 mm. Les conditions du standard ne sont pas remplies, c'est un Cas B : dérogation BE.", ok: true, why: "Le standard exige ED ≥ 2D avec le nouveau diamètre. Ce n'est pas le cas, la QN part au BE (DOA Part-21J) / Stress Office." },
-      { t: "Oui, à condition de poser une rondelle large sous la tête.", ok: false, why: "La rondelle ne change rien à la matière disponible entre le trou et le bord, et elle n'est pas prévue par le standard." },
+      { t: "Oui : c'est un Cas A, on passe en oversize Ø 5,5 et on trace la réparation dans la QN.", ok: false, why: "Avec Ø 5,5 mm, l'ED mini devient 2 × 5,5 = 11 mm. Le trou ne s'éloigne pas du bord, il s'élargit : l'écart s'aggrave." },
+      { t: "Non : en Ø 5,5 l'ED mini vaut 11 mm > 7,5 mm. Condition non remplie, Cas B : décision BE.", ok: true, why: "Le standard exige ED ≥ 2D avec le nouveau diamètre. Ce n'est pas le cas, la QN part au BE (DOA Part-21J) / Stress Office." },
+      { t: "Oui, à condition de poser une rondelle large sous la tête pour répartir l'appui au bord.", ok: false, why: "La rondelle ne change rien à la matière disponible entre le trou et le bord, et elle n'est pas prévue par le standard." },
+      { t: "Oui, si la Qualité production contrôle l'alésage oversize et signe l'écart dans la QN.", ok: false, why: "La Qualité production vérifie la conformité, elle n'accepte pas un écart hors réparation standard : c'est le rôle du DOA." },
     ],
   },
   {
     id: "after",
     title: "Le Stress Office répond : décision REPAIR, pose d'un doubleur aluminium avec 3 fixations supplémentaires. Ta prochaine action ?",
     options: [
-      { t: "Transmettre le mail du BE au compagnon pour qu'il réalise le doubleur.", ok: false, why: "Un mail n'est pas une instruction de travail. Sans opération rédigée, rien n'est tracé ni contrôlable." },
-      { t: "Clôturer la QN : la décision est prise.", ok: false, why: "La QN n'est soldée que quand la réparation est réalisée, contrôlée et tracée." },
-      { t: "Rédiger l'opération de réparation dans la gamme QN (outillage, consommables, couples, traçabilité, point d'arrêt qualité), puis solder la QN après exécution et contrôle.", ok: true, why: "Pour un REPAIR, le préparateur transforme l'instruction BE en opération de gamme exécutable et traçable." },
+      { t: "Transmettre le mail du BE au compagnon pour qu'il réalise le doubleur dès ce poste.", ok: false, why: "Un mail n'est pas une instruction de travail. Sans opération rédigée, rien n'est tracé ni contrôlable." },
+      { t: "Clôturer la QN dans SAP : la décision du BE suffit à solder l'écart sur ce MSN.", ok: false, why: "La QN n'est soldée que quand la réparation est réalisée, contrôlée et tracée." },
+      { t: "Rédiger l'opération REPAIR dans la gamme QN, puis solder la QN après exécution et contrôle.", ok: true, why: "Pour un REPAIR, le préparateur transforme l'instruction BE en opération de gamme exécutable et traçable : outillage, consommables, couples, point d'arrêt Qualité." },
+      { t: "Modifier le plan d'origine de la cornière pour y intégrer le doubleur sur tous les MSN.", ok: false, why: "La réparation vaut pour ce MSN. Modifier la définition de série est une modification BE, pas une action du préparateur." },
+    ],
+  },
+  {
+    id: "trace",
+    title: "Le doubleur est posé. Que doit contenir l'opération de gamme pour que la QN puisse être soldée ?",
+    options: [
+      { t: "Lots des fixations et du doubleur, couple relevé, outils étalonnés et Hold Point Qualité signé.", ok: true, why: "La traçabilité prouve ce qui a été posé, avec quoi et par qui : lots, valeurs, outillages valides et visa du contrôleur avant fermeture de zone." },
+      { t: "Une photo du doubleur posé, jointe à la QN, et la signature du compagnon sur l'OF papier.", ok: false, why: "Une photo ne prouve ni les lots, ni les couples, ni l'étalonnage des outils, et le visa Qualité manque." },
+      { t: "Le nom du compagnon et l'heure de fin de pose, saisis dans le MES par le chef d'équipe.", ok: false, why: "Qui et quand ne suffisent pas : il manque quoi (lots), combien (couples) et le contrôle indépendant." },
+      { t: "La référence du mail BE et la mention « réparation faite selon instruction » dans le MES.", ok: false, why: "Une mention générale ne prouve rien : les valeurs, les lots et le visa Qualité doivent être tracés." },
     ],
   },
 ];
@@ -1269,8 +1282,8 @@ function TabEdge({ done, onComplete }) {
   const edOk = ed >= edMin - 1e-9;
   const pitchOk = pitch >= 4 * d - 1e-9 && pitch <= 6 * d + 1e-9;
 
-  /* 6 décisions notées, chacune verrouillée : calcul ED mini, verdict, puis 4 étapes de l'arbre QN */
-  const at = useAtelier({ id: "m3-edge-distance-qn", label: "Edge Distance & arbre de décision QN (6 décisions)", total: 2 + QN_TREE.length, onComplete });
+  /* 7 décisions notées, chacune verrouillée : calcul ED mini, verdict, puis 5 étapes de l'arbre QN */
+  const at = useAtelier({ id: "m3-edge-distance-qn", label: "Edge Distance & arbre de décision QN (7 décisions)", total: 2 + QN_TREE.length, onComplete });
   const [calc, setCalc] = useState("");
   useEffect(() => setCalc(""), [at.draw]);
   const calcA = at.get("calc");
@@ -1426,7 +1439,7 @@ const QUESTIONS = [
   {
     tag: "Décision QN",
     q: "H175, QN sur un alésage légèrement hors tolérance. Le BE l'accepte après calcul de marge, sans aucune intervention physique. Quelle est la décision ?",
-    options: ["USE AS IS (en l'état)", "REWORK (retouche)", "REPAIR (réparation)", "SCRAP (rebut)"],
+    options: ["USE AS IS (en l'état)", "REWORK (retouche conforme)", "REPAIR (réparation BE)", "SCRAP (mise au rebut)"],
     answer: 0,
     why: "USE AS IS : la pièce reste en l'état, l'acceptation repose sur la démonstration par le calcul du BE. Elle est tracée dans la QN.",
     risk: "Un REPAIR noté sans travaux, ou un USE AS IS sans justification calculée, invalide le dossier de l'appareil.",

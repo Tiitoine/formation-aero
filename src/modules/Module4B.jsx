@@ -1022,8 +1022,8 @@ function Mission1({ goNext }) {
    ============================================================ */
 const FIT_OPTS = [
   { t: "Ajustement avec SERRAGE", ok: true, why: "H7 sur 20 mm : 0 / +0,021. p6 : +0,022 / +0,035. L'arbre (la bague) est toujours plus gros que l'alésage : serrage de 0,001 à 0,035 mm." },
-  { t: "Ajustement avec JEU", pts: 5, why: "Un jeu suppose un arbre toujours plus petit que l'alésage (g6, f7…). Ici p6 commence à +0,022, au-dessus du maxi de H7 (+0,021)." },
-  { t: "Ajustement INCERTAIN", pts: 5, why: "Les écarts ne se chevauchent pas : p6 mini (+0,022) > H7 maxi (+0,021). C'est toujours du serrage, même faible." },
+  { t: "Ajustement avec JEU libre", pts: 5, why: "Un jeu suppose un arbre toujours plus petit que l'alésage (g6, f7…). Ici p6 commence à +0,022, au-dessus du maxi de H7 (+0,021)." },
+  { t: "Ajustement INCERTAIN (k/m)", pts: 5, why: "Les écarts ne se chevauchent pas : p6 mini (+0,022) > H7 maxi (+0,021). C'est toujours du serrage, même faible." },
 ];
 const BAGUE_OPTS = [
   { t: "Bague refroidie à l'azote liquide (−196 °C), posée sans effort, EPI cryogéniques", ok: true, why: "La bague se contracte (de l'ordre de 0,06 à 0,08 mm sur Ø20) : elle entre sans effort, puis se dilate pour créer le serrage sans arracher de matière ni marquer l'alésage." },
@@ -1048,7 +1048,7 @@ const SEQ_TRAPS = [
 ];
 const EDCHK_OPTS = [
   { t: "Conforme : 17,0 mm ≥ 15,875 mm, marge de 1,125 mm", ok: true, why: "La cote du plan respecte l'exigence 2,5D. Retenez cette marge : elle sera décisive si un alésage doit être repris en cote réparation." },
-  { t: "Non conforme : il faudrait 3D, soit 19,05 mm", pts: 5, why: "Le dossier exige 2,5D pour ce composite, pas 3D. Appliquez l'exigence du plan, pas une règle générique." },
+  { t: "Non conforme : il faudrait 3D, soit 19,05 mm mini", pts: 5, why: "Le dossier exige 2,5D pour ce composite, pas 3D. Appliquez l'exigence du plan, pas une règle générique." },
   { t: "Non conforme : 17,0 mm < 2 × 6,35 + 6,35", pts: 5, why: "Ce n'est pas la bonne formule. ED se mesure de l'axe de la fixation au bord : 2,5 × D." },
 ];
 
@@ -1112,7 +1112,7 @@ function Mission2({ goNext }) {
    ============================================================ */
 const CREN_OPTS = [
   { t: "Serrer jusqu'au créneau suivant dans la plage, sinon changer de rondelle", ok: true, why: "On aligne toujours en serrant, jamais en desserrant, et dans la plage de couple prescrite. Si l'alignement est impossible dans la plage, on change de rondelle ou d'écrou, comme prévu par la gamme." },
-  { t: "Desserrer légèrement jusqu'au créneau précédent, puis goupiller", grave: true, pts: 15, why: "Erreur grave : desserrer fait chuter la tension de l'assemblage sous le couple nominal sur une liaison commande de vol." },
+  { t: "Desserrer légèrement jusqu'au créneau précédent, puis goupiller l'écrou", grave: true, pts: 15, why: "Erreur grave : desserrer fait chuter la tension de l'assemblage sous le couple nominal sur une liaison commande de vol." },
   { t: "Percer un second trou de goupille dans le boulon face au créneau", grave: true, pts: 15, why: "Erreur grave : modifier une pièce de définition sans approbation BE est interdit, et affaiblit le boulon." },
   { t: "Poser la goupille en biais dans le créneau partiellement aligné", pts: 8, why: "Une goupille mal engagée ne freine pas : elle peut se cisailler ou sortir sous vibrations." },
 ];
@@ -1330,7 +1330,7 @@ function ShimStep() {
 
 const B1_OPTS = [
   { t: "Bloquer la pièce (étiquette), ne rien poser, ouvrir une QN dans SAP", ok: true, why: "6,48 mm dépasse le maxi de 6,365 mm : la pièce est non conforme. On bloque, on identifie, on trace. Rien n'est posé tant que l'écart n'a pas de disposition." },
-  { t: "Poser le Hi-Lok nominal : le collier serti compensera le jeu", grave: true, pts: 20, why: "Erreur grave : un Hi-Lok dans un trou trop grand travaille en matage et en cisaillement dégradé. C'est une liaison structurale qui porte une commande de vol." },
+  { t: "Poser le Hi-Lok nominal : le collier serti compensera le jeu radial", grave: true, pts: 20, why: "Erreur grave : un Hi-Lok dans un trou trop grand travaille en matage et en cisaillement dégradé. C'est une liaison structurale qui porte une commande de vol." },
   { t: "Reprendre directement à la cote réparation sans rien déclarer", grave: true, pts: 20, why: "Erreur grave : toute reprise doit être tracée. Une réparation non déclarée rend l'appareil non conforme à sa définition approuvée." },
   { t: "Combler le jeu au mastic PR puis poser le Hi-Lok nominal", grave: true, pts: 15, why: "Erreur grave : le mastic n'a aucune tenue mécanique et ne rattrape pas un défaut d'alésage." },
 ];
@@ -1341,7 +1341,7 @@ const B3_OPTS = [
 ];
 const B4_OPTS = [
   { t: "QN au BE (DOA Part-21J) : réparation ou concession, poste bloqué", ok: true, why: "L'organisme de production (POA Part-21G) fabrique selon des données approuvées : il ne peut pas approuver un écart de définition. Seul le BE agréé Part-21J statue." },
-  { t: "Le préparateur rédige une dérogation et l'applique au poste", grave: true, pts: 20, why: "Erreur grave : le préparateur n'a aucune autorité de conception. Une dérogation signée au niveau méthodes n'a aucune valeur de navigabilité." },
+  { t: "Le préparateur rédige une dérogation et l'applique au poste FAL", grave: true, pts: 20, why: "Erreur grave : le préparateur n'a aucune autorité de conception. Une dérogation signée au niveau méthodes n'a aucune valeur de navigabilité." },
   { t: "Le chef d'équipe FAL valide une solution d'atelier tracée", grave: true, pts: 18, why: "Erreur grave : l'atelier (Part-21G) ne dispose pas d'une non-conformité de définition. Il trace et transmet." },
   { t: "Rebuter le plancher et recommencer sans ouvrir de QN", pts: 12, why: "Rebuter sans QN fait disparaître l'information : pas d'analyse de cause, pas de traçabilité MSN, et un plancher CFRP peut souvent être réparé par le BE." },
 ];

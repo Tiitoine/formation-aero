@@ -121,7 +121,7 @@ export const STRUCT_ELEMS = [
 function Hot({ id, n, x, y, sel, onSel }) {
   const on = sel === id;
   return (
-    <g role="button" tabIndex={0} aria-label={`Repère ${n}`} onClick={() => onSel(id)} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onSel(id)} style={{ cursor: "pointer" }}>
+    <g className="nohalo" role="button" tabIndex={0} aria-label={`Repère ${n}`} onClick={() => onSel(id)} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onSel(id)} style={{ cursor: "pointer" }}>
       <circle cx={x} cy={y} r={on ? 15 : 13} fill={on ? K.hl : "#0b1220"} stroke={K.hl} strokeWidth="2" />
       <text x={x} y={y + 5} textAnchor="middle" fontSize="14" fontWeight="700" fontFamily={MONO} fill={on ? "#0b1220" : K.hl}>{n}</text>
     </g>
@@ -146,7 +146,7 @@ function SideView({ sel, onSel, ov }) {
   const boomBot = (x) => 330 - (x - 766) * 0.175;
   const shaftY = (x) => 201 + (x - 748) * 0.137;
   return (
-    <svg viewBox="0 0 1200 500" className="h-auto w-full" role="img" aria-label="Écorché de profil d'un hélicoptère bimoteur type H160 / H145 avec repères numérotés">
+    <svg viewBox="0 0 1200 500" className="svg-halo h-auto w-full" role="img" aria-label="Écorché de profil d'un hélicoptère bimoteur type H160 / H145 avec repères numérotés">
       <defs>
         <pattern id="cw-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke={K.thin} strokeWidth="1" /></pattern>
         <marker id="cw-arr" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill={K.txt} /></marker>
@@ -227,7 +227,7 @@ function SideView({ sel, onSel, ov }) {
       <path d="M78,352 L757,352 C745,380 718,398 690,402 L180,402 C130,402 95,385 78,352 Z" {...st("barque")} />
       {[150, 210, 270, 330, 390, 450, 510, 570, 630, 690].map((x) => <line key={x} x1={x} y1="354" x2={x} y2={x < 160 ? 390 : 400} stroke={ln("barque")} strokeWidth="0.9" />)}
       <rect x="420" y="360" width="230" height="34" rx="6" fill="url(#cw-hatch)" stroke={K.thin} />
-      <text x="535" y="381" textAnchor="middle" fontSize="11" fontFamily={MONO} fill={K.txt}>réservoirs souples</text>
+      
       {/* pointe avant : radôme, verrière plongeante, montants, fenêtre de pied */}
       <path d="M78,352 C62,330 64,300 92,282 L104,300 C88,318 90,338 98,352 Z" fill={H("pointe") ? K.hlFill : K.fill2} stroke={ln("pointe")} />
       <path d="M104,300 C118,284 160,258 214,236 C250,222 276,213 298,211 L298,270 L248,296 L132,318 C112,320 104,312 104,300 Z" fill={H("pointe") ? K.hlFill : "#17304f"} stroke={ln("pointe")} strokeWidth={H("pointe") ? 2 : 1.2} />
@@ -262,7 +262,7 @@ function SideView({ sel, onSel, ov }) {
       <line x1="330" y1="217" x2="612" y2="217" stroke={K.thin} strokeWidth="2" />
       <rect x="356" y="234" width="188" height="56" rx="8" fill="#17304f" stroke={K.line} strokeOpacity="0.7" />
       <rect x="590" y="234" width="110" height="52" rx="8" fill="#17304f" stroke={K.line} strokeOpacity="0.6" />
-      <text x="450" y="318" textAnchor="middle" fontSize="11" fontFamily={MONO} fill={K.txt}>porte cabine coulissante</text>
+      
       {/* plancher mécanique */}
       <rect x="300" y="196" width="448" height="12" fill={pmOn ? K.hlFill : K.fill2} stroke={pmOn ? K.hl : K.line} strokeWidth={pmOn ? 2 : 1.2} />
       <rect x="300" y="196" width="448" height="12" fill="url(#cw-hatch)" opacity="0.6" />
@@ -289,10 +289,13 @@ function SideView({ sel, onSel, ov }) {
       {ov.includes("anneaux") && (
         <g>
           {[326, 474].map((x) => <line key={x} x1={x} y1="208" x2={x} y2="402" stroke={K.crit} strokeWidth="5" />)}
-          <text x="560" y="426" textAnchor="middle" fontSize="11" fontWeight="700" fontFamily={MONO} fill={K.crit}>anneaux principaux (cadres forts) sous les pieds de barres</text>
+          <text x="560" y="430" textAnchor="middle" fontSize="11" fontWeight="700" fontFamily={MONO} fill={K.crit}>anneaux principaux (cadres forts) sous les pieds de barres</text>
         </g>
       )}
 
+      {/* libellés intérieurs dessinés après les cadres forts : le halo masque les traits */}
+      <text x="450" y="318" textAnchor="middle" fontSize="11" fontFamily={MONO} fill={K.txt}>porte cabine coulissante</text>
+      <text x="535" y="381" textAnchor="middle" fontSize="11" fontFamily={MONO} fill={K.txt}>réservoirs souples</text>
       {/* ===== nomenclature ===== */}
       <Lb x1={400} y1={46} x2={440} y2={36} t="moyeu Starflex / Spheriflex (ATA 62)" />
       <Lb x1={374} y1={68} x2={356} y2={64} t="biellette de pas" a="end" c={K.amber} />
@@ -308,7 +311,7 @@ function SideView({ sel, onSel, ov }) {
       <Lb x1={748} y1={150} x2={762} y2={150} t="cloisons pare-feu Ti / inox" c={K.crit} />
       <Lb x1={850} y1={shaftY(850)} x2={830} y2={184} t="arbre ATA 65 + paliers" c={K.amber} />
       <Lb x1={1046} y1={246} x2={1010} y2={200} t="BTI" a="end" />
-      <Lb x1={978} y1={302} x2={978} y2={340} t="stabilisateur biplan" />
+      <Lb x1={978} y1={302} x2={960} y2={352} t="stabilisateur biplan" a="end" />
       <Lb x1={1095} y1={262} x2={1190} y2={348} t="Fenestron (ATA 64)" a="end" />
       <Lb x1={86} y1={330} x2={40} y2={420} t="radôme avionique" />
       <Lb x1={180} y1={250} x2={150} y2={226} t="verrière" a="end" />
@@ -352,7 +355,7 @@ function CockpitTop() {
     </g>
   );
   return (
-    <svg viewBox="0 0 340 320" className="h-auto w-full" role="img" aria-label="Poste de pilotage vu de dessus : copilote à gauche, commandant de bord à droite">
+    <svg viewBox="0 0 340 320" className="svg-halo h-auto w-full" role="img" aria-label="Poste de pilotage vu de dessus : copilote à gauche, commandant de bord à droite">
       <rect width="340" height="320" fill="#0b1220" />
       {/* contour du nez vitré + montants */}
       <path d="M170,10 C244,12 300,52 314,118 L318,280 L22,280 L26,118 C40,52 96,12 170,10 Z" fill="#0f1729" stroke={K.line} strokeWidth="1.4" />

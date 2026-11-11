@@ -584,14 +584,14 @@ const Q_FITS = [
   },
   {
     q: "H175, bague épaulée Ø25 H7/p6 dans une ferrure de BTP. Quelle famille d'ajustement et quelle prescription de gamme ?",
-    options: ["Serrage : bague contractée au LN₂ (ou presse étalonnée), contrôle après retour à température", "Jeu : montage glissant à la main avec graisse de montage, contrôle immédiat", "Incertain : pose au maillet doux après alésage de finition, contrôle immédiat", "Serrage : bague frappée au marteau jusqu'à affleurement, contrôle après pose"],
+    options: ["Serrage : bague contractée au LN₂ (ou presse étalonnée), contrôle après retour à température", "Jeu : montage glissant à la main avec graisse de montage, contrôle immédiat au tampon lisse", "Incertain : pose au maillet doux après alésage de finition, contrôle immédiat", "Serrage : bague frappée au marteau jusqu'à affleurement, contrôle après pose"],
     answer: 0,
     why: "p est au-delà de n : la bague est plus grande que le trou. On la contracte au LN₂ ou on la presse avec une presse étalonnée, puis on attend le retour à température ambiante avant contrôle.",
     hint: "Les lettres p à z donnent un arbre toujours plus grand que le trou.",
   },
   {
     q: "H145, fixation structurale ajustée Ø8 H7/k6. Pourquoi le bureau d'études choisit-il cet ajustement ?",
-    options: ["Pour supprimer le jeu sous vibrations sans imposer un fort serrage", "Pour que l'axe tourne librement dans son alésage en service", "Pour permettre un montage à la main sans aucun outillage", "Pour garantir un serrage fort qui interdit tout démontage"],
+    options: ["Pour supprimer le jeu sous vibrations sans imposer un fort serrage", "Pour que l'axe tourne librement dans son alésage en service", "Pour permettre un montage à la main sans aucun outillage", "Pour garantir un serrage fort qui interdit tout démontage ultérieur"],
     answer: 0,
     why: "Un ajustement incertain donne un jeu ou un serrage de quelques micromètres. La fixation reprend l'effort sans battre sous les vibrations, et reste posable par alésage de finition et maillet doux ou tire-boulon.",
     hint: "Lettres j à n : la zone de l'arbre chevauche celle du trou.",
@@ -837,7 +837,7 @@ function BonusTrainer() {
 const Q_GPS = [
   {
     q: "H160, plan de cadre. Dans le cadre de tolérance [⌖ | Ø0,1 Ⓜ | A | B | C] porté sur un trou, que signifie le Ø devant 0,1 ?",
-    options: ["La zone de tolérance est un cylindre de Ø0,1 mm autour de la position théorique", "La position est tolérancée à ±0,1 mm séparément en X et en Y", "Le diamètre du trou peut dépasser la cote nominale de 0,1 mm", "La cylindricité de l'alésage doit être meilleure que 0,1 mm"],
+    options: ["La zone de tolérance est un cylindre de Ø0,1 mm autour de la position théorique", "La position est tolérancée à ±0,1 mm séparément en X et en Y du repère", "Le diamètre du trou peut dépasser la cote nominale de 0,1 mm", "La cylindricité de l'alésage doit être meilleure que 0,1 mm sur sa longueur"],
     answer: 0,
     why: "Le Ø transforme la zone en cylindre. L'axe réel du trou doit tenir dans ce cylindre de Ø0,1, soit au plus 0,05 mm d'écart radial par rapport à la position théorique.",
     hint: "Le Ø décrit la forme de la zone, pas la taille du trou.",
@@ -1051,7 +1051,7 @@ const Q_CHAIN = [
   },
   {
     q: "H175, étude d'assemblage. Ton calcul de chaîne de cotes donne Jmin = −0,07 mm. Que signifie ce résultat ?",
-    options: ["Au pire cumul, les pièces interfèrent : serrage imprévu à remonter au BE", "Le jeu réel sera toujours de 0,07 mm, quelle que soit la pièce", "Le résultat est négligeable devant la dispersion de mesure", "Il suffit de prévoir une cale de 0,07 mm au montage"],
+    options: ["Au pire cumul, les pièces interfèrent : serrage imprévu à remonter au BE", "Le jeu réel sera toujours de 0,07 mm, quelle que soit la pièce montée au poste", "Le résultat est négligeable devant la dispersion de mesure", "Il suffit de prévoir une cale de 0,07 mm au montage"],
     answer: 0,
     why: "Un jeu négatif est un serrage. Dans le cas le plus défavorable, les pièces ne rentrent pas sans forcer : il faut remonter l'écart au BE avant de lancer la gamme.",
     hint: "Un jeu négatif, c'est de la matière en trop.",
@@ -1357,14 +1357,26 @@ const PLUG_WHY = [
 ];
 
 function PlugSVG({ go, nogo }) {
+  /* Tampon lisse double Ø8 H7 : côté ENTRE (GO, Ø mini 8,000) long, côté N'ENTRE PAS (NO-GO, Ø maxi 8,015) court */
+  const mono = "JetBrains Mono, monospace";
+  const res = (ok, x) => <text x={x} y="76" textAnchor="middle" fill={ok ? "#3ddc97" : "#ff5d6c"} fontSize="10" fontFamily={mono} fontWeight="700">{ok ? "PASSE" : "BLOQUE"}</text>;
   return (
-    <svg viewBox="-20 0 240 44" className="h-auto w-full max-w-[260px]" role="img" aria-label={`Côté Entre ${go ? "passe" : "ne passe pas"}, côté N'entre pas ${nogo ? "passe" : "ne passe pas"}`}>
-      <rect x="10" y="14" width="44" height="16" rx="3" fill="rgba(61,220,151,0.3)" stroke="#3ddc97" />
-      <rect x="54" y="10" width="92" height="24" rx="4" fill="#16233d" stroke="#22304d" />
-      <rect x="146" y="13" width="44" height="18" rx="3" fill="rgba(255,93,108,0.3)" stroke="#ff5d6c" />
-      <text x="32" y="10" textAnchor="middle" fill="#3ddc97" fontSize="9" fontFamily="JetBrains Mono, monospace">ENTRE : {go ? "PASSE" : "BLOQUE"}</text>
-      <text x="168" y="10" textAnchor="middle" fill="#ff5d6c" fontSize="9" fontFamily="JetBrains Mono, monospace">N'ENTRE PAS : {nogo ? "PASSE" : "BLOQUE"}</text>
-      <text x="100" y="26" textAnchor="middle" fill="#8fa0bd" fontSize="9" fontFamily="JetBrains Mono, monospace">Ø8 H7</text>
+    <svg viewBox="0 0 300 96" className="h-auto w-full max-w-[340px]" role="img" aria-label={`Côté Entre ${go ? "passe" : "ne passe pas"}, côté N'entre pas ${nogo ? "passe" : "ne passe pas"}`}>
+      <text x="66" y="16" textAnchor="middle" fill="#3ddc97" fontSize="10" fontFamily={mono}>ENTRE (GO)</text>
+      <text x="66" y="28" textAnchor="middle" fill="#8fa0bd" fontSize="9" fontFamily={mono}>Ø 8,000</text>
+      <text x="232" y="16" textAnchor="middle" fill="#ff5d6c" fontSize="10" fontFamily={mono}>N'ENTRE PAS</text>
+      <text x="232" y="28" textAnchor="middle" fill="#8fa0bd" fontSize="9" fontFamily={mono}>Ø 8,015</text>
+      {/* calibre ENTRE : long, chanfrein d'entrée, bague verte */}
+      <path d="M26,40 L30,37 H112 V53 H30 L26,50 Z" fill="#c9d3e3" stroke="#e6edf7" strokeWidth="1" />
+      <rect x="104" y="37" width="8" height="16" fill="#3ddc97" />
+      {/* manche moleté */}
+      <rect x="112" y="33" width="92" height="24" rx="3" fill="#2b3f63" stroke="#9fb3d1" strokeWidth="1" />
+      {Array.from({ length: 22 }).map((_, i) => <line key={i} x1={116 + i * 4} y1="35" x2={120 + i * 4} y2="55" stroke="#4d6690" strokeWidth="0.8" />)}
+      {/* calibre N'ENTRE PAS : court, bague rouge */}
+      <rect x="204" y="36" width="8" height="18" fill="#ff5d6c" />
+      <path d="M212,36 H250 L254,39.5 V50.5 L250,54 H212 Z" fill="#c9d3e3" stroke="#e6edf7" strokeWidth="1" />
+      {res(go, 66)}{res(nogo, 232)}
+      <text x="158" y="92" textAnchor="middle" fill="#8fa0bd" fontSize="9" fontFamily={mono}>Tampon lisse double Ø8 H7</text>
     </svg>
   );
 }
@@ -1449,7 +1461,7 @@ const QUESTIONS = [
   {
     tag: "Montage azote liquide", scenario: true,
     q: "H175, poste ferrures de BTP. Tu rédiges la pose d'une bague Ø25 H7/p6. Quelle séquence est correcte ?",
-    options: ["Bague contractée au LN₂ (EPI cryo), posée sans forcer, contrôle après remise à température", "Bague chauffée au four à 150 °C, posée au maillet, contrôle immédiat au tampon", "Ferrure contractée au LN₂, bague posée à l'ambiante, contrôle immédiat au tampon", "Bague contractée au LN₂ (EPI cryo), posée sans forcer, contrôle immédiat à froid"],
+    options: ["Bague contractée au LN₂ (EPI cryo), posée sans forcer, contrôle après remise à température", "Bague chauffée au four à 150 °C, posée au maillet doux, contrôle immédiat au tampon lisse", "Ferrure contractée au LN₂, bague posée à l'ambiante, contrôle immédiat au tampon", "Bague contractée au LN₂ (EPI cryo), posée sans forcer, contrôle immédiat à froid"],
     answer: 0,
     why: "On refroidit la pièce intérieure (la bague) pour la contracter. Le contrôle se fait après retour à température ambiante, sinon les cotes mesurées sont faussées.",
     risk: "Contrôle à froid : cotes faussées, bague déclarée conforme qui bouge ensuite.",
@@ -1465,7 +1477,7 @@ const QUESTIONS = [
   {
     tag: "Cadre ISO GPS",
     q: "H160, plan de cadre. Que signifie le cadre [⌖ | Ø0,1 Ⓜ | A | B | C] porté sur un trou ?",
-    options: ["Axe dans un cylindre Ø0,1 positionné par A, puis B, puis C, bonus au maximum de matière", "Diamètre du trou égal à la cote nominale + 0,1 mm, mesuré depuis A, B et C", "Perpendicularité du trou à 0,1° près par rapport aux trois faces A, B et C", "Planéité de 0,1 mm exigée sur chacune des trois faces de référence A, B et C"],
+    options: ["Axe dans un cylindre Ø0,1 positionné par A, puis B, puis C, bonus au maximum de matière", "Diamètre du trou égal à la cote nominale + 0,1 mm, mesuré depuis A, B et C", "Perpendicularité du trou à 0,1° près, mesurée par rapport aux trois faces A, B et C", "Planéité de 0,1 mm exigée sur chacune des trois faces de référence A, B et C"],
     answer: 0,
     why: "⌖ = localisation, Ø = zone cylindrique, Ⓜ = maximum de matière, A | B | C = système de références dans l'ordre primaire, secondaire, tertiaire.",
     risk: "Cadre mal lu : gabarit indexé sur la mauvaise référence, trous décalés, ferrures non interchangeables.",
@@ -1505,7 +1517,7 @@ const QUESTIONS = [
   {
     tag: "Fraisage côté opposé",
     q: "H145, revêtement de poutre. Le plan indique un fraisage 100° côté opposé (far side). Que doit préciser ta gamme ?",
-    options: ["La face d'accès au fraisage (face cachée de la vue) et l'outillage", "Un fraisage côté vue, la mention far side étant indicative", "Un fraisage des deux faces pour garantir l'affleurement", "Un lamage plat à la place du fraisage 100° demandé"],
+    options: ["La face d'accès au fraisage (face cachée de la vue) et l'outillage", "Un fraisage côté vue, la mention far side étant seulement indicative", "Un fraisage des deux faces pour garantir l'affleurement", "Un lamage plat à la place du fraisage 100° demandé"],
     answer: 0,
     why: "Far side : le fraisage est sur la face que tu ne vois pas sur la vue. La gamme doit donner la face d'accès en clair pour éviter l'erreur.",
     risk: "Fraisage sur la mauvaise face : tête de fixation en saillie côté aérodynamique, tôle rebutée ou réparée.",

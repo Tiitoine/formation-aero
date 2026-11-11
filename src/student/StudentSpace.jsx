@@ -5,6 +5,7 @@
    autres stagiaires ni à la grille formateur.
    ============================================================ */
 import React, { useState } from "react";
+import LexiqueButton from "../lib/Lexique.jsx";
 import { LogOut, Play, Lock, History, Download, Copy, CheckCircle2, Cloud, CloudOff, RotateCcw, Unlock } from "lucide-react";
 import { SEUIL, V, R, N, MOD, pct, frDateTime, cx, studentCode, exportStudentPayload, today } from "../lms/db.js";
 import { Panel, Eyebrow, StatusBadge, ThresholdBar, Btn, Modal, offerFile } from "../lms/ui.jsx";
@@ -26,6 +27,7 @@ export default function StudentSpace({ student, calc, onLaunch, onLogout, cloud,
             {cloud?.on ? <Cloud size={13} /> : <CloudOff size={13} />}{cloud?.on ? (cloud.error ? "Cloud : erreur" : "Synchronisé") : "Local"}
           </span>
           <Btn onClick={() => setExportOpen(true)}><Download size={15} />Exporter mes résultats</Btn>
+          <LexiqueButton />
           <Btn onClick={onLogout}><LogOut size={15} />Déconnexion</Btn>
         </div>
       </header>

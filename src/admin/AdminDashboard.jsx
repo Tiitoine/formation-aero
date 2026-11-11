@@ -15,6 +15,8 @@ import {
 import { Panel, Eyebrow, StatusBadge, ThresholdBar, Btn, Modal, Kpi, inputCls } from "../lms/ui.jsx";
 import Grille from "./Grille.jsx";
 import Bilan from "./Bilan.jsx";
+import Diagnostic from "./Diagnostic.jsx";
+import { diagnostic } from "../lms/diagnostic.js";
 import ImportExport from "./ImportExport.jsx";
 import CloudSync from "./CloudSync.jsx";
 import Settings from "./Settings.jsx";
@@ -35,7 +37,7 @@ export default function AdminDashboard({ db, setDB, adminLogin, onLogout, onPrev
   const [q, setQ] = useState("");
   const policy = db.settings.retryPolicy;
 
-  const rows = useMemo(() => db.stagiaires.map((s) => ({ s, c: calcStagiaire(s, policy), act: lastActivity(s) })).sort((a, b) => b.act.localeCompare(a.act)), [db.stagiaires, policy]);
+  const rows = useMemo(() => db.stagiaires.map((s) => ({ s, c: calcStagiaire(s, policy), act: lastActivity(s), al: diagnostic(s).alertes.filter((a) => a.note).length })).sort((a, b) => b.act.localeCompare(a.act)), [db.stagiaires, policy]);
   const filtered = rows.filter(({ s, c }) =>
     (fType === "Tous" || s.typeFormation === fType) &&
     (fStatut === "Tous" || c.statutModules === fStatut) &&
@@ -110,7 +112,7 @@ export default function AdminDashboard({ db, setDB, adminLogin, onLogout, onPrev
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map(({ s, c, act }) => (
+                    {filtered.map(({ s, c, act, al }) => (
                       <tr key={s.id} className="cursor-pointer border-b border-line/60 last:border-b-0 hover:bg-panel2" onClick={() => setSelId(s.id)}>
                         <td className="px-4 py-3"><div className="font-semibold text-ink">{s.nom} {s.prenom}</div><div className="font-mono text-[11px] text-muted">{s.matricule}</div></td>
                         <td className="px-3 py-3 text-muted">{s.typeFormation}</td>
@@ -121,7 +123,7 @@ export default function AdminDashboard({ db, setDB, adminLogin, onLogout, onPrev
                           </td>
                         ))}
                         <td className="px-3 py-3 text-right font-mono text-ink">{pct(c.moyenne)}</td>
-                        <td className="px-3 py-3"><div className="flex items-center gap-1"><StatusBadge statut={c.statutModules} size="sm" />{c.drapeau && <Flag size={13} className="text-ko" aria-label="Drapeau sécurité" />}</div></td>
+                        <td className="px-3 py-3"><div className="flex items-center gap-1"><StatusBadge statut={c.statutModules} size="sm" />{c.drapeau && <Flag size={13} className="text-ko" aria-label="Drapeau sécurité" />}{al > 0 && <span className="inline-flex items-center gap-0.5 font-mono text-[10px] text-ko" title="Erreurs sur thèmes sécurité en sprint noté"><AlertTriangle size={12} />{al}</span>}</div></td>
                         <td className="px-3 py-3 font-mono text-[11px] text-muted">{frDateTime(act)}</td>
                         <td className="px-3 py-3 text-right"><ChevronRight size={16} className="text-muted" /></td>
                       </tr>
@@ -205,6 +207,7 @@ function StudentDetail({ s, c, setDB, adminLogin, onBack, onPreview, onDeleted, 
 
       {sub === "parcours" && (
         <div className="flex flex-col gap-4">
+          <Diagnostic dg={diagnostic(s)} />
           {c.mods.map((m) => (
             <ModuleCard key={m.id} m={m} s={s} onAuthorize={() => decide("autoriser", m.id)} onReset={() => setConfirm({ type: "reset", moduleId: m.id })} onPreview={() => onPreview(m.id)} />
           ))}

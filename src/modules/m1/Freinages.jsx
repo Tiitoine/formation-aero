@@ -76,7 +76,7 @@ function DrawAutofreine() {
     </g>
   );
   return (
-    <svg viewBox="0 0 260 160" className="h-auto w-full" role="img" aria-label="Coupe écrou à bague nylon et écrou tout métal">
+    <svg viewBox="0 0 260 160" className="svg-halo h-auto w-full" role="img" aria-label="Coupe écrou à bague nylon et écrou tout métal">
       <Defs id="af" />
       <rect width="260" height="160" fill="#0d1526" />
       {nut(68, false)}{nut(192, true)}

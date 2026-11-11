@@ -47,7 +47,7 @@ export function Sheet({ W = 1400, H = 900, children, cartouche, title, onBackgro
   const m = 22;
   const cw = (W - 2 * m) / COLS, rh = (H - 2 * m) / ROWS;
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="block h-auto w-full select-none" role="img" aria-label={title} style={{ background: P.paper }}>
+    <svg viewBox={`0 0 ${W} ${H}`} className="svg-halo block h-auto w-full select-none" role="img" aria-label={title} style={{ background: P.paper, "--halo": P.paper }}>
       <PlanDefs />
       <rect x="0" y="0" width={W} height={H} fill={P.paper} onClick={onBackground} />
       <rect x={6} y={6} width={W - 12} height={H - 12} fill="none" stroke={P.ink} strokeWidth="0.6" />
@@ -228,7 +228,7 @@ export const Axis = ({ x1, y1, x2, y2 }) => <line x1={x1} y1={y1} x2={x2} y2={y2
 /* ---------- zone cliquable d'analyse ---------- */
 export function Hot({ x, y, n, active, onPick }) {
   return (
-    <g onClick={(e) => { e.stopPropagation(); onPick(n); }} style={{ cursor: "pointer" }} role="button" aria-label={`Zone d'analyse ${n}`} tabIndex={0}
+    <g className="nohalo" onClick={(e) => { e.stopPropagation(); onPick(n); }} style={{ cursor: "pointer" }} role="button" aria-label={`Zone d'analyse ${n}`} tabIndex={0}
       onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onPick(n)}>
       <circle cx={x} cy={y} r="17" fill={active ? P.sel : P.hot} opacity={active ? 1 : 0.92} />
       <circle cx={x} cy={y} r="22" fill="none" stroke={active ? P.sel : P.hot} strokeWidth="1.5" opacity="0.55">

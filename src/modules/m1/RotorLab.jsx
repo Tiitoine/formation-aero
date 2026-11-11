@@ -83,13 +83,13 @@ function SwashSection({ collectif, cyclique }) {
   );
   const lab = (x, y, tx, ty, t, anchor = "start", c = K.txt) => (
     <g>
-      <line x1={x} y1={y} x2={tx} y2={ty} stroke={K.thin} strokeWidth="0.8" />
+      <line x1={x} y1={y} x2={anchor === "start" ? tx + t.length * 5.45 + 8 : tx - t.length * 5.45 - 8} y2={ty} stroke={K.thin} strokeWidth="0.8" />
       <circle cx={x} cy={y} r="1.8" fill={c} />
       <text x={tx + (anchor === "start" ? 3 : -3)} y={ty + 3.5} fontSize="9" fontFamily={MONO} fill={c} textAnchor={anchor}>{t}</text>
     </g>
   );
   return (
-    <svg viewBox="0 0 480 320" className="h-auto w-full" role="img" aria-label="Coupe du mât rotor et du plateau cyclique animée">
+    <svg viewBox="0 0 480 320" className="svg-halo h-auto w-full" role="img" aria-label="Coupe du mât rotor et du plateau cyclique animée">
       <defs>
         <pattern id="rl-h" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="5" stroke="#2e4168" strokeWidth="1" /></pattern>
       </defs>
@@ -146,7 +146,7 @@ function SwashSection({ collectif, cyclique }) {
       {lab(C + 8, 70, 468, 30, "Mât rotor (ATA 63)", "end")}
       {lab(C + 30, (98 + scis[1]) / 2, 468, 112, "Compas d'entraînement", "end", K.violet)}
       {lab(C + 9, sy + 1, 468, 160, "Rotule coulissante", "end")}
-      {lab(C + 23, 250, 468, 252, "3e servo (arrière, masquée)", "end")}
+      {lab(C + 23, 250, 468, 252, "3e servo (masquée)", "end")}
     </svg>
   );
 }

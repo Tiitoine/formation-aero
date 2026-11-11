@@ -23,3 +23,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
   .mes-blink { animation: none; }
 }
 @media print { .no-print { display: none !important; } html, body { background: #fff; } }
+
+/* Masquage des traits sous les textes des schémas (halo de la couleur du fond, comme en DAO) */
+.svg-halo text { paint-order: stroke fill; stroke: var(--halo, #0b1220); stroke-width: 3.5px; stroke-linejoin: round; }
+.svg-halo .nohalo text, .svg-halo text.nohalo { stroke: none; }

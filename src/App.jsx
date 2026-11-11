@@ -13,6 +13,7 @@ import AuthPortal from "./auth/AuthPortal.jsx";
 import StudentSpace from "./student/StudentSpace.jsx";
 import AdminDashboard from "./admin/AdminDashboard.jsx";
 import BackToPortal from "./lms/BackToPortal.jsx";
+import LexiqueButton from "./lib/Lexique.jsx";
 import { setSessionStudent } from "./lms/session.js";
 
 /* Chaque module est chargé à la demande */
@@ -199,6 +200,7 @@ export default function App() {
                 </span>
               )}
               {!isAdmin && !mState?.canAttempt && <span className="inline-flex items-center gap-1.5 text-amber"><Lock size={13} />Mode révision : {mState?.blockReason}</span>}
+              <span className={isAdmin ? "ml-auto" : ""}><LexiqueButton /></span>
               {!isAdmin && <span className="ml-auto font-mono text-muted">{m.code} : <span className={mState?.statut === V ? "text-ok" : "text-ink"}>{pct(mState?.score)}</span> · {mState?.tentatives || 0} tentative(s)</span>}
             </div>
           </div>
